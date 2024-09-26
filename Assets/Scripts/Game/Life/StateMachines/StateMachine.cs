@@ -11,6 +11,8 @@ namespace Life.StateMachines
         private Dictionary<Type, StateNode> nodes = new();
         private HashSet<ITransition> anyTransition = new();
 
+        public IState CurrentState { get => _current.State; }
+
         public void Update()
         {
             ITransition transition = GetTransition();

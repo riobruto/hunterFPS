@@ -9,11 +9,8 @@ namespace Life.Controllers
 {
     public class BlindAgentController : AgentController
     {
-        
         private bool _isAttackingPlayer;
-
-        private float _health = 100;
-
+   
         private float _timeToForgetPlayer = 20;
         private float _lastReportTime;
         private bool _knowsPlayerPosition => _observers.Any(x => x.PlayerInSight);
@@ -25,26 +22,27 @@ namespace Life.Controllers
             CreateStates();
             CreateTransitions();
             PlayerBehavior.HeardPlayerEvent.AddListener(OnHeardPlayer);
+
+            SetMaxHealth(100000);
+            SetHealth(100000);
         }
 
         private void OnHeardPlayer(float arg0, Vector3 arg1)
         {
             PendingPlayerSoundChase = true;
+            _lastReportTime = Time.realtimeSinceStartup;
         }
-  
 
         private void CreateTransitions()
         {
             Machine.AddTransition(_rest, _chase, new FuncPredicate(() => _knowsPlayerPosition));
-
             Machine.AddTransition(_rest, _chase, new FuncPredicate(() => PendingPlayerSoundChase && !_knowsPlayerPosition));
-
             Machine.AddTransition(_chase, _attack, new FuncPredicate(() => _playerInAttackRange));
             Machine.AddTransition(_attack, _chase, new FuncPredicate(() => !_isAttackingPlayer && !_forgotPlayer));
             Machine.AddTransition(_attack, _rest, new FuncPredicate(() => !_isAttackingPlayer && _forgotPlayer));
             Machine.AddTransition(_chase, _rest, new FuncPredicate(() => _forgotPlayer));
 
-            Machine.AddAnyTransition(_die, new FuncPredicate(() => _health <= 0));
+            Machine.AddAnyTransition(_die, new FuncPredicate(() => HasNoHealth));
 
             Machine.SetState(_rest);
         }
@@ -59,13 +57,14 @@ namespace Life.Controllers
         private IEnumerator AttackPlayer()
         {
             _isAttackingPlayer = true;
+
             yield return new WaitForSeconds(_attackTime);
             //Attack Logic
             {
                 Debug.Log("NIGGER WAS ATTACKED, ALLEGEDLY");
             }
             _isAttackingPlayer = false;
-
+            _lastReportTime = Time.realtimeSinceStartup;
             yield return null;
         }
 
@@ -159,6 +158,7 @@ namespace Life.Controllers
 
         public override void DrawGizmos()
         {
+            Gizmos.DrawSphere(blind.PlayerBehavior.PlayerPosition + (blind.PlayerBehavior.PlayerPosition - blind.transform.position).normalized * 2f, .35f);
         }
 
         public override void End()
@@ -169,7 +169,7 @@ namespace Life.Controllers
         public override void Start()
         {
             blind.MoveBehavior.FaceTarget = true;
-            blind.MoveBehavior.SetTarget(blind.PlayerBehavior.PlayerPosition);
+            blind.MoveBehavior.SetTarget(blind.PlayerBehavior.PlayerPosition + (blind.PlayerBehavior.PlayerPosition - blind.transform.position).normalized * 2f);
         }
 
         public override void Update()

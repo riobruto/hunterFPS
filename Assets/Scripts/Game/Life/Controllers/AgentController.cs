@@ -1,5 +1,6 @@
 ﻿using Game.Life;
 using Life.StateMachines;
+using Life.StateMachines.Interfaces;
 using System;
 using UnityEngine;
 
@@ -19,9 +20,26 @@ namespace Life.Controllers
         private AgentMoveBehavior _move;
         private AgentPlayerBehavior _player;
 
+        public IState CurrentState => _machine.CurrentState;
+        public bool Initialized { get; private set; }
+
+        private float _health;
+        private float _maxHealth;
+
+        public float GetHealth() => _health;
+
+        public void SetHealth(float value) => _health = Mathf.Clamp(value, 0, _maxHealth);
+
+        public float GetMaxHealth() => _maxHealth;
+
+        public void SetMaxHealth(float value) => _maxHealth = value;
+
+        public bool HasNoHealth => _health <= 0;
+
         private void Start()
         {
             _machine = new StateMachine();
+            Initialized = true;
             _move = gameObject.GetComponent<AgentMoveBehavior>();
             _player = gameObject.GetComponent<AgentPlayerBehavior>();
 
@@ -34,8 +52,9 @@ namespace Life.Controllers
             OnUpdate();
         }
 
+        public virtual void OnUpdate()
+        { }
 
-        public virtual void OnUpdate() { }
         private void OnDrawGizmos()
         {
             if (Application.isPlaying && _machine != null)

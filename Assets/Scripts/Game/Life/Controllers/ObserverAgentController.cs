@@ -12,11 +12,10 @@ namespace Life.StateMachines
     public class ObserverAgentController : AgentController, IHittableFromWeapon
     {
         private float _speed;
-        private float _health = 100;
+
         private float _viewRange;
         private Vector3 _lastKnowPosition;
         private bool _reportedPlayer;
-        private bool _isDead;
         private bool _isPlayerVisible => PlayerBehavior.IsPlayerVisible() && PlayerBehavior.IsPlayerInRange(20) && PlayerBehavior.IsPlayerInViewAngle(.8f);
         private bool _lastPlayerVisible;
 
@@ -30,20 +29,25 @@ namespace Life.StateMachines
         private ObserverEscapeState _escape;
         private ObserverBlindState _blind;
         private ObserverDieState _die;
-        
+
+        private bool _isDead;
 
         public override void OnStart()
         {
+            _isDead = false;
+
             CreateStates();
             CreateTransitions();
             PlayerBehavior.HeardPlayerEvent.AddListener(OnHeardPlayer);
             Attacker.AddObserverAgent(this);
+
+            SetMaxHealth(100);
+            SetHealth(100);
         }
 
         private void OnHeardPlayer(float arg0, Vector3 arg1)
         {
             _playerMadeNoise = true;
-            
         }
 
         public override void OnUpdate()
@@ -53,7 +57,6 @@ namespace Life.StateMachines
                 ReportPlayerEvent?.Invoke(_isPlayerVisible);
                 _lastPlayerVisible = _isPlayerVisible;
             }
-
 
             if (_playerMadeNoise)
             {
@@ -76,7 +79,7 @@ namespace Life.StateMachines
             Machine.AddTransition(_report, _escape, new FuncPredicate(() => _reportedPlayer));
             Machine.AddTransition(_escape, _wander, new FuncPredicate(() => _lostPlayer));
 
-            Machine.AddAnyTransition(_die, new FuncPredicate(() => _health <= 0));
+            Machine.AddAnyTransition(_die, new FuncPredicate(() => HasNoHealth && !_isDead));
 
             Machine.SetState(_wander);
         }
@@ -87,7 +90,7 @@ namespace Life.StateMachines
 
         internal void ReportPlayer()
         {
-            _lastPlayerSawTime = Time.realtimeSinceStartup;           
+            _lastPlayerSawTime = Time.realtimeSinceStartup;
             _reportedPlayer = true;
         }
 
@@ -98,14 +101,14 @@ namespace Life.StateMachines
 
         internal void Die()
         {
-            Attacker.RemoveObserverAgent(this);
             _isDead = true;
+            Attacker.RemoveObserverAgent(this);
         }
 
         void IHittableFromWeapon.OnHit(HitWeaponEventPayload payload)
         {
-            if (_isDead) return;
-            _health -= 50;
+            if (HasNoHealth) return;
+            SetHealth(GetHealth() - 50);
         }
     }
 
@@ -115,6 +118,7 @@ namespace Life.StateMachines
         public float Time { get; private set; }
 
         public bool InSight { get; private set; }
+
         public ObserverPayload(Vector3 position, float time, bool inSight)
         {
             Position = position;
