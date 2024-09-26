@@ -70,3 +70,32 @@ crashlytics-build.properties
 # Temporary auto-generated Android Assets
 /[Aa]ssets/[Ss]treamingAssets/aa.meta
 /[Aa]ssets/[Ss]treamingAssets/aa/*
+
+library/
+UserSettings/
+
+
+# Art assets must be ignored
+
+textures/
+sound/
+scenes/
+resources/
+prefabs/
+models/
+materials/
+animations/
+temp/
+art/
+*.asset
+*.png
+*.jpg
+*.mixer
+*.prefab
+*.meta
+*.csproj 
+*.sln
+*.mat
+*.fbx
+*.obj
+

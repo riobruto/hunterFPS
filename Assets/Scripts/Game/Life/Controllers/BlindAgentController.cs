@@ -1,0 +1,207 @@
+﻿using Life.StateMachines;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+
+namespace Life.Controllers
+{
+    public class BlindAgentController : AgentController
+    {
+        
+        private bool _isAttackingPlayer;
+
+        private float _health = 100;
+
+        private float _timeToForgetPlayer = 20;
+        private float _lastReportTime;
+        private bool _knowsPlayerPosition => _observers.Any(x => x.PlayerInSight);
+        private bool _forgotPlayer => !_knowsPlayerPosition && Time.realtimeSinceStartup - _lastReportTime > _timeToForgetPlayer;
+        private bool _playerInAttackRange => PlayerBehavior.IsPlayerInRange(5) && PlayerBehavior.IsPlayerInViewAngle(.8f);
+
+        public override void OnStart()
+        {
+            CreateStates();
+            CreateTransitions();
+            PlayerBehavior.HeardPlayerEvent.AddListener(OnHeardPlayer);
+        }
+
+        private void OnHeardPlayer(float arg0, Vector3 arg1)
+        {
+            PendingPlayerSoundChase = true;
+        }
+  
+
+        private void CreateTransitions()
+        {
+            Machine.AddTransition(_rest, _chase, new FuncPredicate(() => _knowsPlayerPosition));
+
+            Machine.AddTransition(_rest, _chase, new FuncPredicate(() => PendingPlayerSoundChase && !_knowsPlayerPosition));
+
+            Machine.AddTransition(_chase, _attack, new FuncPredicate(() => _playerInAttackRange));
+            Machine.AddTransition(_attack, _chase, new FuncPredicate(() => !_isAttackingPlayer && !_forgotPlayer));
+            Machine.AddTransition(_attack, _rest, new FuncPredicate(() => !_isAttackingPlayer && _forgotPlayer));
+            Machine.AddTransition(_chase, _rest, new FuncPredicate(() => _forgotPlayer));
+
+            Machine.AddAnyTransition(_die, new FuncPredicate(() => _health <= 0));
+
+            Machine.SetState(_rest);
+        }
+
+        private BlindAttackState _attack;
+        private BlindGoToPlayerState _chase;
+        private BlindRestState _rest;
+        private BlindDieState _die;
+
+        private float _attackTime = 2;
+
+        private IEnumerator AttackPlayer()
+        {
+            _isAttackingPlayer = true;
+            yield return new WaitForSeconds(_attackTime);
+            //Attack Logic
+            {
+                Debug.Log("NIGGER WAS ATTACKED, ALLEGEDLY");
+            }
+            _isAttackingPlayer = false;
+
+            yield return null;
+        }
+
+        private void CreateStates()
+        {
+            _attack = new(this);
+            _chase = new(this);
+            _rest = new(this);
+            _die = new(this);
+        }
+
+        private List<ObserverAgentController> _observers = new List<ObserverAgentController>();
+
+        public bool PendingPlayerSoundChase;
+
+        public void AddObserverAgent(ObserverAgentController observerAgent)
+        {
+            _observers.Add(observerAgent);
+        }
+
+        public void RemoveObserverAgent(ObserverAgentController observerAgent)
+        {
+            _observers.Remove(observerAgent);
+        }
+
+        internal void BeginAttackPlayer()
+        {
+            StartCoroutine(AttackPlayer());
+        }
+    }
+
+    internal class BlindDieState : BaseState
+    {
+        private BlindAgentController blind;
+
+        public BlindDieState(AgentController context) : base(context)
+        {
+            blind = context as BlindAgentController;
+        }
+
+        public override void DrawGizmos()
+        { }
+
+        public override void End()
+        { }
+
+        public override void Start()
+        {
+        }
+
+        public override void Update()
+        {
+        }
+    }
+
+    public class BlindRestState : BaseState
+    {
+        private BlindAgentController blind;
+
+        public BlindRestState(AgentController context) : base(context)
+        {
+            blind = context as BlindAgentController;
+        }
+
+        public override void DrawGizmos()
+        {
+        }
+
+        public override void End()
+        {
+        }
+
+        public override void Start()
+        {
+        }
+
+        public override void Update()
+        {
+            blind.MoveBehavior.SetTarget(Vector3.zero);
+        }
+    }
+
+    public class BlindGoToPlayerState : BaseState
+    {
+        private BlindAgentController blind;
+
+        public BlindGoToPlayerState(AgentController context) : base(context)
+        {
+            blind = context as BlindAgentController;
+        }
+
+        public override void DrawGizmos()
+        {
+        }
+
+        public override void End()
+        {
+            blind.PendingPlayerSoundChase = false;
+        }
+
+        public override void Start()
+        {
+            blind.MoveBehavior.FaceTarget = true;
+            blind.MoveBehavior.SetTarget(blind.PlayerBehavior.PlayerPosition);
+        }
+
+        public override void Update()
+        {
+            blind.MoveBehavior.SetLookTarget(blind.PlayerBehavior.PlayerHeadPosition);
+        }
+    }
+
+    public class BlindAttackState : BaseState
+    {
+        private BlindAgentController blind;
+
+        public BlindAttackState(AgentController context) : base(context)
+        {
+            blind = context as BlindAgentController;
+        }
+
+        public override void DrawGizmos()
+        {
+        }
+
+        public override void End()
+        {
+        }
+
+        public override void Start()
+        {
+            blind.BeginAttackPlayer();
+        }
+
+        public override void Update()
+        {
+        }
+    }
+}
