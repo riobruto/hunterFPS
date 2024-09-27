@@ -1,5 +1,4 @@
 ﻿using Life.StateMachines;
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,12 +9,13 @@ namespace Life.Controllers
     public class BlindAgentController : AgentController
     {
         private bool _isAttackingPlayer;
-   
+
         private float _timeToForgetPlayer = 20;
         private float _lastReportTime;
         private bool _knowsPlayerPosition => _observers.Any(x => x.PlayerInSight);
         private bool _forgotPlayer => !_knowsPlayerPosition && Time.realtimeSinceStartup - _lastReportTime > _timeToForgetPlayer;
         private bool _playerInAttackRange => PlayerBehavior.IsPlayerInRange(5) && PlayerBehavior.IsPlayerInViewAngle(.8f);
+        private bool _confused;
 
         public override void OnStart()
         {
@@ -35,22 +35,28 @@ namespace Life.Controllers
 
         private void CreateTransitions()
         {
-            Machine.AddTransition(_rest, _chase, new FuncPredicate(() => _knowsPlayerPosition));
-            Machine.AddTransition(_rest, _chase, new FuncPredicate(() => PendingPlayerSoundChase && !_knowsPlayerPosition));
-            Machine.AddTransition(_chase, _attack, new FuncPredicate(() => _playerInAttackRange));
-            Machine.AddTransition(_attack, _chase, new FuncPredicate(() => !_isAttackingPlayer && !_forgotPlayer));
+            Machine.AddTransition(_rest, _goto, new FuncPredicate(() => _knowsPlayerPosition));
+            Machine.AddTransition(_rest, _goto, new FuncPredicate(() => PendingPlayerSoundChase && !_knowsPlayerPosition));
+
+            Machine.AddTransition(_goto, _attack, new FuncPredicate(() => _playerInAttackRange));
+            Machine.AddTransition(_goto, _confuse, new FuncPredicate(() => !_playerInAttackRange));
+
+            Machine.AddTransition(_confuse, _rest, new FuncPredicate(() => _forgotPlayer));
+
+            Machine.AddTransition(_attack, _goto, new FuncPredicate(() => !_isAttackingPlayer && !_forgotPlayer));
             Machine.AddTransition(_attack, _rest, new FuncPredicate(() => !_isAttackingPlayer && _forgotPlayer));
-            Machine.AddTransition(_chase, _rest, new FuncPredicate(() => _forgotPlayer));
 
-            Machine.AddAnyTransition(_die, new FuncPredicate(() => HasNoHealth));
+            Machine.AddTransition(_goto, _rest, new FuncPredicate(() => _forgotPlayer));
 
+            Machine.AddAnyTransition(_die, new FuncPredicate(() => IsDead));
             Machine.SetState(_rest);
         }
 
         private BlindAttackState _attack;
-        private BlindGoToPlayerState _chase;
+        private BlindGoToPlayerState _goto;
         private BlindRestState _rest;
         private BlindDieState _die;
+        private BlindConfusedState _confuse;
 
         private float _attackTime = 2;
 
@@ -71,9 +77,10 @@ namespace Life.Controllers
         private void CreateStates()
         {
             _attack = new(this);
-            _chase = new(this);
+            _goto = new(this);
             _rest = new(this);
             _die = new(this);
+            _confuse = new(this);
         }
 
         private List<ObserverAgentController> _observers = new List<ObserverAgentController>();
@@ -198,6 +205,32 @@ namespace Life.Controllers
         public override void Start()
         {
             blind.BeginAttackPlayer();
+        }
+
+        public override void Update()
+        {
+        }
+    }
+
+    public class BlindConfusedState : BaseState
+    {
+        private BlindAgentController blind;
+
+        public BlindConfusedState(AgentController context) : base(context)
+        {
+            blind = context as BlindAgentController;
+        }
+
+        public override void DrawGizmos()
+        {
+        }
+
+        public override void End()
+        {
+        }
+
+        public override void Start()
+        {
         }
 
         public override void Update()

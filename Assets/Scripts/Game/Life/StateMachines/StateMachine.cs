@@ -55,6 +55,12 @@ namespace Life.StateMachines
             return node;
         }
 
+        public void ForceChangeToState(IState to)
+        {
+            GetOrAddNode(to);
+            ChangeState(to);
+        }
+
         private void ChangeState(IState state)
         {
             if (state == _current.State)

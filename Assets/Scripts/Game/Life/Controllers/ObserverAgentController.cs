@@ -16,11 +16,12 @@ namespace Life.StateMachines
         private float _viewRange;
         private Vector3 _lastKnowPosition;
         private bool _reportedPlayer;
-        private bool _isPlayerVisible => PlayerBehavior.IsPlayerVisible() && PlayerBehavior.IsPlayerInRange(20) && PlayerBehavior.IsPlayerInViewAngle(.8f);
+        private bool _isPlayerVisible => PlayerBehavior.PlayerDetected;
         private bool _lastPlayerVisible;
 
-        public UnityEvent<bool> ReportPlayerEvent;
-        public BlindAgentController Attacker;
+        [field: SerializeField] public UnityEvent<bool> ReportPlayerEvent;
+        [field: SerializeField] public BlindAgentController Attacker;
+
         public bool PlayerInSight => _isPlayerVisible;
         private bool _playerMadeNoise;
 
@@ -30,12 +31,8 @@ namespace Life.StateMachines
         private ObserverBlindState _blind;
         private ObserverDieState _die;
 
-        private bool _isDead;
-
         public override void OnStart()
         {
-            _isDead = false;
-
             CreateStates();
             CreateTransitions();
             PlayerBehavior.HeardPlayerEvent.AddListener(OnHeardPlayer);
@@ -43,6 +40,11 @@ namespace Life.StateMachines
 
             SetMaxHealth(100);
             SetHealth(100);
+        }
+
+        public override void OnDeath()
+        {
+            Machine.ForceChangeToState(_die);
         }
 
         private void OnHeardPlayer(float arg0, Vector3 arg1)
@@ -79,8 +81,6 @@ namespace Life.StateMachines
             Machine.AddTransition(_report, _escape, new FuncPredicate(() => _reportedPlayer));
             Machine.AddTransition(_escape, _wander, new FuncPredicate(() => _lostPlayer));
 
-            Machine.AddAnyTransition(_die, new FuncPredicate(() => HasNoHealth && !_isDead));
-
             Machine.SetState(_wander);
         }
 
@@ -101,13 +101,13 @@ namespace Life.StateMachines
 
         internal void Die()
         {
-            _isDead = true;
             Attacker.RemoveObserverAgent(this);
+            Machine.ForceChangeToState(_die);
         }
 
         void IHittableFromWeapon.OnHit(HitWeaponEventPayload payload)
         {
-            if (HasNoHealth) return;
+            if (IsDead) return;
             SetHealth(GetHealth() - 50);
         }
     }
@@ -300,7 +300,6 @@ namespace Life.StateMachines
 
         public override void Start()
         {
-            _observer.Die();
         }
 
         public override void Update()

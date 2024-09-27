@@ -3,6 +3,7 @@ using Life.StateMachines;
 using Life.StateMachines.Interfaces;
 using System;
 using UnityEngine;
+using UnityEngine.Events;
 
 namespace Life.Controllers
 {
@@ -25,16 +26,36 @@ namespace Life.Controllers
 
         private float _health;
         private float _maxHealth;
+        private bool _isDead;
+
+        public UnityAction<float> HealthChangedEvent;
+        public UnityAction DeadEvent;
 
         public float GetHealth() => _health;
 
-        public void SetHealth(float value) => _health = Mathf.Clamp(value, 0, _maxHealth);
+        public bool IsDead => _isDead;
+        private bool _changedToDead = false;
+
+        public void SetHealth(float value)
+        {
+            _health = Mathf.Clamp(value, 0, _maxHealth);
+            HealthChangedEvent?.Invoke(_health);
+
+            if (_health == 0 && !_changedToDead)
+            {
+                DeadEvent?.Invoke();
+                OnDeath();
+                _changedToDead = true;
+            }
+        }
+
+        public virtual void OnDeath()
+        {
+        }
 
         public float GetMaxHealth() => _maxHealth;
 
         public void SetMaxHealth(float value) => _maxHealth = value;
-
-        public bool HasNoHealth => _health <= 0;
 
         private void Start()
         {
