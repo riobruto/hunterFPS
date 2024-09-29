@@ -1,41 +1,33 @@
-﻿using Game.Life;
+﻿using Core.Engine;
+using Game.Life;
+using Game.Player.Controllers;
+using Game.Service;
 using Life.StateMachines;
 using Life.StateMachines.Interfaces;
+using Nomnom.RaycastVisualization;
 using System;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.Events;
 
 namespace Life.Controllers
 {
-    [RequireComponent(typeof(AgentMoveBehavior), typeof(AgentPlayerBehavior))]
+    [RequireComponent(typeof(NavMeshAgent), typeof(Animator))]
     public class AgentController : MonoBehaviour
     {
         private StateMachine _machine;
+      
+        private Animator _animator;
+        private NavMeshAgent _navMeshAgent;
 
-        public StateMachine Machine
-        { get { return _machine; } }
-
-        public AgentMoveBehavior MoveBehavior { get => _move; }
-        public AgentPlayerBehavior PlayerBehavior { get => _player; }
-
-        private AgentMoveBehavior _move;
-        private AgentPlayerBehavior _player;
-
-        public IState CurrentState => _machine.CurrentState;
         public bool Initialized { get; private set; }
 
         private float _health;
         private float _maxHealth;
         private bool _isDead;
-
-        public UnityAction<float> HealthChangedEvent;
-        public UnityAction DeadEvent;
-
-        public float GetHealth() => _health;
-
-        public bool IsDead => _isDead;
         private bool _changedToDead = false;
-
+        public IState CurrentState => _machine.CurrentState;
+        public float GetHealth() => _health;
         public void SetHealth(float value)
         {
             _health = Mathf.Clamp(value, 0, _maxHealth);
@@ -48,33 +40,151 @@ namespace Life.Controllers
                 _changedToDead = true;
             }
         }
-
-        public virtual void OnDeath()
+        public float GetMaxHealth() => _maxHealth;
+        public void SetMaxHealth(float value) => _maxHealth = value;
+        public UnityAction<float> HealthChangedEvent;
+        public UnityAction DeadEvent;
+        public StateMachine Machine
         {
+            get => _machine;
+        }
+        public Animator Animator
+        {
+            get => _animator;
+        }
+        public NavMeshAgent NavMesh
+        {
+            get => _navMeshAgent;
         }
 
-        public float GetMaxHealth() => _maxHealth;
+        public bool IsDead => _isDead;
 
-        public void SetMaxHealth(float value) => _maxHealth = value;
+        [Header("Player Perception")]
+        [SerializeField] private LayerMask _ignoreMask;
+        [SerializeField] private Transform _head;
+        [SerializeField] private float _rangeDistance = 20;
+        private GameObject _player;
+        private Camera _playerCamera;
+        public Vector3 PlayerPosition => _player.transform.position;
+        public Vector3 PlayerHeadPosition => _playerCamera.transform.position;
+        private bool _playerDetected => IsPlayerInRange(_rangeDistance) && IsPlayerInViewAngle(0.8f) && IsPlayerVisible();
+        public bool PlayerDetected => _playerDetected;
+        public GameObject PlayerGameObject { get => _player; }
+        private PlayerSoundController _playerSound;
 
         private void Start()
         {
             _machine = new StateMachine();
             Initialized = true;
-            _move = gameObject.GetComponent<AgentMoveBehavior>();
-            _player = gameObject.GetComponent<AgentPlayerBehavior>();
+
+            _navMeshAgent = GetComponent<NavMeshAgent>();
+            _animator = GetComponent<Animator>();
+            _animator.applyRootMotion = false;
+            _navMeshAgent.updateRotation = false;
+            _navMeshAgent.updatePosition = true;
+
+            _player = Bootstrap.Resolve<PlayerService>().Player;
+            _playerCamera = Bootstrap.Resolve<PlayerService>().PlayerCamera;
+            _ignoreMask = Bootstrap.Resolve<GameSettings>().RaycastConfiguration.IgnoreLayers;
+
+            _playerSound = _player.GetComponentInChildren<PlayerSoundController>();
+            _playerSound.StepSound += OnPlayerStep;
+            _playerSound.GunSound += OnPlayerGun;
 
             OnStart();
+        }
+
+        private void OnPlayerGun(Vector3 position, float radius)
+        {
+            if (Vector3.Distance(position, transform.position) <= radius)
+            {
+                OnHeardCombat();
+
+            }
+        }
+        private void OnPlayerStep(Vector3 position, float radius)
+        {
+            if (Vector3.Distance(position, transform.position) <= radius)
+            {
+                OnHeardSteps();
+            }
+        }
+
+     
+
+        public bool IsPlayerInRange(float distance)
+        {
+            return Vector3.Distance(transform.position, _playerCamera.transform.position) < distance;
+        }
+
+        public bool IsPlayerInViewAngle(float dotAngle)
+        {
+            return Vector3.Dot(transform.forward, _playerCamera.transform.position - transform.position) > dotAngle;
+        }
+
+        public bool IsPlayerVisible()
+        {
+            Debug.DrawLine(_playerCamera.transform.position, transform.position);
+
+            if (VisualPhysics.Linecast(_playerCamera.transform.position, _head.position, out RaycastHit hit, _ignoreMask))
+            {
+                return hit.collider.gameObject.transform.root == transform;
+            }
+
+            return false;
         }
 
         private void Update()
         {
             _machine?.Update();
+            UpdateMovement();
             OnUpdate();
         }
 
-        public virtual void OnUpdate()
-        { }
+        private Vector3 _aimTarget;
+        private bool _faceTarget;
+
+        [Header("Movement")]
+        [SerializeField] private float _minMoveDistance = 1f;
+        [SerializeField] private Transform _aimTransform;
+        public void SetLookTarget(Vector3 target) => _aimTarget = target;
+        public void SetTarget(Vector3 position)
+        {
+            _navMeshAgent.isStopped = false;
+            _navMeshAgent.SetDestination(position);
+        }
+        
+        public bool FaceTarget { get => _faceTarget; set => _faceTarget = value; }
+
+        private void UpdateMovement()
+        {
+            //_aimTarget = Bootstrap.Resolve<PlayerSpawnerService>().Player.transform.position;
+
+            var aimDir = (_aimTarget - transform.position).normalized;
+
+            float aim_horizontal = _faceTarget ? Vector3.Cross(transform.forward, aimDir).y : 0;
+            float aim_vertical = _faceTarget ? Vector3.Dot(transform.up, aimDir) : 0;
+
+            //_animator.SetFloat("aim_vertical", aim_vertical, .0125f, Time.deltaTime);
+
+            if (Vector3.Distance(transform.position, _navMeshAgent.destination) < _minMoveDistance)
+            {
+                _navMeshAgent.ResetPath();
+            }
+            Vector3 relativeVelocity = transform.InverseTransformDirection(_navMeshAgent.velocity);
+            Debug.DrawRay(transform.position, relativeVelocity);
+
+            _animator.SetFloat("mov_turn", aim_horizontal * _navMeshAgent.angularSpeed * Time.deltaTime, .0125f, Time.deltaTime);
+
+            if (_faceTarget)
+            {
+                transform.Rotate(Vector3.up, aim_horizontal * _navMeshAgent.angularSpeed * Time.deltaTime);
+            }
+
+            _animator.SetFloat("mov_right", relativeVelocity.x, .05f, Time.deltaTime);
+            _animator.SetFloat("mov_forward", relativeVelocity.z, .05f, Time.deltaTime);
+            _animator.SetFloat("aim_vertical", aim_vertical, .05f, Time.deltaTime);
+        }
 
         private void OnDrawGizmos()
         {
@@ -83,9 +193,19 @@ namespace Life.Controllers
                 _machine.DrawGizmos();
             }
         }
+      
 
+        public virtual void OnUpdate()
+        {
+        }
+        public virtual void OnDeath()
+        {
+        }
         public virtual void OnStart()
         {
         }
+        public virtual void OnHeardCombat(){}
+        public virtual void OnHeardSteps(){}
+
     }
 }

@@ -88,7 +88,7 @@ namespace MyEditor.Life
         {
             EditorGUILayout.LabelField(" Agent Player Status", EditorStyles.boldLabel);
 
-            if (controller.PlayerBehavior == null)
+            if (!controller.Initialized)
             {
                 Rect empty = EditorGUILayout.BeginVertical();
                 EditorGUI.DrawRect(empty, Color.grey/4);
@@ -100,8 +100,8 @@ namespace MyEditor.Life
             }
 
             Rect playerinforect = EditorGUILayout.BeginVertical();
-            EditorGUI.DrawRect(playerinforect, controller.PlayerBehavior.PlayerDetected ? Color.red / 2 : Color.green / 2);
-            EditorGUI.LabelField(playerinforect, controller.PlayerBehavior.PlayerDetected ? "Player Detected" : "Player Undetected", EditorStyles.centeredGreyMiniLabel);
+            EditorGUI.DrawRect(playerinforect, controller.PlayerDetected ? Color.red / 2 : Color.green / 2);
+            EditorGUI.LabelField(playerinforect, controller.PlayerDetected ? "Player Detected" : "Player Undetected", EditorStyles.centeredGreyMiniLabel);
             GUILayout.Space(18);
             EditorGUILayout.EndVertical();
 

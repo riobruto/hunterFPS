@@ -8,21 +8,16 @@ using UnityEngine.Events;
 
 namespace Life.StateMachines
 {
-    [RequireComponent(typeof(AgentPlayerBehavior))]
+    
     public class ObserverAgentController : AgentController, IHittableFromWeapon
     {
-        private float _speed;
 
-        private float _viewRange;
-        private Vector3 _lastKnowPosition;
         private bool _reportedPlayer;
-        private bool _isPlayerVisible => PlayerBehavior.PlayerDetected;
-        private bool _lastPlayerVisible;
+
 
         [field: SerializeField] public UnityEvent<bool> ReportPlayerEvent;
         [field: SerializeField] public BlindAgentController Attacker;
 
-        public bool PlayerInSight => _isPlayerVisible;
         private bool _playerMadeNoise;
 
         private ObserverWanderState _wander;
@@ -35,7 +30,7 @@ namespace Life.StateMachines
         {
             CreateStates();
             CreateTransitions();
-            PlayerBehavior.HeardPlayerEvent.AddListener(OnHeardPlayer);
+
             Attacker.AddObserverAgent(this);
 
             SetMaxHealth(100);
@@ -54,12 +49,6 @@ namespace Life.StateMachines
 
         public override void OnUpdate()
         {
-            if (_lastPlayerVisible != _isPlayerVisible)
-            {
-                ReportPlayerEvent?.Invoke(_isPlayerVisible);
-                _lastPlayerVisible = _isPlayerVisible;
-            }
-
             if (_playerMadeNoise)
             {
                 _playerMadeNoise = false;
@@ -77,7 +66,7 @@ namespace Life.StateMachines
 
         private void CreateTransitions()
         {
-            Machine.AddTransition(_wander, _report, new FuncPredicate(() => _isPlayerVisible));
+            Machine.AddTransition(_wander, _report, new FuncPredicate(() => PlayerDetected));
             Machine.AddTransition(_report, _escape, new FuncPredicate(() => _reportedPlayer));
             Machine.AddTransition(_escape, _wander, new FuncPredicate(() => _lostPlayer));
 
@@ -149,9 +138,8 @@ namespace Life.StateMachines
 
         public override void Start()
         {
-            Context.MoveBehavior.StartPatrol();
             FindNewTarget();
-            _observer.MoveBehavior.FaceTarget = false;
+            _observer.FaceTarget = false;
         }
 
         public override void Update()
@@ -167,7 +155,7 @@ namespace Life.StateMachines
         private void FindNewTarget()
         {
             _targetPos = _observer.Attacker.transform.position + Random.insideUnitSphere * 15;
-            _observer.MoveBehavior.SetTarget(_targetPos);
+            _observer.SetTarget(_targetPos);
         }
 
         private bool ReachedTarget()
@@ -198,10 +186,9 @@ namespace Life.StateMachines
 
         public override void Start()
         {
-            Context.MoveBehavior.StartWarning();
             _observer.ResetReport();
-            _observer.MoveBehavior.Crouch(true);
-            _observer.MoveBehavior.SetTarget(_observer.transform.position);
+
+            _observer.SetTarget(_observer.transform.position);
             _time = Time.time;
         }
 
@@ -210,7 +197,6 @@ namespace Life.StateMachines
             if (Time.time - _time > 3)
             {
                 _observer.ReportPlayer();
-                _observer.MoveBehavior.Crouch(false);
             }
         }
     }
@@ -223,7 +209,7 @@ namespace Life.StateMachines
         }
 
         private ObserverAgentController _observer;
-        private bool _playerNear => Vector3.Distance(_observer.PlayerBehavior.PlayerGameObject.transform.position, _observer.transform.position) < 6;
+        private bool _playerNear => Vector3.Distance(_observer.PlayerGameObject.transform.position, _observer.transform.position) < 6;
 
         public override void DrawGizmos()
         {
@@ -238,20 +224,20 @@ namespace Life.StateMachines
 
         public override void Start()
         {
-            _observer.MoveBehavior.FaceTarget = true;
+            _observer.FaceTarget = true;
         }
 
         public override void Update()
         {
-            _observer.MoveBehavior.SetLookTarget(_observer.PlayerBehavior.PlayerGameObject.transform.position);
+            _observer.SetLookTarget(_observer.PlayerGameObject.transform.position);
 
             if (_playerNear)
             {
-                _observer.MoveBehavior.SetTarget(_observer.transform.position - (_observer.PlayerBehavior.PlayerGameObject.transform.position - _observer.transform.position).normalized * 6f);
+                _observer.SetTarget(_observer.transform.position - (_observer.PlayerGameObject.transform.position - _observer.transform.position).normalized * 6f);
                 return;
             }
 
-            _observer.MoveBehavior.SetTarget(_observer.Attacker.transform.position - (_observer.Attacker.transform.position - _observer.transform.position).normalized * 6f);
+            _observer.SetTarget(_observer.Attacker.transform.position - (_observer.Attacker.transform.position - _observer.transform.position).normalized * 6f);
         }
     }
 

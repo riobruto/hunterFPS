@@ -12,9 +12,8 @@ namespace Life.Controllers
 
         private float _timeToForgetPlayer = 20;
         private float _lastReportTime;
-        private bool _knowsPlayerPosition => _observers.Any(x => x.PlayerInSight);
+        private bool _knowsPlayerPosition => _observers.Any(x => x.PlayerDetected);
         private bool _forgotPlayer => !_knowsPlayerPosition && Time.realtimeSinceStartup - _lastReportTime > _timeToForgetPlayer;
-        private bool _playerInAttackRange => PlayerBehavior.IsPlayerInRange(5) && PlayerBehavior.IsPlayerInViewAngle(.8f);
 
         public bool KnowsPlayerPosition { get => _knowsPlayerPosition; }
 
@@ -22,23 +21,17 @@ namespace Life.Controllers
         {
             CreateStates();
             CreateTransitions();
-            PlayerBehavior.HeardPlayerEvent.AddListener(OnHeardPlayer);
 
             SetMaxHealth(100000);
             SetHealth(100000);
         }
 
-        private void OnHeardPlayer(float arg0, Vector3 arg1)
-        {
-            PendingPlayerSoundChase = true;
-            _lastReportTime = Time.realtimeSinceStartup;
-        }
-
+        
         private void CreateTransitions()
         {
             Machine.AddTransition(_rest, _goto, new FuncPredicate(() => _knowsPlayerPosition));
             Machine.AddTransition(_rest, _goto, new FuncPredicate(() => PendingPlayerSoundChase && !_knowsPlayerPosition));
-            Machine.AddTransition(_goto, _attack, new FuncPredicate(() => _playerInAttackRange));
+            Machine.AddTransition(_goto, _attack, new FuncPredicate(() => IsPlayerInRange(4)));
             Machine.AddTransition(_attack, _goto, new FuncPredicate(() => !_isAttackingPlayer && !_forgotPlayer));
             Machine.AddTransition(_attack, _rest, new FuncPredicate(() => !_isAttackingPlayer && _forgotPlayer));
             Machine.AddTransition(_goto, _rest, new FuncPredicate(() => _forgotPlayer));
@@ -58,7 +51,8 @@ namespace Life.Controllers
             _isAttackingPlayer = true;
             yield return new WaitForSeconds(_attackTime);
             {
-                GetComponent<Animator>().SetTrigger("ATTACK");
+                Animator.SetTrigger("ATTACK");
+                
                 Debug.Log("NIGGER WAS ATTACKED, ALLEGEDLY");
             }
             _isAttackingPlayer = false;
@@ -96,7 +90,6 @@ namespace Life.Controllers
         internal void BeginAttackPlayer()
         {
             StartCoroutine(AttackPlayer());
-
         }
     }
 
@@ -147,7 +140,7 @@ namespace Life.Controllers
 
         public override void Update()
         {
-            blind.MoveBehavior.SetTarget(Vector3.zero);
+            blind.SetTarget(Vector3.zero);
         }
     }
 
@@ -162,7 +155,7 @@ namespace Life.Controllers
 
         public override void DrawGizmos()
         {
-            Gizmos.DrawSphere(blind.PlayerBehavior.PlayerPosition + (blind.transform.position - blind.PlayerBehavior.PlayerPosition).normalized * 2f, .35f);
+            Gizmos.DrawSphere(blind.PlayerPosition + (blind.transform.position - blind.PlayerPosition).normalized * 2f, .35f);
         }
 
         public override void End()
@@ -172,16 +165,16 @@ namespace Life.Controllers
 
         public override void Start()
         {
-            blind.MoveBehavior.FaceTarget = true;
+            blind.FaceTarget = true;
         }
 
         public override void Update()
         {
-            blind.MoveBehavior.SetLookTarget(blind.PlayerBehavior.PlayerHeadPosition);
+            blind.SetLookTarget(blind.PlayerHeadPosition);
 
             if (blind.KnowsPlayerPosition)
             {
-                blind.MoveBehavior.SetTarget(blind.PlayerBehavior.PlayerPosition + (blind.transform.position - blind.PlayerBehavior.PlayerPosition).normalized * 2f);
+                blind.SetTarget(blind.PlayerPosition + (blind.transform.position - blind.PlayerPosition).normalized * 2f);
             }
         }
     }
