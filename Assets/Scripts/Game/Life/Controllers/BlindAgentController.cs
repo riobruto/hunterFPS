@@ -12,10 +12,10 @@ namespace Life.Controllers
 
         private float _timeToForgetPlayer = 20;
         private float _lastReportTime;
-        private bool _knowsPlayerPosition => _observers.Any(x => x.PlayerDetected);
-        private bool _forgotPlayer => !_knowsPlayerPosition && Time.realtimeSinceStartup - _lastReportTime > _timeToForgetPlayer;
+        private bool _observersKnowPlayer => _observers.Any(x => x.PlayerDetected);
+        private bool _forgotPlayer => !_observersKnowPlayer && Time.realtimeSinceStartup - _lastReportTime > _timeToForgetPlayer;
 
-        public bool KnowsPlayerPosition { get => _knowsPlayerPosition; }
+        public bool KnowsPlayerPosition { get => _observersKnowPlayer; }
 
         public override void OnStart()
         {
@@ -25,12 +25,11 @@ namespace Life.Controllers
             SetMaxHealth(100000);
             SetHealth(100000);
         }
-
         
         private void CreateTransitions()
         {
-            Machine.AddTransition(_rest, _goto, new FuncPredicate(() => _knowsPlayerPosition));
-            Machine.AddTransition(_rest, _goto, new FuncPredicate(() => PendingPlayerSoundChase && !_knowsPlayerPosition));
+            Machine.AddTransition(_rest, _goto, new FuncPredicate(() => _observersKnowPlayer));
+            Machine.AddTransition(_rest, _goto, new FuncPredicate(() => PendingPlayerSoundChase && !_observersKnowPlayer));
             Machine.AddTransition(_goto, _attack, new FuncPredicate(() => IsPlayerInRange(4)));
             Machine.AddTransition(_attack, _goto, new FuncPredicate(() => !_isAttackingPlayer && !_forgotPlayer));
             Machine.AddTransition(_attack, _rest, new FuncPredicate(() => !_isAttackingPlayer && _forgotPlayer));

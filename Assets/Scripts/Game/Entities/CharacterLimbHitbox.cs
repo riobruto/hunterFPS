@@ -1,5 +1,6 @@
 ﻿using Game.Hit;
 using Game.Service;
+using Life.Controllers;
 using UnityEngine;
 
 namespace Game.Entities
@@ -9,21 +10,25 @@ namespace Game.Entities
     public class CharacterLimbHitbox : MonoBehaviour, IHittableFromWeapon, IDamageableFromExplosive
     {
         [SerializeField] private LimbType _type = LimbType.UNDEFINED;
-
         public LimbType Type { get => _type; }
 
         public event LimbHitDelegate LimbHitEvent;
 
         public bool IsMutilated;
 
+        private AgentController _ownerAgent;
+
         private void Start()
         {
             GetComponent<Rigidbody>().isKinematic = true;
+            _ownerAgent = transform.root.GetComponent<AgentController>();
         }
 
         void IHittableFromWeapon.OnHit(HitWeaponEventPayload payload)
         {
             LimbHitEvent?.Invoke(CalculateDamage(payload.Damage, payload.Distance), this);
+
+            _ownerAgent.NotifyHurt(CalculateDamage(payload.Damage, payload.Distance));
 
             if (gameObject.TryGetComponent(out Rigidbody rb))
             {
@@ -87,7 +92,7 @@ namespace Game.Entities
         void IDamageableFromExplosive.NotifyDamage(float damage)
         {
             LimbHitEvent?.Invoke(damage, this);
-
+            _ownerAgent.NotifyHurt(damage);
         }
     }
 

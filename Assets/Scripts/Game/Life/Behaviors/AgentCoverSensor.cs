@@ -8,16 +8,22 @@ using UnityEngine.AI;
 
 namespace Game.Life
 {
-    public class AgentCoverBehavior : MonoBehaviour
+    public enum CoverSearchType
     {
-        private Vector3 _currentPosition;
-        private Vector3 _lastCoverPosition;
+        NEAREST_FROM_AGENT,
+        FARTEST_FROM_AGENT,
+        FARTEST_FROM_PLAYER,
+        NEAREST_FROM_PLAYER,
+    }
+
+    public class AgentCoverSensor : MonoBehaviour
+    {
         private GameObject _player;
 
         private CoverVolumeEntity[] _coverVolumes;
 
         [SerializeField] private float _detectionRadius = 10;
-        [SerializeField] private LayerMask _hidableLayers;
+        [SerializeField] private LayerMask _hidableLayers = 6;
         [SerializeField] private float _minTargetDistance = 1;
         [SerializeField] private float _hideSensitivity = 0;
         [SerializeField] private float _sampleDistance = 2;
@@ -25,23 +31,34 @@ namespace Game.Life
         private void Start()
         {
             _player = Bootstrap.Resolve<PlayerService>().Player;
-
             _coverVolumes = FindObjectsByType<CoverVolumeEntity>(FindObjectsSortMode.None);
         }
 
-        private void Update()
+        public CoverData FindCover(CoverSearchType coverType)
         {
-            _currentPosition = transform.position;
+            return GetCoverPosition(coverType);
         }
 
-        public CoverData FindCover()
+        private CoverData GetCoverPosition(CoverSearchType coverType)
         {
-            return GetCoverPositionFromPlayer();
-        }
+            switch (coverType)
+            {
+                case CoverSearchType.NEAREST_FROM_AGENT:
+                    Array.Sort(_coverVolumes, SortNearestFromAgent);
+                    break;
 
-        private CoverData GetCoverPositionFromPlayer()
-        {
-            Array.Sort(_coverVolumes, SortNearestFromAgent);
+                case CoverSearchType.FARTEST_FROM_AGENT:
+                    Array.Sort(_coverVolumes, SortFartestFromAgent);
+                    break;
+
+                case CoverSearchType.FARTEST_FROM_PLAYER:
+                    Array.Sort(_coverVolumes, SortFartestFromPlayer);
+                    break;
+
+                case CoverSearchType.NEAREST_FROM_PLAYER:
+                    Array.Sort(_coverVolumes, SortNearestFromPlayer);
+                    break;
+            }
 
             for (int i = 0; i < _coverVolumes.Length; i++)
             {
@@ -69,21 +86,41 @@ namespace Game.Life
                         Vector3.Distance(_player.transform.position, B.transform.position));
         }
 
+        private int SortFartestFromPlayer(CoverVolumeEntity A, CoverVolumeEntity B)
+        {
+            if (A == null && B != null) { return 1; }
+            else if (A != null && B == null) { return -1; }
+            else if (A == null && B == null) { return 0; }
+            else return
+                    Vector3.Distance(_player.transform.position, B.transform.position).CompareTo(
+                        Vector3.Distance(_player.transform.position, A.transform.position));
+        }
+
         private int SortNearestFromAgent(CoverVolumeEntity A, CoverVolumeEntity B)
         {
             if (A == null && B != null) { return 1; }
             else if (A != null && B == null) { return -1; }
             else if (A == null && B == null) { return 0; }
             else return
-                    Vector3.Distance(_currentPosition, A.transform.position).CompareTo(
-                        Vector3.Distance(_currentPosition, B.transform.position));
+                    Vector3.Distance(transform.position, A.transform.position).CompareTo(
+                        Vector3.Distance(transform.position, B.transform.position));
+        }
+
+        private int SortFartestFromAgent(CoverVolumeEntity A, CoverVolumeEntity B)
+        {
+            if (A == null && B != null) { return 1; }
+            else if (A != null && B == null) { return -1; }
+            else if (A == null && B == null) { return 0; }
+            else return
+                    Vector3.Distance(transform.position, B.transform.position).CompareTo(
+                        Vector3.Distance(transform.position, A.transform.position));
         }
 
         public FlankData GetFlankVectors()
         {
             FlankData data = new FlankData();
 
-            data.StartPoint = GetCoverPositionFromPlayer().Position;
+            data.StartPoint = GetCoverPosition(CoverSearchType.NEAREST_FROM_PLAYER).Position;
 
             CoverVolumeEntity player = GetNearestCoverFromPlayer();
 
@@ -119,7 +156,7 @@ namespace Game.Life
 
             foreach (CoverVolumeEntity cover in covers)
             {
-                if (VisualPhysics.Linecast(_currentPosition + (Vector3.up * 2f), cover.transform.position + (Vector3.up * 2f), out RaycastHit EnemyHit, GetIgnoreLayers()))
+                if (VisualPhysics.Linecast(transform.position + (Vector3.up * 2f), cover.transform.position + (Vector3.up * 2f), out RaycastHit EnemyHit, GetIgnoreLayers()))
                 {
                     if (EnemyHit.collider.gameObject.layer == 6) continue;
                 }
@@ -134,7 +171,6 @@ namespace Game.Life
 
         private LayerMask GetIgnoreLayers()
         {
-
             //getting the ignorelayers and substracting the cover value
             LayerMask layers = Bootstrap.Resolve<GameSettings>().RaycastConfiguration.IgnoreLayers;
             return layers &= ~(1 << 6);

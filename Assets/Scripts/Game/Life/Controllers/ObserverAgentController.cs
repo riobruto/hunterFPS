@@ -1,6 +1,4 @@
-﻿using Game.Hit;
-using Game.Life;
-using Game.Service;
+﻿using Game.Life;
 using Life.Controllers;
 
 using UnityEngine;
@@ -8,12 +6,9 @@ using UnityEngine.Events;
 
 namespace Life.StateMachines
 {
-    
-    public class ObserverAgentController : AgentController, IHittableFromWeapon
+    public class ObserverAgentController : AgentController
     {
-
         private bool _reportedPlayer;
-
 
         [field: SerializeField] public UnityEvent<bool> ReportPlayerEvent;
         [field: SerializeField] public BlindAgentController Attacker;
@@ -26,25 +21,27 @@ namespace Life.StateMachines
         private ObserverBlindState _blind;
         private ObserverDieState _die;
 
+        private AgentCoverSensor _cover;
+
         public override void OnStart()
         {
+            _cover = gameObject.AddComponent<AgentCoverSensor>();
+
             CreateStates();
             CreateTransitions();
-
             Attacker.AddObserverAgent(this);
-
             SetMaxHealth(100);
             SetHealth(100);
+        }
+
+        public CoverData GetCover(CoverSearchType type)
+        {
+            return _cover.FindCover(type);
         }
 
         public override void OnDeath()
         {
             Machine.ForceChangeToState(_die);
-        }
-
-        private void OnHeardPlayer(float arg0, Vector3 arg1)
-        {
-            _playerMadeNoise = true;
         }
 
         public override void OnUpdate()
@@ -77,6 +74,8 @@ namespace Life.StateMachines
 
         private bool _lostPlayer => Time.realtimeSinceStartup - _lastPlayerSawTime > 20;
 
+        public CoverSearchType CoverType;
+
         internal void ReportPlayer()
         {
             _lastPlayerSawTime = Time.realtimeSinceStartup;
@@ -94,10 +93,14 @@ namespace Life.StateMachines
             Machine.ForceChangeToState(_die);
         }
 
-        void IHittableFromWeapon.OnHit(HitWeaponEventPayload payload)
+        public override void OnHurt(float value)
         {
-            if (IsDead) return;
-            SetHealth(GetHealth() - 50);
+            SetHealth(GetHealth() - value);
+        }
+
+        internal CoverData GetCover(object coverType)
+        {
+            throw new System.NotImplementedException();
         }
     }
 
@@ -229,15 +232,13 @@ namespace Life.StateMachines
 
         public override void Update()
         {
-            _observer.SetLookTarget(_observer.PlayerGameObject.transform.position);
-
-            if (_playerNear)
+            CoverData cover = _observer.GetCover(_observer.CoverType);
+            _observer.SetLookTarget(_observer.PlayerHeadPosition);
+            if (cover.Position != Vector3.zero)
             {
-                _observer.SetTarget(_observer.transform.position - (_observer.PlayerGameObject.transform.position - _observer.transform.position).normalized * 6f);
-                return;
+                _observer.SetTarget(cover.Position);
             }
-
-            _observer.SetTarget(_observer.Attacker.transform.position - (_observer.Attacker.transform.position - _observer.transform.position).normalized * 6f);
+            _observer.ReportPlayer();
         }
     }
 

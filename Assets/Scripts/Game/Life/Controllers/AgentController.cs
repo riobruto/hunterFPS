@@ -1,11 +1,9 @@
 ﻿using Core.Engine;
-using Game.Life;
 using Game.Player.Controllers;
 using Game.Service;
 using Life.StateMachines;
 using Life.StateMachines.Interfaces;
 using Nomnom.RaycastVisualization;
-using System;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.Events;
@@ -16,7 +14,7 @@ namespace Life.Controllers
     public class AgentController : MonoBehaviour
     {
         private StateMachine _machine;
-      
+
         private Animator _animator;
         private NavMeshAgent _navMeshAgent;
 
@@ -25,33 +23,33 @@ namespace Life.Controllers
         private float _health;
         private float _maxHealth;
         private bool _isDead;
-        private bool _changedToDead = false;
+
         public IState CurrentState => _machine.CurrentState;
+
         public float GetHealth() => _health;
+
         public void SetHealth(float value)
         {
             _health = Mathf.Clamp(value, 0, _maxHealth);
-            HealthChangedEvent?.Invoke(_health);
-
-            if (_health == 0 && !_changedToDead)
-            {
-                DeadEvent?.Invoke();
-                OnDeath();
-                _changedToDead = true;
-            }
         }
+
         public float GetMaxHealth() => _maxHealth;
+
         public void SetMaxHealth(float value) => _maxHealth = value;
+
         public UnityAction<float> HealthChangedEvent;
         public UnityAction DeadEvent;
+
         public StateMachine Machine
         {
             get => _machine;
         }
+
         public Animator Animator
         {
             get => _animator;
         }
+
         public NavMeshAgent NavMesh
         {
             get => _navMeshAgent;
@@ -61,6 +59,7 @@ namespace Life.Controllers
 
         [Header("Player Perception")]
         [SerializeField] private LayerMask _ignoreMask;
+
         [SerializeField] private Transform _head;
         [SerializeField] private float _rangeDistance = 20;
         private GameObject _player;
@@ -82,6 +81,7 @@ namespace Life.Controllers
             _animator.applyRootMotion = false;
             _navMeshAgent.updateRotation = false;
             _navMeshAgent.updatePosition = true;
+            _navMeshAgent.speed = 3;
 
             _player = Bootstrap.Resolve<PlayerService>().Player;
             _playerCamera = Bootstrap.Resolve<PlayerService>().PlayerCamera;
@@ -99,9 +99,9 @@ namespace Life.Controllers
             if (Vector3.Distance(position, transform.position) <= radius)
             {
                 OnHeardCombat();
-
             }
         }
+
         private void OnPlayerStep(Vector3 position, float radius)
         {
             if (Vector3.Distance(position, transform.position) <= radius)
@@ -109,8 +109,6 @@ namespace Life.Controllers
                 OnHeardSteps();
             }
         }
-
-     
 
         public bool IsPlayerInRange(float distance)
         {
@@ -146,14 +144,17 @@ namespace Life.Controllers
 
         [Header("Movement")]
         [SerializeField] private float _minMoveDistance = 1f;
+
         [SerializeField] private Transform _aimTransform;
+
         public void SetLookTarget(Vector3 target) => _aimTarget = target;
+
         public void SetTarget(Vector3 position)
         {
             _navMeshAgent.isStopped = false;
             _navMeshAgent.SetDestination(position);
         }
-        
+
         public bool FaceTarget { get => _faceTarget; set => _faceTarget = value; }
 
         private void UpdateMovement()
@@ -193,19 +194,40 @@ namespace Life.Controllers
                 _machine.DrawGizmos();
             }
         }
-      
+
+        internal void SetSpeed(float v)
+        {
+            _navMeshAgent.speed = v;
+        }
+
+        #region Virtual Methods
 
         public virtual void OnUpdate()
         {
         }
-        public virtual void OnDeath()
-        {
-        }
+
         public virtual void OnStart()
         {
         }
-        public virtual void OnHeardCombat(){}
-        public virtual void OnHeardSteps(){}
 
+        public virtual void OnDeath()
+        {
+        }
+
+        public virtual void OnHurt(float value)
+        { }
+
+        public virtual void OnHeardCombat()
+        { }
+
+        public virtual void OnHeardSteps()
+        { }
+
+        internal void NotifyHurt(float value)
+        {
+            OnHurt(value);
+        }
+
+        #endregion Virtual Methods
     }
 }

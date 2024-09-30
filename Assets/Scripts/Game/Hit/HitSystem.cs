@@ -65,6 +65,7 @@ namespace Game.Hit
             {
                 hittable.OnHit(payload);
             }
+
         }
         private void OnDisable()
         {
