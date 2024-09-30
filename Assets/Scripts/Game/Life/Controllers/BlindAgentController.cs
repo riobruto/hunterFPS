@@ -25,7 +25,7 @@ namespace Life.Controllers
             SetMaxHealth(100000);
             SetHealth(100000);
         }
-        
+
         private void CreateTransitions()
         {
             Machine.AddTransition(_rest, _goto, new FuncPredicate(() => _observersKnowPlayer));
@@ -43,15 +43,14 @@ namespace Life.Controllers
         private BlindRestState _rest;
         private BlindDieState _die;
 
-        private float _attackTime = 2;
+        private float _attackTime = 1;
 
         private IEnumerator AttackPlayer()
         {
             _isAttackingPlayer = true;
+            Animator.SetTrigger("ATTACK");
             yield return new WaitForSeconds(_attackTime);
             {
-                Animator.SetTrigger("ATTACK");
-                
                 Debug.Log("NIGGER WAS ATTACKED, ALLEGEDLY");
             }
             _isAttackingPlayer = false;

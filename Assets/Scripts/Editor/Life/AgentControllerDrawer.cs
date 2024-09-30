@@ -1,4 +1,5 @@
 ﻿using Life.Controllers;
+using System;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -6,6 +7,8 @@ using UnityEngine.UI;
 namespace MyEditor.Life
 {
     [CustomEditor(typeof(AgentController), true)]
+
+    [CanEditMultipleObjects]
     public class AgentControllerDrawer : Editor
     {
         private AgentController controller;
@@ -17,15 +20,32 @@ namespace MyEditor.Life
 
             controller = target as AgentController;
 
+            if(targets.Length > 1)
+            {
+                DisplayMultiEditionWarning();                
+                return;
+            }
+
             using (new EditorGUILayout.VerticalScope())
             {
                 //Setting dirty to reflect changes every draw call
                 EditorUtility.SetDirty(target);
-
                 DisplayPlayerDetection();
                 DisplayAgentState();
                 DisplayHealthBar();
             }
+        }
+
+        private void DisplayMultiEditionWarning()
+        {
+            EditorGUILayout.Separator();
+            Rect r = EditorGUILayout.BeginVertical();
+            EditorGUI.DrawRect(r, Color.blue / 4 );
+            EditorGUILayout.LabelField("Agent Info not allowed in multiple selection", EditorStyles.centeredGreyMiniLabel);
+            GUILayout.Space(3);
+            EditorGUILayout.EndVertical();
+            EditorGUILayout.Separator();
+            EditorGUILayout.Separator();
         }
 
         private void DrawHeaderForCustomEditor()
@@ -35,6 +55,15 @@ namespace MyEditor.Life
             EditorGUI.DrawRect(r, Color.gray);
             GUILayout.Space(3);
             EditorGUILayout.EndVertical();
+
+            GUILayout.Space(12);
+
+            Rect img = EditorGUILayout.BeginVertical();
+            EditorGUI.DrawRect(img, Color.gray);
+            EditorGUI.DrawPreviewTexture(img, Resources.Load("Editor/brain") as Texture);
+            GUILayout.Space(120);
+            EditorGUILayout.EndVertical();
+
             EditorGUILayout.Separator();
             EditorGUILayout.LabelField("Agent Basic Info", EditorStyles.boldLabel);
             EditorGUILayout.Separator();

@@ -210,7 +210,6 @@ namespace Life.StateMachines
         {
             _observer = context as ObserverAgentController;
         }
-
         private ObserverAgentController _observer;
         private bool _playerNear => Vector3.Distance(_observer.PlayerGameObject.transform.position, _observer.transform.position) < 6;
 
