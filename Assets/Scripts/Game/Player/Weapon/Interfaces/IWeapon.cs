@@ -21,8 +21,8 @@ namespace Game.Player.Weapon
         event EventHandler<WeaponStateEventArgs> WeaponChangedState;
 
         event EventHandler<bool> WeaponActivatedState;
-        bool IsOwnedByPlayer { get; set; }
 
+        bool IsOwnedByPlayer { get; set; }
         int CurrentAmmo { get; }
         bool Active { get; }
         bool Cocked { get; }
@@ -32,14 +32,14 @@ namespace Game.Player.Weapon
         bool IsShooting { get; }
         bool BoltOpen { get; }
         Vector2 RayNoise { get; set; }
-
+        float CurrentRecoil { get; }
 
         WeaponSettings WeaponSettings { get; }
 
         Ray Ray { get; }
         int MaxAmmo { get; }
 
-        void Initialize(WeaponSettings settings, int currentAmmo, bool cocked,bool playerIsOwner);
+        void Initialize(WeaponSettings settings, int currentAmmo, bool cocked, bool playerIsOwner);
 
         bool Fire();
 

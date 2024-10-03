@@ -66,7 +66,10 @@ namespace Game.Entities
             if (gameObject.TryGetComponent(out Rigidbody rrb))
             {
                 rrb.isKinematic = false;
+            
             }
+            GetComponent<Collider>().excludeLayers = 8;
+
         }
 
         private float CalculateDamage(float damage, float distance)

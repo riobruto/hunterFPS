@@ -6,7 +6,6 @@ using UnityEngine.Events;
 namespace Game.Player.Controllers
 {
     [RequireComponent(typeof(AudioSource))]
-
     public class PlayerSoundController : MonoBehaviour, IObserverFromPlayerWeapon
     {
         public event UnityAction<Vector3, float> StepSound;
@@ -27,7 +26,6 @@ namespace Game.Player.Controllers
         {
             _characterController = transform.root.GetComponent<CharacterController>();
             _controller = transform.root.GetComponent<PlayerMovementController>();
-
             _audioSource = GetComponent<AudioSource>();
             _audioSource.volume = 0.33f;
         }
@@ -86,17 +84,17 @@ namespace Game.Player.Controllers
 
         private void DrawDebug(float v)
         {
-            Debug.DrawLine(transform.position, transform.position + Vector3.forward * v, Color.blue, 1);
-            Debug.DrawLine(transform.position, transform.position + (Vector3.forward + Vector3.up).normalized * v, Color.blue, 1);
+            DrawLine(new Vector3(1, 0, 0) * v);
+            DrawLine(new Vector3(-1, 0, 0) * v);
+            DrawLine(new Vector3(0, 1, 0) * v);
+            DrawLine(new Vector3(0, -1, 0) * v);
+            DrawLine(new Vector3(0, 0, 1) * v);
+            DrawLine(new Vector3(0, 0, -1) * v);
+        }
 
-            Debug.DrawLine(transform.position, transform.position + Vector3.right * v, Color.blue, 1);
-            Debug.DrawLine(transform.position, transform.position + (Vector3.right + Vector3.up).normalized * v, Color.blue, 1);
-
-            Debug.DrawLine(transform.position, transform.position + -Vector3.forward * v, Color.blue, 1);
-            Debug.DrawLine(transform.position, transform.position + -(Vector3.forward + Vector3.up).normalized * v, Color.blue, 1);
-
-            Debug.DrawLine(transform.position, transform.position + -Vector3.right * v, Color.blue, 1);
-            Debug.DrawLine(transform.position, transform.position + -(Vector3.right + Vector3.up).normalized * v, Color.blue, 1);
+        private void DrawLine(Vector3 direction)
+        {
+            Debug.DrawLine(transform.position, transform.position + direction, Color.blue, 1);
         }
 
         void IObserverFromPlayerWeapon.Detach(PlayerWeapons controller)

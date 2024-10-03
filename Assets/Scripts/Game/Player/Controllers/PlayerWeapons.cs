@@ -417,7 +417,6 @@ namespace Game.Player.Controllers
                 case WeaponSlotType.MAIN:
                 case WeaponSlotType.SECONDARY:
                     return _gunWeaponEngine;
-
                 case WeaponSlotType.MEELEE:
                 default:
                     return null;

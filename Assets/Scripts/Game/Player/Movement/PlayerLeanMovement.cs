@@ -20,8 +20,7 @@ namespace Game.Player.Movement
             {
                 target = 0;
             }
-            //TODO: fijar rotacion en un punto orientado a la camara
-            //stalker type rotation
+
             _leanTransform.localRotation = Quaternion.Slerp(_leanTransform.localRotation, Quaternion.Euler(0, 0, target), Time.deltaTime * 5f);
         }
 

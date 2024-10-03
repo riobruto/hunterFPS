@@ -76,6 +76,8 @@ namespace Game.Player.Weapon.Engines
         public Vector2 RayNoise { get => _noise; set => _noise = value; }
         bool IWeapon.IsOwnedByPlayer { get => _playerIsOwner; set => _playerIsOwner = value; }
 
+        float IWeapon.CurrentRecoil => _timeOfSpray;
+
         bool _playerIsOwner = false;
 
         void IWeapon.Initialize(WeaponSettings settings, int currentAmmo, bool cocked, bool isPlayerOwner)

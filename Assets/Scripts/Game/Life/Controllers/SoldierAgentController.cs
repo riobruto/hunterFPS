@@ -1,37 +1,59 @@
-﻿using Game.Life;
+﻿using Game.Entities;
+using Game.Life;
+using Game.Player.Weapon;
 using Life.Controllers;
-
+using System.Collections;
 using UnityEngine;
-using UnityEngine.Events;
 
 namespace Life.StateMachines
 {
-    public class ObserverAgentController : AgentController
+    public class SoldierAgentController : AgentController
     {
         private bool _reportedPlayer;
-
-        [field: SerializeField] public UnityEvent<bool> ReportPlayerEvent;
-        [field: SerializeField] public BlindAgentController Attacker;
 
         private bool _playerMadeNoise;
 
         private ObserverWanderState _wander;
         private ObserverReportState _report;
         private ObserverEscapeState _escape;
-        private ObserverBlindState _blind;
         private ObserverDieState _die;
 
         private AgentCoverSensor _cover;
+        private AgentWeapon _weapon;
 
         public override void OnStart()
         {
             _cover = gameObject.AddComponent<AgentCoverSensor>();
+            _weapon = gameObject.GetComponent<AgentWeapon>();
 
             CreateStates();
             CreateTransitions();
-            Attacker.AddObserverAgent(this);
             SetMaxHealth(100);
             SetHealth(100);
+
+            StartCoroutine(BindWeapon());
+        }
+
+        private IEnumerator BindWeapon()
+        {
+            yield return new WaitForEndOfFrame();
+            _weapon.WeaponEngine.WeaponChangedState += OnWeaponChangeState;
+        }
+
+        private void OnWeaponChangeState(object sender, WeaponStateEventArgs e)
+        {
+            if (e.State == Core.Weapon.WeaponState.BEGIN_SHOOTING)
+            {
+                Animator.SetTrigger("FIRE");
+            }
+            if (e.State == Core.Weapon.WeaponState.BEGIN_RELOADING)
+            {
+                Animator.SetTrigger("RELOAD");
+            }
+            if (e.State == Core.Weapon.WeaponState.BEGIN_RELOADING_EMPTY)
+            {
+                Animator.SetTrigger("RELOAD");
+            }
         }
 
         public CoverData GetCover(CoverSearchType type)
@@ -42,6 +64,13 @@ namespace Life.StateMachines
         public override void OnDeath()
         {
             Machine.ForceChangeToState(_die);
+            Animator.enabled = false;
+            NavMesh.isStopped = true;
+
+            foreach (CharacterLimbHitbox body in GetComponentsInChildren<CharacterLimbHitbox>(true))
+            {
+                body.Ragdoll();
+            }
         }
 
         public override void OnUpdate()
@@ -50,6 +79,28 @@ namespace Life.StateMachines
             {
                 _playerMadeNoise = false;
             }
+            ManageWeapon();
+            _hurtStopVelocityMultiplier = Mathf.Clamp(_hurtStopVelocityMultiplier + Time.deltaTime, 0, 1);
+        }
+
+        private void ManageWeapon()
+        {
+            if (!_allowFire || IsDead) return;
+
+            CoverType = _weapon.WeaponEngine.CurrentAmmo > 10 ? CoverSearchType.NEAREST_FROM_PLAYER : CoverSearchType.FARTEST_FROM_PLAYER;
+
+            if (_weapon.HasNoAmmo)
+            {
+                _weapon.WeaponEngine.ReleaseFire();
+                _weapon.WeaponEngine.Reload(_weapon.WeaponEngine.WeaponSettings.Ammo.Size);
+            }
+
+            if (_weapon.WeaponEngine.CurrentRecoil > Random.Range(0f, .33f))
+            {
+                return;
+            }
+
+            _weapon.WeaponEngine.Fire();
         }
 
         private void CreateStates()
@@ -57,7 +108,7 @@ namespace Life.StateMachines
             _wander = new(this);
             _report = new(this);
             _escape = new(this);
-            _blind = new(this);
+
             _die = new(this);
         }
 
@@ -71,10 +122,13 @@ namespace Life.StateMachines
         }
 
         private float _lastPlayerSawTime;
-
         private bool _lostPlayer => Time.realtimeSinceStartup - _lastPlayerSawTime > 20;
 
         public CoverSearchType CoverType;
+        private float _hurtStopVelocityMultiplier;
+        private bool _allowFire;
+
+        public float HurtVelocityMultiplier => _hurtStopVelocityMultiplier;
 
         internal void ReportPlayer()
         {
@@ -89,33 +143,18 @@ namespace Life.StateMachines
 
         internal void Die()
         {
-            Attacker.RemoveObserverAgent(this);
             Machine.ForceChangeToState(_die);
         }
 
         public override void OnHurt(float value)
         {
             SetHealth(GetHealth() - value);
+            _hurtStopVelocityMultiplier = 0;
         }
 
-        internal CoverData GetCover(object coverType)
+        public void AllowFire(bool state)
         {
-            throw new System.NotImplementedException();
-        }
-    }
-
-    public class ObserverPayload
-    {
-        public Vector3 Position { get; private set; }
-        public float Time { get; private set; }
-
-        public bool InSight { get; private set; }
-
-        public ObserverPayload(Vector3 position, float time, bool inSight)
-        {
-            Position = position;
-            Time = time;
-            InSight = inSight;
+            _allowFire = state;
         }
     }
 
@@ -123,10 +162,10 @@ namespace Life.StateMachines
     {
         public ObserverWanderState(AgentController context) : base(context)
         {
-            _observer = context as ObserverAgentController;
+            _observer = context as SoldierAgentController;
         }
 
-        private ObserverAgentController _observer;
+        private SoldierAgentController _observer;
 
         private Vector3 _targetPos;
 
@@ -157,7 +196,6 @@ namespace Life.StateMachines
 
         private void FindNewTarget()
         {
-            _targetPos = _observer.Attacker.transform.position + Random.insideUnitSphere * 15;
             _observer.SetTarget(_targetPos);
         }
 
@@ -173,10 +211,10 @@ namespace Life.StateMachines
     {
         public ObserverReportState(AgentController context) : base(context)
         {
-            _observer = context as ObserverAgentController;
+            _observer = context as SoldierAgentController;
         }
 
-        private ObserverAgentController _observer;
+        private SoldierAgentController _observer;
         private float _time;
 
         public override void DrawGizmos()
@@ -208,9 +246,10 @@ namespace Life.StateMachines
     {
         public ObserverEscapeState(AgentController context) : base(context)
         {
-            _observer = context as ObserverAgentController;
+            _observer = context as SoldierAgentController;
         }
-        private ObserverAgentController _observer;
+
+        private SoldierAgentController _observer;
         private bool _playerNear => Vector3.Distance(_observer.PlayerGameObject.transform.position, _observer.transform.position) < 6;
 
         public override void DrawGizmos()
@@ -231,39 +270,20 @@ namespace Life.StateMachines
 
         public override void Update()
         {
+            _observer.NavMesh.speed = 5 * _observer.HurtVelocityMultiplier;
+
             CoverData cover = _observer.GetCover(_observer.CoverType);
+
+            _observer.AllowFire(_observer.IsPlayerInRange(10) && _observer.IsPlayerVisible());
+
             _observer.SetLookTarget(_observer.PlayerHeadPosition);
+
             if (cover.Position != Vector3.zero)
             {
                 _observer.SetTarget(cover.Position);
             }
+
             _observer.ReportPlayer();
-        }
-    }
-
-    public class ObserverBlindState : BaseState
-    {
-        public ObserverBlindState(AgentController context) : base(context)
-        {
-            _observer = context as ObserverAgentController;
-        }
-
-        private ObserverAgentController _observer;
-
-        public override void DrawGizmos()
-        {
-        }
-
-        public override void End()
-        {
-        }
-
-        public override void Start()
-        {
-        }
-
-        public override void Update()
-        {
         }
     }
 
@@ -271,10 +291,10 @@ namespace Life.StateMachines
     {
         public ObserverDieState(AgentController context) : base(context)
         {
-            _observer = context as ObserverAgentController;
+            _observer = context as SoldierAgentController;
         }
 
-        private ObserverAgentController _observer;
+        private SoldierAgentController _observer;
 
         public override void DrawGizmos()
         {

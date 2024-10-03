@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Game.Life
 {
-    public class AgentWeaponBehavior : MonoBehaviour
+    public class AgentWeapon : MonoBehaviour
     {
         [SerializeField] private AudioClip _fireSound;
         [SerializeField] private AudioClip _reloadSound;

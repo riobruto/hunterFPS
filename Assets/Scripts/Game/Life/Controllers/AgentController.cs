@@ -35,7 +35,11 @@ namespace Life.Controllers
 
         public float GetMaxHealth() => _maxHealth;
 
-        public void SetMaxHealth(float value) => _maxHealth = value;
+        public void SetMaxHealth(float value)
+        {
+            _maxHealth = value;
+            _alive = true;
+        }
 
         public UnityAction<float> HealthChangedEvent;
         public UnityAction DeadEvent;
@@ -74,7 +78,6 @@ namespace Life.Controllers
         private void Start()
         {
             _machine = new StateMachine();
-            Initialized = true;
 
             _navMeshAgent = GetComponent<NavMeshAgent>();
             _animator = GetComponent<Animator>();
@@ -91,6 +94,7 @@ namespace Life.Controllers
             _playerSound.StepSound += OnPlayerStep;
             _playerSound.GunSound += OnPlayerGun;
 
+            Initialized = true;
             OnStart();
         }
 
@@ -134,13 +138,23 @@ namespace Life.Controllers
 
         private void Update()
         {
+            if (!Initialized) return;
+
             _machine?.Update();
             UpdateMovement();
+
+            if (_alive && _health <= 0 && _maxHealth != 0)
+            {
+                OnDeath();
+                _alive = false;
+            }
+
             OnUpdate();
         }
 
         private Vector3 _aimTarget;
         private bool _faceTarget;
+        private bool _alive = false;
 
         [Header("Movement")]
         [SerializeField] private float _minMoveDistance = 1f;
@@ -159,9 +173,11 @@ namespace Life.Controllers
 
         private void UpdateMovement()
         {
+            if (!_alive) return;
+
             //_aimTarget = Bootstrap.Resolve<PlayerSpawnerService>().Player.transform.position;
 
-            var aimDir = (_aimTarget - transform.position).normalized;
+            var aimDir = (_aimTarget - _head.position).normalized;
 
             float aim_horizontal = _faceTarget ? Vector3.Cross(transform.forward, aimDir).y : 0;
             float aim_vertical = _faceTarget ? Vector3.Dot(transform.up, aimDir) : 0;
@@ -175,7 +191,7 @@ namespace Life.Controllers
             Vector3 relativeVelocity = transform.InverseTransformDirection(_navMeshAgent.velocity);
             Debug.DrawRay(transform.position, relativeVelocity);
 
-            _animator.SetFloat("mov_turn", aim_horizontal * _navMeshAgent.angularSpeed * Time.deltaTime, .0125f, Time.deltaTime);
+            _animator.SetFloat("mov_turn", aim_horizontal * _navMeshAgent.angularSpeed * Time.deltaTime, .05f, Time.deltaTime);
 
             if (_faceTarget)
             {

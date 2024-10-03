@@ -71,16 +71,16 @@ namespace Life.Controllers
             _die = new(this);
         }
 
-        private List<ObserverAgentController> _observers = new List<ObserverAgentController>();
+        private List<SoldierAgentController> _observers = new List<SoldierAgentController>();
 
         public bool PendingPlayerSoundChase;
 
-        public void AddObserverAgent(ObserverAgentController observerAgent)
+        public void AddObserverAgent(SoldierAgentController observerAgent)
         {
             _observers.Add(observerAgent);
         }
 
-        public void RemoveObserverAgent(ObserverAgentController observerAgent)
+        public void RemoveObserverAgent(SoldierAgentController observerAgent)
         {
             _observers.Remove(observerAgent);
         }
