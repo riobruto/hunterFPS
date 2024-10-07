@@ -9,8 +9,10 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+#if UNITY_EDITOR
 namespace Core.Console
 {
+
     public class ConsoleService : SceneService
     {
         public ConsoleInput Input;
@@ -117,5 +119,8 @@ namespace Core.Console
             }
             return scripts;
         }
-    }
+
+    }    
+
 }
+#endif

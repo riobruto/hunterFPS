@@ -78,7 +78,7 @@ namespace Game.Player.Weapon.Engines
 
         float IWeapon.CurrentRecoil => _timeOfSpray;
 
-        bool _playerIsOwner = false;
+        private bool _playerIsOwner = false;
 
         void IWeapon.Initialize(WeaponSettings settings, int currentAmmo, bool cocked, bool isPlayerOwner)
         {
@@ -260,12 +260,12 @@ namespace Game.Player.Weapon.Engines
 
                 Debug.Log("Fire Begin");
                 NotifyState(WeaponState.BEGIN_SHOOTING);
+                CreateHitScan();
                 _pinDeactivated = _weaponSettings.FireModes == WeaponFireModes.BOLT;
                 _fireRatio = 60 / _weaponSettings.FireRatioPPM;
                 _hasReleasedTrigger = false;
                 _currentAmmo -= 1;
                 _timeOfSpray = Mathf.Clamp(_timeOfSpray + _fireRatio, 0, 1);
-                CreateHitScan();
                 Debug.Log("Fire End: " + _currentAmmo);
                 NotifyState(WeaponState.END_SHOOTING);
             }
@@ -279,11 +279,19 @@ namespace Game.Player.Weapon.Engines
         private void CreateHitScan()
         {
             //TODO: Crear logica de escopeta. (para q se pueda noma)
+
             Ray ray = new Ray(GetRay().origin, GetRay().direction);
 
             if (VisualPhysics.Raycast(ray, out RaycastHit hit, 1000, _currentLayerMask))
             {
                 Bootstrap.Resolve<HitScanService>().Dispatch(new HitWeaponEventPayload(hit, new Ray(ray.origin, ray.direction), _weaponSettings.Damage));
+
+
+                Bootstrap.Resolve<ImpactService>().System.TraceAtPosition(ray.origin, hit.point);
+            }
+            else
+            {
+                Bootstrap.Resolve<ImpactService>().System.TraceAtPosition(ray.origin, ray.origin + ray.direction * 100);
             }
         }
 

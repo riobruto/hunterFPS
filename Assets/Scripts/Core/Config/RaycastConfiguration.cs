@@ -10,6 +10,7 @@ namespace Core.Configuration
         [SerializeField] private LayerMask _ladderLayer;
         [SerializeField] private LayerMask _ignoreLayers;
         [SerializeField] private LayerMask _wallrunLayers;
+        [SerializeField] private LayerMask _coverLayers;
 
         [SerializeField] private LayerMask _playerHitLayers;
         [SerializeField] private LayerMask _enemyHitLayers;
@@ -19,6 +20,7 @@ namespace Core.Configuration
         public LayerMask ActionLayer { get => _actionLayer; }
         public LayerMask LadderLayer { get => _ladderLayer; }
         public LayerMask IgnoreLayers { get => _ignoreLayers; }
+        public LayerMask CoverLayers { get => _coverLayers; }
         public LayerMask WallrunLayers { get => _wallrunLayers; }
         public LayerMask PlayerGunLayers { get => _playerHitLayers; }
         public LayerMask GrenadeHitLayers { get => _grenadeHitLayers; }

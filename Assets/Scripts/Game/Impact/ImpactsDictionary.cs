@@ -9,10 +9,13 @@ namespace Game.Impact
     {
         [SerializeField] private ImpactObject _grenadeExplosion;
         [SerializeField] private ImpactObject _concreteHit;
-
-
+        [SerializeField] private ImpactObject _bloodHit;
+        [SerializeField] private GameObject _tracer;
         public ImpactObject GrenadeExplosion => _grenadeExplosion;
         public ImpactObject ConcreteHit => _concreteHit;
+        public ImpactObject BloodHit => _bloodHit;
+
+        public GameObject Tracer { get => _tracer; }
     }
 
     [Serializable]
@@ -30,9 +33,8 @@ namespace Game.Impact
         public bool HasDistanceBlend { get => _useDistanceBlend; }
         public AudioClipCompendium SoundFar { get => _soundFar; }
     }
+
     public class ImpactData
     {
-
-    } 
-
+    }
 }

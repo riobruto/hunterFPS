@@ -1,11 +1,7 @@
 ﻿using Core.Engine;
 using Core.Weapon;
-using Game.Entities;
-using Game.Player;
 using Game.Player.Controllers;
 using Game.Service;
-using System;
-using System.Collections;
 using UnityEngine;
 
 namespace Game.Entities
@@ -90,8 +86,13 @@ namespace Game.Entities
         {
             if (FindObjectOfType<PlayerWeapons>().TryGiveWeapon(_weapon, _currentAmmo))
             {
-                //{ Destroy(gameObject); }
+                { Destroy(gameObject); }
             }
+        }
+
+        internal void SetAsset(WeaponSettings weapon)
+        {
+            _weapon = weapon;
         }
     }
 }

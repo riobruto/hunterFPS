@@ -1,9 +1,9 @@
 ﻿using Core.Engine;
 using Core.Weapon;
+using Game.Entities;
 using Game.Player.Weapon;
 using Game.Player.Weapon.Engines;
 using Game.Service;
-using System.Collections;
 using UnityEngine;
 
 namespace Game.Life
@@ -11,11 +11,13 @@ namespace Game.Life
     public class AgentWeapon : MonoBehaviour
     {
         [SerializeField] private AudioClip _fireSound;
+        [SerializeField] private AudioClip _fireFarSound;
         [SerializeField] private AudioClip _reloadSound;
         [SerializeField] private Transform _weaponTransform;
         [SerializeField] private ParticleSystem _weaponParticleSystem;
-
+        [SerializeField] private TrailRenderer _trailRenderer;
         [SerializeField] private WeaponSettings _weapon;
+        [SerializeField] private GameObject WeaponVisual;
         private Vector3 _aimTarget;
         private Camera _playerCamera;
         private Transform _player => _playerCamera.transform;
@@ -37,11 +39,21 @@ namespace Game.Life
             _playerCamera = Bootstrap.Resolve<PlayerService>().PlayerCamera;
         }
 
+        public void DropWeapon()
+        {
+            WeaponVisual.GetComponent<Rigidbody>().isKinematic = false;
+            WeaponVisual.transform.parent = null;
+            WeaponVisual.AddComponent<PickableWeaponEntity>().SetAsset(_weapon);
+            _weaponEngine.ReleaseFire();
+            Destroy(_weaponTransform.gameObject);
+        }
+
         private void OnWeaponChangeState(object sender, WeaponStateEventArgs e)
         {
             if (e.State == WeaponState.BEGIN_SHOOTING)
             {
-                AudioSource.PlayClipAtPoint(_fireSound, _player.position + (transform.position - _player.position).normalized);
+                ManageFireSound();
+
                 _weaponParticleSystem.Play();
                 GetComponent<Animator>().SetTrigger("FIRE");
             }
@@ -53,11 +65,18 @@ namespace Game.Life
             }
         }
 
+        private void ManageFireSound()
+        {
+            AudioSource.PlayClipAtPoint(_fireSound, transform.position, Mathf.InverseLerp(50, 0, Vector3.Distance(transform.position, _player.position)));
+            AudioSource.PlayClipAtPoint(_fireFarSound, transform.position, Mathf.InverseLerp(0, 50, Vector3.Distance(transform.position, _player.position)));
+        }
+
         private void Update()
         {
             _aimTarget = _playerCamera.transform.position - Vector3.up * .5f;
-            _weaponEngine.SetMovementDelta(Random.insideUnitCircle * 3f);
-            _weaponTransform.LookAt(_aimTarget);
+            _weaponEngine.SetMovementDelta(Random.insideUnitCircle * 10f);
+
+            if(_weaponTransform != null) _weaponTransform.LookAt(_aimTarget);
         }
     }
 }

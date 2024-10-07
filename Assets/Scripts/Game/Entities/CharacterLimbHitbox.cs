@@ -1,4 +1,5 @@
-﻿using Game.Hit;
+﻿using Core.Engine;
+using Game.Hit;
 using Game.Service;
 using Life.Controllers;
 using UnityEngine;
@@ -29,6 +30,9 @@ namespace Game.Entities
             LimbHitEvent?.Invoke(CalculateDamage(payload.Damage, payload.Distance), this);
 
             _ownerAgent.NotifyHurt(CalculateDamage(payload.Damage, payload.Distance));
+
+            Bootstrap.Resolve<ImpactService>().System.BloodImpactAtPosition(payload.RaycastHit.point, payload.RaycastHit.normal, transform);
+
 
             if (gameObject.TryGetComponent(out Rigidbody rb))
             {

@@ -9,7 +9,8 @@ namespace Game.Entities
     {
         void IHittableFromWeapon.OnHit(HitWeaponEventPayload payload)
         {
-            Bootstrap.Resolve<ImpactService>().System.ImpactAtPosition(payload.RaycastHit.point, payload.RaycastHit.normal);
+            Bootstrap.Resolve<ImpactService>().System.ImpactAtPosition(payload.RaycastHit.point, payload.RaycastHit.normal, transform);
+           
 
             if (gameObject.TryGetComponent(out Rigidbody rb))
             {

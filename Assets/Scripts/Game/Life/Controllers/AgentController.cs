@@ -22,7 +22,7 @@ namespace Life.Controllers
 
         private float _health;
         private float _maxHealth;
-        private bool _isDead;
+        private bool _isDead => !_alive;
 
         public IState CurrentState => _machine.CurrentState;
 
@@ -65,6 +65,7 @@ namespace Life.Controllers
         [SerializeField] private LayerMask _ignoreMask;
 
         [SerializeField] private Transform _head;
+        public Transform Head => _head;
         [SerializeField] private float _rangeDistance = 20;
         private GameObject _player;
         private Camera _playerCamera;
@@ -145,6 +146,9 @@ namespace Life.Controllers
 
             if (_alive && _health <= 0 && _maxHealth != 0)
             {
+                _playerSound.StepSound -= OnPlayerStep;
+                _playerSound.GunSound -= OnPlayerGun;
+
                 OnDeath();
                 _alive = false;
             }
@@ -174,7 +178,7 @@ namespace Life.Controllers
         private void UpdateMovement()
         {
             if (!_alive) return;
-
+            _navMeshAgent.updateRotation = !_faceTarget;
             //_aimTarget = Bootstrap.Resolve<PlayerSpawnerService>().Player.transform.position;
 
             var aimDir = (_aimTarget - _head.position).normalized;
@@ -211,10 +215,6 @@ namespace Life.Controllers
             }
         }
 
-        internal void SetSpeed(float v)
-        {
-            _navMeshAgent.speed = v;
-        }
 
         #region Virtual Methods
 

@@ -6,7 +6,7 @@ namespace Game.Player.Animation
     public class PlayerBodyAnimator : MonoBehaviour
     {
         private Animator _animator;
-       [SerializeField] private Animator _wingAnimator;
+       //[SerializeField] private Animator _wingAnimator;
         private PlayerMovementController _controller;
 
         private void Start()
@@ -26,13 +26,14 @@ namespace Game.Player.Animation
             _animator.SetBool("FLY", _controller.IsFlying);
             _animator.SetBool("FALLING", _controller.IsFalling);
 
-
+            /*
             _wingAnimator.SetFloat("mov_forward", _controller.RelativeVelocity.z);
             _wingAnimator.SetFloat("mov_right", _controller.RelativeVelocity.x);
             _wingAnimator.SetFloat("aim_vertical", ((_controller.LookMovement.VerticalLookAngle / 80f)) * -1);
             _wingAnimator.SetBool("CROUCH", _controller.IsCrouching);
             _wingAnimator.SetBool("FLY", _controller.IsFlying);
             _wingAnimator.SetBool("FALLING", _controller.IsFalling);
+            */
         }
     }
 }
