@@ -55,8 +55,10 @@ namespace Game.Life
             _debugPos = position;
             _debugThreat = threat;
 
-            for (int i = 0; i < _detectionResolution; i++)
+            for (int i = 1; i < _detectionResolution; i++)
             {
+
+
                 float dist = Mathf.Pow(i / (_detectionResolution - 1f), 0.5f) * _detectionRadius;
                 float angle = 2 * Mathf.PI * 1.618035f * i;
                 float x = dist * Mathf.Cos(angle);
@@ -70,6 +72,7 @@ namespace Game.Life
                 yield return new(
                    hit.position,
                    Vector3.Distance(hit.position, threat),
+                   Vector3.Distance(hit.position, position),
                    IsSafeForCover(hit.position + Vector3.up * 1.75f, threat),
                    IsSafeForCover(hit.position + Vector3.up * 1, threat),
                    threat.y - (hit.position.y + 1.75f) > 1.5f
@@ -102,20 +105,18 @@ namespace Game.Life
 
     public struct SpatialDataPoint
     {
-        public Vector3 Position;
+        public Vector3 Position { get; private set; }
+        public float DistanceFromThreat { get; private set; }
+        public float DistanceFromCenter { get; private set; }        
+        public bool SafeFromStanding { get; private set; }
+        public bool SafeFromCrouch { get; private set; }
+        public bool HasHeightAdvantage { get; private set; }
 
-        public float DistanceFromThreat;
-
-        public bool SafeFromStanding;
-
-        public bool SafeFromCrouch;
-
-        public bool HasHeightAdvantage;
-
-        public SpatialDataPoint(Vector3 position, float distanceFromThreat, bool safeFromStanding, bool safeFromCrouch, bool heightAdvantage)
+        public SpatialDataPoint(Vector3 position, float distanceFromThreat, float distanceFromPoint, bool safeFromStanding, bool safeFromCrouch, bool heightAdvantage)
         {
             Position = position;
             DistanceFromThreat = distanceFromThreat;
+            DistanceFromCenter = distanceFromPoint;
             SafeFromStanding = safeFromStanding;
             SafeFromCrouch = safeFromCrouch;
             HasHeightAdvantage = heightAdvantage;

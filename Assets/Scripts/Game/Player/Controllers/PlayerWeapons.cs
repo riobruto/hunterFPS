@@ -264,6 +264,7 @@ namespace Game.Player.Controllers
 
                 if (_playerMovementController.IsSprinting) return;
                 if (_isObstructed) return;
+
                 _weaponEngine.Fire();
             }
 

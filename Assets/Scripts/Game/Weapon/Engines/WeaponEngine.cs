@@ -256,9 +256,22 @@ namespace Game.Player.Weapon.Engines
             {
                 if (!ValidFireRatio) return;
                 if (!CanFireFromFireMode()) return;
-                if (_currentAmmo <= 0) return;
 
-                Debug.Log("Fire Begin");
+                if (_currentAmmo <= 0)
+                {
+                    if (!_pinDeactivated)
+                    {
+                        if (_isReloading || _isManipulatingBolt || _isBoltOpen) 
+                            return;
+
+                        NotifyState(WeaponState.FAIL_SHOOTING);
+                        _pinDeactivated = true;
+                        _hasReleasedTrigger = false;
+                    }
+
+                    return;
+                }
+
                 NotifyState(WeaponState.BEGIN_SHOOTING);
                 CreateHitScan();
                 _pinDeactivated = _weaponSettings.FireModes == WeaponFireModes.BOLT;
@@ -266,7 +279,7 @@ namespace Game.Player.Weapon.Engines
                 _hasReleasedTrigger = false;
                 _currentAmmo -= 1;
                 _timeOfSpray = Mathf.Clamp(_timeOfSpray + _fireRatio, 0, 1);
-                Debug.Log("Fire End: " + _currentAmmo);
+                
                 NotifyState(WeaponState.END_SHOOTING);
             }
 
@@ -285,7 +298,6 @@ namespace Game.Player.Weapon.Engines
             if (VisualPhysics.Raycast(ray, out RaycastHit hit, 1000, _currentLayerMask))
             {
                 Bootstrap.Resolve<HitScanService>().Dispatch(new HitWeaponEventPayload(hit, new Ray(ray.origin, ray.direction), _weaponSettings.Damage));
-
 
                 Bootstrap.Resolve<ImpactService>().System.TraceAtPosition(ray.origin, hit.point);
             }

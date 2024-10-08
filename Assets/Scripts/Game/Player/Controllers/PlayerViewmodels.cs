@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Game.Player.Controllers
 {
-    public class PlayerHandsVisuals : MonoBehaviour
+    public class PlayerViewmodels : MonoBehaviour
     {
         private Dictionary<WeaponSettings, GameObject> _activeWeapons = new Dictionary<WeaponSettings, GameObject>();
 
@@ -22,6 +22,7 @@ namespace Game.Player.Controllers
         [SerializeField] private Transform _cameraTrackerBone;
 
         private bool _subscribedToWeaponEngine = false;
+        private bool _firedDryFire;
 
         private void Start()
         {
@@ -75,11 +76,24 @@ namespace Game.Player.Controllers
         //Called when the weapon engine emits an change in state
         private void OnWeaponChangeState(object sender, WeaponStateEventArgs e)
         {
+            _animator.ResetTrigger("DRY");
+
             if (_currentWeapon != null)
             {
+                if (e.State == WeaponState.FAIL_SHOOTING)
+                {
+                    _firedDryFire = true;
+                }
+                if (e.State == WeaponState.BEGIN_SHOOTING)
+                {
+                    _firedDryFire = false;
+                }
+
                 _animator.SetTrigger(e.State.ToString());
+
                 _animator.SetBool("EMPTY", _weapons.WeaponEngine.CurrentAmmo == 0);
                 _animator.SetBool("COCKED", _weapons.WeaponEngine.Cocked);
+                _animator.SetBool("DRY", _firedDryFire);
             }
         }
 

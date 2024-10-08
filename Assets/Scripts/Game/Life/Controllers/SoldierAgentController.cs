@@ -4,6 +4,7 @@ using Game.Player.Weapon;
 using Life.Controllers;
 
 using System.Collections;
+using System.Linq;
 using UnityEngine;
 
 namespace Life.StateMachines
@@ -24,6 +25,7 @@ namespace Life.StateMachines
         private AgentWeapon _weapon;
 
         public AgentCoverSensor CoverSensor => _cover;
+        public AgentWeapon Weapon => _weapon;
 
         public override void OnStart()
         {
@@ -375,12 +377,18 @@ namespace Life.StateMachines
 
         private SoldierAgentController _observer;
         private Vector3 _destination;
+        private Vector3 _nearestAggresive;
+        private Vector3 _nearestCover;
         private float _lastEvaluationTime;
         private CoverData cover;
 
         public override void DrawGizmos()
         {
             Gizmos.DrawWireSphere(_destination, 1f);
+            Gizmos.color = Color.red;
+            Gizmos.DrawWireSphere(_nearestAggresive, 1f);
+            Gizmos.color = Color.green;
+            Gizmos.DrawWireSphere(_nearestCover, 1f);
 
             /* Gizmos.DrawWireSphere(_observer.Attacker.position, .4f);
              Gizmos.color = Color.red;
@@ -399,8 +407,19 @@ namespace Life.StateMachines
 
         private void Evaluate()
         {
-            cover = _observer.CoverSensor.FindNearestCover(_observer.PlayerGameObject.transform.position, _observer.PlayerHeadPosition);
-            _destination = cover.Position;
+            SpatialDataPoint[] points = _observer.CoverSensor.GetCombatSpatialData(_observer.transform.position, _observer.PlayerHeadPosition).ToArray();
+
+            _nearestAggresive = points.OrderBy(x => x.DistanceFromThreat).First(x => !x.SafeFromStanding).Position;
+            _nearestCover = points.OrderBy(x => x.DistanceFromCenter).First(x => x.SafeFromStanding || x.SafeFromCrouch).Position;
+
+            if (_observer.GetHealth() < _observer.GetMaxHealth() / 2f)
+            {
+                SpatialDataPoint safest = points.OrderBy(x => x.DistanceFromThreat).First(x => !x.SafeFromStanding && x.SafeFromCrouch);
+                if (safest.Position != Vector3.zero) { _nearestAggresive = safest.Position; }
+            }
+
+            _destination = _observer.Weapon.WeaponEngine.CurrentAmmo > _observer.Weapon.WeaponEngine.MaxAmmo / 2 ? _nearestAggresive : _nearestCover;
+
             _observer.Animator.SetBool("CROUCH", cover.NeedCrouch);
         }
 
@@ -411,6 +430,7 @@ namespace Life.StateMachines
                 Evaluate();
                 _lastEvaluationTime = Time.time;
             }
+
             float speed = 0;
             if (!cover.NeedCrouch)
             {
@@ -419,7 +439,7 @@ namespace Life.StateMachines
             else speed = 1;
 
             _observer.NavMesh.speed = speed * _observer.HurtVelocityMultiplier;
-            _destination = cover.Position;
+
             _observer.AllowFire(_observer.IsPlayerInRange(50) && _observer.IsPlayerVisible());
             _observer.SetLookTarget(_observer.PlayerHeadPosition);
 
