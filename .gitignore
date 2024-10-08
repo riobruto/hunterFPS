@@ -100,3 +100,10 @@ art/
 *.obj
 
 Assets/KriptoFX/Readme.txt
+ignore.conf
+.plastic/preview/version
+.plastic/plastic.workspace
+.plastic/plastic.wktree
+.plastic/plastic.selector
+.plastic/plastic.fullycheckeddirectories
+.plastic/cachedtrees/56e62dd7-241f-41e9-8c6b-dd4ca4513e62.1
