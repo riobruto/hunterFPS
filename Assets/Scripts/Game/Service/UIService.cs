@@ -5,14 +5,21 @@ using UnityEngine.SceneManagement;
 namespace Game.Service
 {
     public delegate void MessageDelegate(MessageParameters parameters);
+    public delegate void SubtitleDelegate(SubtitleParameters parameters);
 
     public class UIService : SceneService
     {
         public static event MessageDelegate CreateMessageEvent;
+        public static event SubtitleDelegate CreateSubtitleEvent;
 
         public static void CreateMessage(MessageParameters parameters)
         {
             CreateMessageEvent?.Invoke(parameters);
+        }
+
+        public static void CreateSubtitle(SubtitleParameters parameters)
+        {
+            CreateSubtitleEvent?.Invoke(parameters);
         }
 
         internal override void Initialize()
@@ -59,5 +66,16 @@ namespace Game.Service
             Color = color;
             BackgroundColor = backgroundColor;
         }
+    }
+
+    public struct SubtitleParameters
+    {
+        public string Name;
+        public string Content;
+        public float Duration;
+        public Vector3 Location;
+        public bool FollowTransform;
+        public Transform Transform;
+        public Vector3 Offset;
     }
 }

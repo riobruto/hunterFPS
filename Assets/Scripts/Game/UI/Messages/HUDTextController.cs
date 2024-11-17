@@ -1,20 +1,23 @@
 ﻿using Game.Service;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Game.UI.Life;
 using UnityEngine;
 
 namespace Game.UI.Messages
 {
-    internal class HUDMessageController : MonoBehaviour
+    internal class HUDTextController : MonoBehaviour
     {
         [SerializeField] private GameObject _messagePrefab;
-              
+        [SerializeField] private GameObject _subtitlePrefab;
+
         private void OnEnable()
         {
             UIService.CreateMessageEvent += OnMessage;
+            UIService.CreateSubtitleEvent += OnSubtitle;
+        }
+
+        private void OnSubtitle(SubtitleParameters parameters)
+        {
+            CreateSubtitle(parameters);
         }
 
         private void OnMessage(MessageParameters parameters)
@@ -25,6 +28,7 @@ namespace Game.UI.Messages
         private void OnDisable()
         {
             UIService.CreateMessageEvent -= OnMessage;
+            UIService.CreateSubtitleEvent -= OnSubtitle;
         }
 
         private GameObject CreateMessage(MessageParameters parameter)
@@ -32,6 +36,14 @@ namespace Game.UI.Messages
             GameObject message = Instantiate(_messagePrefab, GetComponent<RectTransform>());
             message.GetComponent<HUDMessage>().Set(parameter);
             return message;
+        }
+
+        private GameObject CreateSubtitle(SubtitleParameters parameters)
+        {
+            Canvas canvas = transform.root.GetComponent<Canvas>();
+            GameObject subtitle = Instantiate(_subtitlePrefab, canvas.transform);
+            subtitle.GetComponent<HUDFloatingSubtitle>().Create(parameters, canvas);
+            return subtitle;
         }
     }
 }
