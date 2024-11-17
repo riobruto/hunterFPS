@@ -1,4 +1,5 @@
 ﻿using Core.Engine;
+using Game.Life;
 using Game.Player.Controllers;
 using Game.Service;
 using Life.StateMachines;
@@ -43,6 +44,7 @@ namespace Life.Controllers
 
         public UnityAction<float> HealthChangedEvent;
         public UnityAction DeadEvent;
+        public UnityAction<bool> PlayerPerceptionEvent;
 
         public StateMachine Machine
         {
@@ -64,18 +66,26 @@ namespace Life.Controllers
         [Header("Player Perception")]
         [SerializeField] private LayerMask _ignoreMask;
 
+        [SerializeField] private AgentGroup _group;
         [SerializeField] private Transform _head;
-        public Transform Head => _head;
         [SerializeField] private float _rangeDistance = 20;
         private GameObject _player;
         private Camera _playerCamera;
+        private AgentGlobalSystem _agentGlobalsystem;
+        private PlayerSoundController _playerSound;
+        private bool _playerDetected => IsPlayerInRange(_rangeDistance) && IsPlayerInViewAngle(-0.3f)  && IsPlayerVisible();
+
         public Vector3 PlayerPosition => _player.transform.position;
         public Vector3 PlayerHeadPosition => _playerCamera.transform.position;
-        private bool _playerDetected => IsPlayerInRange(_rangeDistance) && IsPlayerInViewAngle(0.8f) && IsPlayerVisible();
-        public bool PlayerDetected => _playerDetected;
+        public bool PlayerVisualDetected => _playerDetected;
         public GameObject PlayerGameObject { get => _player; }
-        private PlayerSoundController _playerSound;
+        public Vector3 LastPlayerKnownPosition => _lastKnownPosition;
+        public Transform Head => _head;
+        public AgentGlobalSystem AgentGlobalSystem => _agentGlobalsystem;
 
+        public AgentGroup AgentGroup => _group;
+
+       
         private void Start()
         {
             _machine = new StateMachine();
@@ -95,8 +105,36 @@ namespace Life.Controllers
             _playerSound.StepSound += OnPlayerStep;
             _playerSound.GunSound += OnPlayerGun;
 
+            _agentGlobalsystem = Bootstrap.Resolve<AgentGlobalService>().Instance;
+            _agentGlobalsystem.RegisterAgent(this);
             Initialized = true;
             OnStart();
+        }
+
+        private void Update()
+        {
+            if (!Initialized) return;
+
+            _machine?.Update();
+            UpdateMovement();
+
+            if (_lastPlayerDetected != _playerDetected)
+            {
+                _lastKnownPosition = _player.transform.position;
+                PlayerPerceptionEvent?.Invoke(_playerDetected);
+                _lastPlayerDetected = _playerDetected;
+            }
+
+            if (_alive && _health <= 0 && _maxHealth != 0)
+            {
+                _playerSound.StepSound -= OnPlayerStep;
+                _playerSound.GunSound -= OnPlayerGun;
+                _agentGlobalsystem.DiscardAgent(this);
+                OnDeath();
+                _alive = false;
+            }
+
+            OnUpdate();
         }
 
         private void OnPlayerGun(Vector3 position, float radius)
@@ -117,7 +155,7 @@ namespace Life.Controllers
 
         public bool IsPlayerInRange(float distance)
         {
-            return Vector3.Distance(transform.position, _playerCamera.transform.position) < distance;
+            return Vector3.Distance(_head.position, _playerCamera.transform.position) < distance;
         }
 
         public bool IsPlayerInViewAngle(float dotAngle)
@@ -127,7 +165,7 @@ namespace Life.Controllers
 
         public bool IsPlayerVisible()
         {
-            Debug.DrawLine(_playerCamera.transform.position, transform.position);
+            //Debug.DrawLine(_playerCamera.transform.position, transform.position);
 
             if (VisualPhysics.Linecast(_playerCamera.transform.position, _head.position, out RaycastHit hit, _ignoreMask))
             {
@@ -135,25 +173,6 @@ namespace Life.Controllers
             }
 
             return false;
-        }
-
-        private void Update()
-        {
-            if (!Initialized) return;
-
-            _machine?.Update();
-            UpdateMovement();
-
-            if (_alive && _health <= 0 && _maxHealth != 0)
-            {
-                _playerSound.StepSound -= OnPlayerStep;
-                _playerSound.GunSound -= OnPlayerGun;
-
-                OnDeath();
-                _alive = false;
-            }
-
-            OnUpdate();
         }
 
         private Vector3 _aimTarget;
@@ -173,7 +192,18 @@ namespace Life.Controllers
             _navMeshAgent.SetDestination(position);
         }
 
-        public bool FaceTarget { get => _faceTarget; set => _faceTarget = value; }
+        public bool FaceTarget
+        {
+            get => _faceTarget;
+            set
+            {
+                _faceTarget = value;
+                _animator.SetBool("FACETARGET", value);
+            }
+        }
+
+        private Vector3 _lastKnownPosition;
+        private bool _lastPlayerDetected;
 
         private void UpdateMovement()
         {
@@ -182,7 +212,6 @@ namespace Life.Controllers
             //_aimTarget = Bootstrap.Resolve<PlayerSpawnerService>().Player.transform.position;
 
             var aimDir = (_aimTarget - _head.position).normalized;
-
             float aim_horizontal = _faceTarget ? Vector3.Cross(transform.forward, aimDir).y : 0;
             float aim_vertical = _faceTarget ? Vector3.Dot(transform.up, aimDir) : 0;
 
@@ -213,8 +242,9 @@ namespace Life.Controllers
             {
                 _machine.DrawGizmos();
             }
-        }
 
+            Gizmos.DrawLine(_head.position, _aimTarget);
+        }
 
         #region Virtual Methods
 

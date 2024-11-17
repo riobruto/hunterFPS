@@ -91,7 +91,7 @@ namespace Core.Weapon
             }
         }
 
-        public Sprite HUDSprite { get => _hudSprite; }
+        public Sprite HUDSprite { get => _weaponSprite; }
 
         private Texture2D CreateTextureFromSlicedSprite(Sprite sprite)
         {

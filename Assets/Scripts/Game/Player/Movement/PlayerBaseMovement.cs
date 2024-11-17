@@ -32,6 +32,10 @@ namespace Game.Player
             OnUpdate();
         }
 
+        private void FixedUpdate()
+        {
+            OnFixedUpdate();
+        }
         protected virtual void OnStart()
         {
         }
@@ -39,5 +43,10 @@ namespace Game.Player
         protected virtual void OnUpdate()
         {
         }
+        protected virtual void OnFixedUpdate()
+        {
+
+        }
+
     }
 }

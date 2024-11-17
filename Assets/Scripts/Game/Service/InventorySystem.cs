@@ -131,8 +131,8 @@ namespace Game.Service
         public void Initialize()
         {
             Ammunitions = new Dictionary<AmmunitionItem, int>();
-
             AmmunitionItem[] _types = Resources.FindObjectsOfTypeAll<AmmunitionItem>();
+
             foreach (AmmunitionItem ammo in _types)
             {
                 Ammunitions.Add(ammo, 150);
@@ -142,7 +142,7 @@ namespace Game.Service
 
             foreach (GrenadeType grenade in Enum.GetValues(typeof(GrenadeType)))
             {
-                //Grenades.Add(grenade, 3);
+                Grenades.Add(grenade, 3);
             }
             //GetSavedData
         }

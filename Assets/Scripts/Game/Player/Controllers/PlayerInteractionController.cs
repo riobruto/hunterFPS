@@ -2,10 +2,8 @@
 using Core.Engine;
 using Game.Entities;
 using Nomnom.RaycastVisualization;
-using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.UIElements;
 
 namespace Game.Player
 {
@@ -17,19 +15,20 @@ namespace Game.Player
 
         private RaycastConfiguration _raycastConfiguration;
         private IInteractable _interactable;
+        private Vector3 interactHit;
+        private bool _hasInteraction;
 
         [SerializeField] private bool _debug;
         [SerializeField] private int _interactDistance;
         [SerializeField] private Transform _head;
         public bool AllowInteraction;
-
+        public bool CanInteract => AllowInteraction && _hasInteraction;
         private void Start()
         {
             _raycastConfiguration = Bootstrap.Resolve<GameSettings>().RaycastConfiguration;
         }
 
         private bool _interact;
-
         private void OnInteract(InputValue value)
         {
             _interact = value.isPressed;
@@ -40,23 +39,23 @@ namespace Game.Player
             if (!AllowInteraction) return;
 
             IInteractable currentInteractable = FetchCurrentInteractable();
-            bool hasInteraction = currentInteractable != default;
+            _hasInteraction = currentInteractable != default;
 
-            if (Keyboard.current.fKey.wasReleasedThisFrame) hasInteraction = false;
+            if (Keyboard.current.fKey.wasReleasedThisFrame) _hasInteraction = false;
             //TODO: pasar a inputACTION
             if (_interactable != default)
             {
                 NotifyState(InteractableState.INTERACTING);
 
-                if (_interactable.IsDone(!hasInteraction))
+                if (_interactable.IsDone(!_hasInteraction))
                 {
                     _interactable = default;
                     NotifyState(InteractableState.END_INTERACTION);
-                    
+
                     return;
                 }
             }
-            if (hasInteraction && Keyboard.current.fKey.wasPressedThisFrame && currentInteractable.BeginInteraction())
+            if (_hasInteraction && Keyboard.current.fKey.wasPressedThisFrame && currentInteractable.BeginInteraction(interactHit))
             {
                 _interactable = currentInteractable;
                 NotifyState(InteractableState.BEGIN_INTERACTION);
@@ -68,13 +67,14 @@ namespace Game.Player
             RaycastHit hitInfo;
             Ray ray = new Ray(_head.position, _head.forward);
             if (!VisualPhysics.SphereCast(ray, .25f, out hitInfo, _interactDistance, _raycastConfiguration.InteractableLayer)) return default;
-
-            return FindInteractableInFamily(hitInfo.transform);
+            interactHit = hitInfo.point;
+            return FindInteractableInFamily(hitInfo.collider.gameObject.transform);
         }
 
         private IInteractable FindInteractableInFamily(Transform t)
         {
             if (t == null) return default;
+
             if (t.TryGetComponent(out IInteractable i)) return i;
             return FindInteractableInFamily(t.parent);
         }

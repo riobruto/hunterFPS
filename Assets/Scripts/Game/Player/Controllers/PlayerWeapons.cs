@@ -83,6 +83,7 @@ namespace Game.Player.Controllers
         private IWeapon _gunWeaponEngine;
         private PlayerWeaponInstance _currentWeaponInstance;
         private Dictionary<WeaponSlotType, PlayerWeaponSlot> _weaponSlots;
+        private InventorySystem _inventory;
 
         private void Start()
         {
@@ -96,6 +97,8 @@ namespace Game.Player.Controllers
             {
                 observer.Initalize(this);
             }
+
+            _inventory = Bootstrap.Resolve<InventoryService>().Instance;
         }
 
         private void Update()
@@ -111,8 +114,13 @@ namespace Game.Player.Controllers
                 return;
             }
 
-            _mouseRayDirection += Mouse.current.delta.value * Time.deltaTime * 10f;
-            _mouseRayDirection = Vector2.ClampMagnitude(_mouseRayDirection, _isAiming ? .1f : 10f);
+            if (AllowInput)
+            {
+                _mouseRayDirection += Mouse.current.delta.value * Time.deltaTime * 10f;
+                _mouseRayDirection = Vector2.ClampMagnitude(_mouseRayDirection, _isAiming ? .1f : 10f);
+            }
+            else _mouseRayDirection = Vector2.zero;
+
             _weaponEngine.SetMovementDelta(_mouseRayDirection);
             _weaponEngine.RayNoise = Noise() * (_isAiming ? .05f : 1);
         }
@@ -131,8 +139,8 @@ namespace Game.Player.Controllers
 
         {
             _gunWeaponEngine = _head.gameObject.AddComponent<WeaponEngine>();
-
             _weaponEngine = _gunWeaponEngine;
+            _weaponEngine.IsOwnedByPlayer = true;
         }
 
         private void ManageAim()
@@ -280,6 +288,7 @@ namespace Game.Player.Controllers
         {
             if (!AllowInput) return;
             if (!_canUseWeapon) return;
+            if (_weaponEngine.WeaponSettings == null) return;
 
             if (_weaponEngine.BoltOpen)
             {
@@ -287,18 +296,29 @@ namespace Game.Player.Controllers
                 return;
             }
 
-            if (_weaponEngine.WeaponSettings.FireModes == WeaponFireModes.BOLT)
+            if (_weaponEngine.WeaponSettings.FireModes == WeaponFireModes.BOLT && _weaponEngine.CurrentAmmo > 0)
             {
                 _weaponEngine.Reload(0);
                 return;
             }
 
-            if (Bootstrap.Resolve<InventoryService>().Instance.Ammunitions[_weaponEngine.WeaponSettings.Ammo.Type] > 0)
+            if (_weaponEngine.IsReloading) return;
+            if (_weaponEngine.CurrentAmmo >= _weaponEngine.MaxAmmo) return;
+            if (_inventory.Ammunitions[_weaponEngine.WeaponSettings.Ammo.Type] > 0)
             {
-                int reloadAmmo = Bootstrap.Resolve<InventoryService>().Instance.Ammunitions[_weaponEngine.WeaponSettings.Ammo.Type];
-                _weaponEngine.Reload(Mathf.Clamp(reloadAmmo, 0, _weaponEngine.MaxAmmo));
-                Bootstrap.Resolve<InventoryService>().Instance.Ammunitions[_weaponEngine.WeaponSettings.Ammo.Type] -= Mathf.Clamp(reloadAmmo, 0, _weaponEngine.MaxAmmo - _weaponEngine.CurrentAmmo);
+                StartCoroutine(ManageReload());
             }
+        }
+
+        private IEnumerator ManageReload()
+        {
+            int remainingAmmo = Mathf.Clamp(_weaponEngine.CurrentAmmo, 0, _weaponEngine.MaxAmmo); ;
+            int reloadAmmo = _inventory.Ammunitions[_weaponEngine.WeaponSettings.Ammo.Type];
+            int reloadAmount = Mathf.Clamp(reloadAmmo, 0, _weaponEngine.MaxAmmo);
+            _weaponEngine.Reload(reloadAmount);
+            _inventory.Ammunitions[_weaponEngine.WeaponSettings.Ammo.Type] -= reloadAmount - remainingAmmo;
+
+            yield return null;
         }
 
         private void OnMeeleeSlot(InputValue value) => ChangeWeaponBySlot(WeaponSlotType.MEELEE);
@@ -410,7 +430,7 @@ namespace Game.Player.Controllers
             WeaponInstanceChangeEvent?.Invoke(_currentWeaponInstance);
         }
 
-        //TODO: You should be left behind with you backwards ideas
+        //TODO:  You should be left behind with you backwards ideas
         private IWeapon GetEngineFromSlotType(WeaponSlotType slotType)
         {
             switch (slotType)
@@ -418,6 +438,7 @@ namespace Game.Player.Controllers
                 case WeaponSlotType.MAIN:
                 case WeaponSlotType.SECONDARY:
                     return _gunWeaponEngine;
+
                 case WeaponSlotType.MEELEE:
                 default:
                     return null;

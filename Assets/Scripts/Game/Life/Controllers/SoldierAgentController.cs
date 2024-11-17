@@ -1,36 +1,36 @@
 ﻿using Game.Entities;
 using Game.Life;
 using Game.Player.Weapon;
-using Life.Controllers;
+using Life.StateMachines;
 
 using System.Collections;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.AI;
 
-namespace Life.StateMachines
+namespace Life.Controllers
 {
+    public enum SoldierMovementType
+    {
+        RUN,
+        WALK,
+        PATROL,
+        CROUCH
+    }
+
     public class SoldierAgentController : AgentController
     {
-        private bool _reportedPlayer;
-
-        private bool _playerMadeNoise;
-
-        private ObserverWanderState _wander;
-        private ObserverReportState _report;
-        private ObserverAttackState _attack;
-        private ObserverDieState _die;
-        private ObserverTakeCoverState _takeCover;
-
         private AgentCoverSensor _cover;
-        private AgentWeapon _weapon;
+        private AgentFireWeapon _weapon;
 
         public AgentCoverSensor CoverSensor => _cover;
-        public AgentWeapon Weapon => _weapon;
+        public AgentFireWeapon Weapon => _weapon;
 
+        //StealthData
         public override void OnStart()
         {
             _cover = gameObject.AddComponent<AgentCoverSensor>();
-            _weapon = gameObject.GetComponent<AgentWeapon>();
+            _weapon = gameObject.GetComponent<AgentFireWeapon>();
 
             CreateStates();
             CreateTransitions();
@@ -74,6 +74,64 @@ namespace Life.StateMachines
             Animator.SetLayerWeight(4, 0);
         }
 
+        private float _runSpeed = 5f;
+        private float _walkSpeed = 3f;
+        private float _patrolSpeed = 1f;
+        private float _crouchSpeed = 1f;
+        private float _desiredSpeed;
+
+        private SoldierMovementType _current;
+
+        public void SetMovementType(SoldierMovementType type)
+        {
+            switch (type)
+            {
+                case SoldierMovementType.RUN:
+                    if (_current == SoldierMovementType.CROUCH)
+                    {
+                        Animator.SetBool("WARNING", true);
+                        StartCoroutine(SetCrouch(false, _runSpeed));
+                        break;
+                    }
+                    _desiredSpeed = _runSpeed;
+                    break;
+
+                case SoldierMovementType.WALK:
+                    if (_current == SoldierMovementType.CROUCH)
+                    {
+                        Animator.SetBool("WARNING", true);
+                        StartCoroutine(SetCrouch(false, _walkSpeed));
+                        break;
+                    }
+                    _desiredSpeed = _walkSpeed;
+                    break;
+
+                case SoldierMovementType.PATROL:
+                    if (_current == SoldierMovementType.CROUCH)
+                    {
+                        Animator.SetBool("WARNING", false);
+                        StartCoroutine(SetCrouch(false, _patrolSpeed));
+                        break;
+                    }
+                    _desiredSpeed = _patrolSpeed;
+                    break;
+
+                case SoldierMovementType.CROUCH:
+                    Animator.SetBool("WARNING", true);
+                    StartCoroutine(SetCrouch(true, _crouchSpeed));
+                    break;
+            }
+            _current = type;
+        }
+
+        private IEnumerator SetCrouch(bool state, float target)
+        {
+            _desiredSpeed = 0;
+            Animator.SetBool("CROUCH", state);
+            yield return new WaitForSeconds(1);
+            _desiredSpeed = target;
+        }
+
         public void Ragdoll()
         {
             Animator.enabled = false;
@@ -85,17 +143,112 @@ namespace Life.StateMachines
 
         public override void OnUpdate()
         {
-            if (_playerMadeNoise)
-            {
-                _playerMadeNoise = false;
-            }
+            ManageStealth();
             ManageWeapon();
+
             _hurtStopVelocityMultiplier = Mathf.Clamp(_hurtStopVelocityMultiplier + Time.deltaTime, 0, 1);
+            NavMesh.speed = _desiredSpeed * _hurtStopVelocityMultiplier;
         }
+
+        private void ManageStealth()
+        {
+            if (PlayerVisualDetected) { _engagedTime = 40; }
+
+            _suspisiusTime = Mathf.Clamp(_suspisiusTime - Time.deltaTime, 0, float.MaxValue);
+            _engagedTime = Mathf.Clamp(_engagedTime - Time.deltaTime, 0, float.MaxValue);
+        }
+
+        private Vector3 _interestPoint;
+
+        private bool _isSuspicius => _suspisiusTime > 0;
+        private bool _isEngaged => _engagedTime > 0;
+
+        private float _engagedTime;
+        private float _suspisiusTime;
+
+        public Vector3 InterestPoint { get => _interestPoint; }
 
         private float _lastBurstTime = 0;
         private float _burstTime = 0;
         private bool _shooting;
+
+        [SerializeField] private AudioClip[] _shouts;
+
+        private SoldierWanderState _wander;
+        private SoldierReportState _report;
+        private SoldierAttackState _attack;
+        private SoldierDieState _die;
+        private SoldierRetreatCoverState _retreatCover;
+
+        private SoldierSearchAlertState _investigate;
+
+        private void CreateStates()
+        {
+            _wander = new(this);
+            _report = new(this);
+            _attack = new(this);
+            _retreatCover = new(this);
+            _die = new(this);
+
+            _investigate = new(this);
+        }
+
+        private void CreateTransitions()
+        {
+            //TODO: MEJORAR FLAGS DE DETECCION, ESTAN MUY INCONSISTENTES
+            //Definir mejor las transiciones ya que crean bucles
+            //report, detect, suspect, asuntos separados)como la iglesia y el estado))))
+
+            Machine.AddTransition(_wander, _investigate, new FuncPredicate(() => !_isEngaged && _isSuspicius));
+
+            Machine.AddTransition(_wander, _report, new FuncPredicate(() => _isEngaged));
+            Machine.AddTransition(_report, _attack, new FuncPredicate(() => _isEngaged && _report.Done));
+
+            Machine.AddTransition(_attack, _retreatCover, new FuncPredicate(() => _weapon.WeaponEngine.CurrentAmmo < _weapon.WeaponEngine.MaxAmmo / 3));
+            Machine.AddTransition(_retreatCover, _attack, new FuncPredicate(() => _retreatCover.Ready && _isEngaged));
+
+            Machine.AddTransition(_attack, _wander, new FuncPredicate(() => !_isEngaged && !_isSuspicius));
+
+            Machine.AddTransition(_investigate, _attack, new FuncPredicate(() => _isEngaged));
+
+            Machine.AddTransition(_retreatCover, _investigate, new FuncPredicate(() => _retreatCover.Ready && _isSuspicius && !_isEngaged));
+
+            Machine.SetState(_wander);
+        }
+
+        private float _hurtStopVelocityMultiplier;
+        private bool _allowFire;
+
+        public override void OnHurt(float value)
+        {
+            if (IsDead) return;
+
+            if (!_isEngaged) Machine.ForceChangeToState(_retreatCover);
+
+            SetHealth(GetHealth() - value);
+            Animator.SetTrigger("HURT");
+            _hurtStopVelocityMultiplier = 0;
+            _engagedTime = 30;
+        }
+
+        public void AllowFire(bool state)
+        {
+            _allowFire = state;
+        }
+
+        public override void OnHeardSteps()
+        {
+            if (IsDead) return;
+
+            if (!PlayerVisualDetected)
+            {
+                _suspisiusTime = 60;
+
+                _interestPoint = PlayerGameObject.transform.position;
+                return;
+            }
+            _engagedTime = 30;
+        }
 
         private void ManageWeapon()
         {
@@ -104,12 +257,16 @@ namespace Life.StateMachines
             if (_weapon.HasNoAmmo)
             {
                 _weapon.WeaponEngine.ReleaseFire();
-                _weapon.WeaponEngine.Reload(_weapon.WeaponEngine.WeaponSettings.Ammo.Size);
+                _shooting = false;
+                return;
             }
 
-            if (!_allowFire) return;
-
-            CoverType = _weapon.WeaponEngine.CurrentAmmo > 10 ? CoverSearchType.NEAREST_FROM_PLAYER : CoverSearchType.FARTEST_FROM_PLAYER;
+            if (!_allowFire)
+            {
+                _weapon.WeaponEngine.ReleaseFire();
+                _shooting = false;
+                return;
+            }
 
             if (Time.time - _lastBurstTime > _burstTime)
             {
@@ -122,98 +279,20 @@ namespace Life.StateMachines
             else _weapon.WeaponEngine.ReleaseFire();
         }
 
-        private void CreateStates()
-        {
-            _wander = new(this);
-            _report = new(this);
-            _attack = new(this);
-            _takeCover = new(this);
-            _die = new(this);
-        }
-
-        private void CreateTransitions()
-        {
-            Machine.AddTransition(_wander, _report, new FuncPredicate(() => PlayerDetected));
-            Machine.AddTransition(_wander, _report, new FuncPredicate(() => _combatReported));
-            Machine.AddTransition(_report, _takeCover, new FuncPredicate(() => _combatReported));
-            Machine.AddTransition(_takeCover, _attack, new FuncPredicate(() => _takeCover.Reached));
-            Machine.AddTransition(_attack, _wander, new FuncPredicate(() => _lostPlayer));
-
-            Machine.SetState(_wander);
-        }
-
-        private float _lastPlayerSawTime;
-        private bool _lostPlayer => Time.realtimeSinceStartup - _lastPlayerSawTime > 20;
-
-        public CoverSearchType CoverType;
-        private float _hurtStopVelocityMultiplier;
-        private bool _allowFire;
-
-        public float HurtVelocityMultiplier => _hurtStopVelocityMultiplier;
-
-        private float _reportRadius = 30;
-
-        internal void ReportPlayer()
-        {
-            _lastPlayerSawTime = Time.realtimeSinceStartup;
-            _reportedPlayer = true;
-
-            foreach (SoldierAgentController controller in FindObjectsOfType<SoldierAgentController>())
-            {
-                if (controller == this) continue;
-                if (Vector3.Distance(controller.transform.position, transform.position) > _reportRadius) continue;
-
-                controller.ReportCombat();
-            }
-        }
-
-        public void ReportCombat()
-        {
-            if (IsDead) return;
-            if (!_combatReported)
-            {
-                _lastPlayerSawTime = Time.time;
-                _combatReported = true;
-            }
-        }
-
-        internal void ResetReport()
-        {
-            _reportedPlayer = false;
-        }
-
-        public override void OnHurt(float value)
-        {
-            if (IsDead) return;
-            Machine.ForceChangeToState(_report);
-            SetHealth(GetHealth() - value);
-            Animator.SetTrigger("HURT");
-            _hurtStopVelocityMultiplier = 0;
-        }
-
-        public void AllowFire(bool state)
-        {
-            _allowFire = state;
-        }
-
-        public override void OnHeardSteps()
-        {
-            if (IsDead) return;
-            Machine.ForceChangeToState(_attack);
-        }
-
         public override void OnHeardCombat()
         {
             if (IsDead) return;
-            Machine.ForceChangeToState(_attack);
+            _engagedTime = 30;
         }
-
-        [SerializeField] private AudioClip[] _shouts;
-        private bool _combatReported;
 
         internal void Shout()
         {
             AudioSource.PlayClipAtPoint(_shouts[Random.Range(0, _shouts.Length)], Head.transform.position);
+        }
+
+        public void ResetInvestigate()
+        {
+            _interestPoint = Vector3.zero;
         }
 
         internal void DropWeapon()
@@ -222,9 +301,9 @@ namespace Life.StateMachines
         }
     }
 
-    public class ObserverWanderState : BaseState
+    public class SoldierWanderState : BaseState
     {
-        public ObserverWanderState(AgentController context) : base(context)
+        public SoldierWanderState(AgentController context) : base(context)
         {
             _observer = context as SoldierAgentController;
         }
@@ -244,30 +323,38 @@ namespace Life.StateMachines
 
         public override void Start()
         {
+            _observer.SetMovementType(SoldierMovementType.PATROL);
             _observer.Animator.SetBool("WARNING", false);
-            _observer.Animator.SetLayerWeight(2, 0);
             _observer.Animator.SetLayerWeight(3, 0);
-            FindNewTarget();
-            _observer.FaceTarget = true;
-            _observer.NavMesh.speed = 1f;
+            if (FindNewTarget()) _observer.SetTarget(_targetPos);
+
+            _observer.FaceTarget = false;
         }
 
         public override void Update()
         {
             if (ReachedTarget())
             {
-                FindNewTarget();
+                if (FindNewTarget())
+                {
+                    _observer.SetTarget(_targetPos);
+                }
             }
-
-            Vector3 pos = _targetPos;
-            pos.y = _observer.transform.position.y;
-            _observer.SetLookTarget(pos + Vector3.up * 1.75f);
         }
 
-        private void FindNewTarget()
+        private bool FindNewTarget()
         {
-            _targetPos = Random.insideUnitSphere * 10 + _observer.transform.position;
-            _observer.SetTarget(_targetPos);
+            int tries = 5;
+            for (int i = 0; i < tries; i++)
+            {
+                if (NavMesh.SamplePosition(Random.insideUnitSphere * 10 + _observer.transform.position, out NavMeshHit hit, 5, NavMesh.AllAreas))
+                {
+                    _targetPos = hit.position;
+
+                    return true;
+                }
+            }
+            return false;
         }
 
         private bool ReachedTarget()
@@ -278,17 +365,61 @@ namespace Life.StateMachines
         }
     }
 
-    public class ObserverTakeCoverState : BaseState
+    public class SoldierSearchAlertState : BaseState
+    {
+        public SoldierSearchAlertState(AgentController context) : base(context)
+        {
+            _observer = context as SoldierAgentController;
+        }
+
+        private SoldierAgentController _observer;
+        private Vector3 _targetPos;
+
+        public override void DrawGizmos()
+        {
+            Gizmos.DrawSphere(_targetPos, 0.33f);
+        }
+
+        public override void End()
+        {
+        }
+
+        public override void Start()
+        {
+            _observer.SetMovementType(SoldierMovementType.RUN);
+            _observer.Animator.SetBool("WARNING", true);
+            _observer.Animator.SetLayerWeight(3, 0);
+            _observer.SetTarget(_observer.InterestPoint);
+            _observer.FaceTarget = false;
+        }
+
+        public override void Update()
+        {
+            if (ReachedTarget())
+            {
+                _observer.SetMovementType(SoldierMovementType.WALK);
+                _observer.ResetInvestigate();
+            }
+        }
+
+        private bool ReachedTarget()
+        {
+            Vector3 pos = _observer.InterestPoint;
+            pos.y = _observer.transform.position.y;
+            return Vector3.Distance(_observer.transform.position, pos) < 1.5f;
+        }
+    }
+
+    public class SoldierAdvanceCoverState : BaseState
     {
         private SoldierAgentController _observer;
         private Vector3 _destination;
-        private bool _reached => (_observer.transform.position - _destination).sqrMagnitude < 1;
-
+        private bool _reached => (_observer.transform.position - _destination).sqrMagnitude < 2;
         public bool Reached { get => _reached && _hasReached; }
-
+        public bool HasValidCover;
         private bool _hasReached;
 
-        public ObserverTakeCoverState(AgentController context) : base(context)
+        public SoldierAdvanceCoverState(AgentController context) : base(context)
         {
             _observer = context as SoldierAgentController;
         }
@@ -304,18 +435,28 @@ namespace Life.StateMachines
 
         public override void Start()
         {
-            _observer.Animator.SetBool("WARNING", true);
-            _observer.FaceTarget = false;
-            _observer.NavMesh.speed = 5;
+            _observer.FaceTarget = true;
+            _observer.SetMovementType(SoldierMovementType.RUN);
+            FindMovementPoint();
+        }
 
-            CoverData cover = _observer.CoverSensor.FindNearestCover(_observer.transform.position, _observer.PlayerHeadPosition);
+        private void FindMovementPoint()
+        {
+            SpatialDataPoint[] points = _observer.CoverSensor.GetCombatSpatialData(_observer.PlayerPosition, _observer.PlayerHeadPosition).ToArray();
 
-            _destination = cover.Position;
+            points = points.OrderBy(x => x.DistanceFromThreat).ThenBy(x => !x.SafeFromStanding && x.SafeFromCrouch).ToArray();
+
+            _destination = points[0].Position;
+
+            _observer.Animator.SetLayerWeight(3, 0);
+            _hasReached = false;
 
             if (_destination != Vector3.zero)
             {
                 _observer.SetTarget(_destination);
             }
+
+            _observer.SetLookTarget(_observer.PlayerHeadPosition);
         }
 
         public override void Update()
@@ -323,21 +464,125 @@ namespace Life.StateMachines
             if (_reached && !_hasReached)
             {
                 _hasReached = true;
-                _observer.NavMesh.speed = 1;
-                _observer.Animator.SetBool("CROUCH", true);
+
+                if (!_observer.PlayerVisualDetected)
+                {
+                    FindMovementPoint();
+
+                    return;
+                }
+
+                //_observer.Weapon.WeaponEngine.Reload(_observer.Weapon.WeaponEngine.WeaponSettings.Ammo.Size);
+                _observer.SetMovementType(SoldierMovementType.CROUCH);
             }
         }
     }
 
-    public class ObserverReportState : BaseState
+    public class SoldierRetreatCoverState : BaseState
     {
-        public ObserverReportState(AgentController context) : base(context)
+        private SoldierAgentController _observer;
+
+        private Vector3 _destination;
+        private bool _reached => Vector3.Distance(_observer.transform.position, _destination) < 2f;
+
+        private bool _hasReached;
+        private float _relaxTime;
+        private float _timeToExit;
+
+        public bool Ready => _hasReached && _reloaded && _timeToExit > _relaxTime;
+
+        public SoldierRetreatCoverState(AgentController context) : base(context)
+        {
+            _observer = context as SoldierAgentController;
+        }
+
+        public override void DrawGizmos()
+        {
+            Gizmos.DrawWireSphere(_destination, 1f);
+        }
+
+        public override void End()
+        {
+        }
+
+        public override void Start()
+        {
+            _observer.SetMovementType(SoldierMovementType.RUN);
+            _observer.Animator.SetLayerWeight(3, 0);
+            _observer.FaceTarget = false;
+            _hasReached = false;
+            _reloaded = false;
+            _observer.AllowFire(false);
+            _relaxTime = Random.Range(3, 10);
+            _timeToExit = 0f;
+
+            FindCover();
+            if (_destination != Vector3.zero)
+            {
+            }
+        }
+
+        private void FindCover()
+        {
+            _destination = Vector3.zero;
+
+            SpatialDataPoint[] points = _observer.CoverSensor.GetCombatSpatialData(_observer.transform.position, _observer.PlayerHeadPosition).OrderBy(x => x.DistanceFromThreat).Reverse().ToArray();
+
+            foreach (SpatialDataPoint point in points)
+            {
+                if (point.SafeFromCrouch && point.SafeFromStanding)
+                {
+                    _destination = point.Position;
+                    _observer.SetTarget(_destination);
+                    return;
+                }
+                else if (point.SafeFromCrouch && point.SafeFromStanding)
+                {
+                    _destination = point.Position;
+                    _observer.SetTarget(_destination);
+                    return;
+                }
+
+                _destination = point.Position;
+                _observer.SetTarget(_destination);
+                return;
+            }
+        }
+
+        public bool _reloaded;
+
+        public override void Update()
+        {
+            if (_reached && !_hasReached)
+            {
+                _hasReached = true;
+                _observer.SetMovementType(SoldierMovementType.CROUCH);
+            }
+
+            if (_hasReached)
+            {
+                if (!_reloaded)
+                {
+                    _observer.Weapon.WeaponEngine.Reload(_observer.Weapon.WeaponEngine.WeaponSettings.Ammo.Size);
+                    _reloaded = true;
+                }
+                _timeToExit += Time.deltaTime;
+            }
+        }
+    }
+
+    public class SoldierReportState : BaseState
+    {
+        public SoldierReportState(AgentController context) : base(context)
         {
             _observer = context as SoldierAgentController;
         }
 
         private SoldierAgentController _observer;
         private float _time;
+        private bool _hasReported;
+
+        public bool Done { get => _hasReported; }
 
         public override void DrawGizmos()
         {
@@ -350,49 +595,42 @@ namespace Life.StateMachines
         public override void Start()
         {
             _observer.Shout();
-            _observer.Animator.SetLayerWeight(2, 1);
-            _observer.Animator.SetLayerWeight(3, 1);
-            _observer.ResetReport();
             _observer.SetTarget(_observer.transform.position);
-            //_observer.Animator.SetTrigger("SUSPECT");
             _time = Time.time;
+            _observer.Animator.SetBool("WARNING", true);
+            _observer.Animator.SetTrigger("SURPRISE");
+            _observer.FaceTarget = true;
+            _observer.SetTarget(_observer.transform.position + -_observer.transform.forward);
+            _hasReported = false;
         }
 
         public override void Update()
         {
+            _observer.SetLookTarget(_observer.PlayerHeadPosition);
             if (Time.time - _time > 1)
             {
-                _observer.Animator.SetBool("WARNING", true);
-                _observer.ReportPlayer();
+                _hasReported = true;
             }
         }
     }
 
-    public class ObserverAttackState : BaseState
+    public class SoldierAttackState : BaseState
     {
-        public ObserverAttackState(AgentController context) : base(context)
+        public SoldierAttackState(AgentController context) : base(context)
         {
             _observer = context as SoldierAgentController;
         }
 
         private SoldierAgentController _observer;
-        private Vector3 _destination;
-        private Vector3 _nearestAggresive;
-        private Vector3 _nearestCover;
+        private SpatialDataPoint _destination;
+        private SpatialDataPoint _nearestAggresive;
         private float _lastEvaluationTime;
-        private CoverData cover;
 
         public override void DrawGizmos()
         {
-            Gizmos.DrawWireSphere(_destination, 1f);
+            Gizmos.DrawWireSphere(_destination.Position, 1.15f);
             Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(_nearestAggresive, 1f);
-            Gizmos.color = Color.green;
-            Gizmos.DrawWireSphere(_nearestCover, 1f);
-
-            /* Gizmos.DrawWireSphere(_observer.Attacker.position, .4f);
-             Gizmos.color = Color.red;
-             Gizmos.DrawWireSphere(_observer.Player.PlayerGameObject.transform.position, .4f);*/
+            Gizmos.DrawWireSphere(_nearestAggresive.Position, 1f);
         }
 
         public override void End()
@@ -402,59 +640,77 @@ namespace Life.StateMachines
         public override void Start()
         {
             _observer.FaceTarget = true;
-            Evaluate();
+            GeneratePoints();
+            _observer.SetMovementType(SoldierMovementType.WALK);
+            _observer.Animator.SetLayerWeight(3, 1);
         }
 
-        private void Evaluate()
+        private void GeneratePoints()
         {
-            SpatialDataPoint[] points = _observer.CoverSensor.GetCombatSpatialData(_observer.transform.position, _observer.PlayerHeadPosition).ToArray();
+            Vector3 _combatPoint = _observer.transform.position;
+            SpatialDataPoint[] points = _observer.CoverSensor.GetCombatSpatialData(_combatPoint, _observer.PlayerHeadPosition).ToArray();
 
-            _nearestAggresive = points.OrderBy(x => x.DistanceFromThreat).First(x => !x.SafeFromStanding).Position;
-            _nearestCover = points.OrderBy(x => x.DistanceFromCenter).First(x => x.SafeFromStanding || x.SafeFromCrouch).Position;
-
-            if (_observer.GetHealth() < _observer.GetMaxHealth() / 2f)
+            foreach (SpatialDataPoint point in points)
             {
-                SpatialDataPoint safest = points.OrderBy(x => x.DistanceFromThreat).First(x => !x.SafeFromStanding && x.SafeFromCrouch);
-                if (safest.Position != Vector3.zero) { _nearestAggresive = safest.Position; }
+                if (point.SafeFromCrouch && !point.SafeFromStanding)
+                {
+                    _destination = point;
+                    _observer.SetTarget(_destination.Position);
+                    return;
+                }
+
+                if (!point.SafeFromCrouch && !point.SafeFromStanding)
+                {
+                    _destination = point;
+                    _observer.SetTarget(_destination.Position);
+                    return;
+                }
+                else
+                {
+                    _observer.SetTarget(_observer.transform.position + (_observer.PlayerHeadPosition - _observer.transform.position).normalized * 6f);
+
+                    return;
+                }
             }
-
-            _destination = _observer.Weapon.WeaponEngine.CurrentAmmo > _observer.Weapon.WeaponEngine.MaxAmmo / 2 ? _nearestAggresive : _nearestCover;
-
-            _observer.Animator.SetBool("CROUCH", cover.NeedCrouch);
         }
+
+        private bool _checkedMovementType;
+        private float _evaluatinInterval;
 
         public override void Update()
         {
-            if (Time.time - _lastEvaluationTime > 3)
+            if (Time.time - _lastEvaluationTime > _evaluatinInterval)
             {
-                Evaluate();
+                GeneratePoints();
+                //_observer.SetMovementType(SoldierMovementType.RUN);
+                _checkedMovementType = false;
                 _lastEvaluationTime = Time.time;
+                _evaluatinInterval = Random.Range(1, 10);
             }
-
-            float speed = 0;
-            if (!cover.NeedCrouch)
-            {
-                speed = _observer.CoverType == CoverSearchType.FARTEST_FROM_PLAYER ? 5 : 3;
-            }
-            else speed = 1;
-
-            _observer.NavMesh.speed = speed * _observer.HurtVelocityMultiplier;
 
             _observer.AllowFire(_observer.IsPlayerInRange(50) && _observer.IsPlayerVisible());
+
+            _observer.FaceTarget = _observer.IsPlayerVisible();
+
             _observer.SetLookTarget(_observer.PlayerHeadPosition);
 
-            if (_destination != Vector3.zero)
+            if (Vector3.Distance(_destination.Position, _observer.transform.position) < 1 && !_checkedMovementType)
             {
-                _observer.SetTarget(_destination);
-            }
+                bool wantCrouch = Random.Range(0, 10) > 7;
 
-            _observer.ReportPlayer();
+                if (wantCrouch)
+                {
+                    _observer.SetMovementType(SoldierMovementType.CROUCH);
+                }
+                else _observer.SetMovementType(SoldierMovementType.WALK);
+                _checkedMovementType = true;
+            }
         }
     }
 
-    public class ObserverDieState : BaseState
+    public class SoldierDieState : BaseState
     {
-        public ObserverDieState(AgentController context) : base(context)
+        public SoldierDieState(AgentController context) : base(context)
         {
             _observer = context as SoldierAgentController;
         }

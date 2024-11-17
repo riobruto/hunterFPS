@@ -1,8 +1,8 @@
 ﻿using Core.Engine;
 using Game.Impact;
-using System;
 using System.Collections;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.VFX;
 
 namespace Game.Service
@@ -27,6 +27,7 @@ namespace Game.Service
         private RingBuffer<GameObject> Tracers;
         private RingBuffer<GameObject> ImpactBuffer;
         private RingBuffer<GameObject> BloodBuffer;
+        private RingBuffer<GameObject> BloodDecalBuffer;
         private RingBuffer<GameObject> LimbMutilatedBuffer;
 
         private void Start()
@@ -35,6 +36,7 @@ namespace Game.Service
             CreateExplosion();
             CreateImpacts();
             CreateTracers();
+            CreateBloodDecals();
         }
 
         private void CreateTracers()
@@ -100,7 +102,6 @@ namespace Game.Service
             }
             ImpactBuffer = new RingBuffer<GameObject>(concreteHits);
 
-
             GameObject[] bloodHits = new GameObject[_dictionary.BloodHit.AmountPerScene];
             for (int i = 0; i < bloodHits.Length; i++)
             {
@@ -111,8 +112,23 @@ namespace Game.Service
             BloodBuffer = new RingBuffer<GameObject>(bloodHits);
         }
 
-        public void ImpactAtPosition(Vector3 position)
+        private void CreateBloodDecals()
         {
+            int amount = 32;
+            GameObject[] bloodDecals = new GameObject[amount];
+            for (int i = 0; i < amount; i++)
+            {
+                bloodDecals[i] = new GameObject($"bloodDecal.{i}");
+                DecalProjector decal = bloodDecals[i].AddComponent<DecalProjector>();
+                decal.material = new Material(_dictionary.BloodDecalSet.Material);
+                decal.pivot = Vector3.zero;
+                Vector3 size = Vector3.one * Random.Range(1.5f, .5f);
+                size.z = 0.03f;
+                decal.size = size;
+                decal.gameObject.SetActive(false);
+                decal.gameObject.hideFlags = HideFlags.HideInHierarchy;
+            }
+            BloodDecalBuffer = new RingBuffer<GameObject>(bloodDecals);
         }
 
         public void ImpactAtPosition(Vector3 position, Vector3 direction)
@@ -138,18 +154,21 @@ namespace Game.Service
             trace.SetActive(true);
             TrailRenderer rendered = trace.GetComponent<TrailRenderer>();
             rendered.transform.position = from;
-
+            rendered.startWidth = Random.Range(0.25f, 0.75f);
             rendered.Clear();
 
             float trailTime = .25f;
+            float speed = UnityEngine.Random.Range(_dictionary.TracerMinSpeed, _dictionary.TracerMaxSpeed);
 
             while (time < trailTime)
             {
                 rendered.transform.position = Vector3.Lerp(from, to, time / trailTime);
-                time += Time.deltaTime * Vector3.Distance(from, to) / trailTime;
+                time += trailTime / Vector3.Distance(from, to) * speed;
+
                 yield return null;
             }
             rendered.transform.position = to;
+            yield break;
         }
 
         internal void ImpactAtPosition(Vector3 point, Vector3 normal, Transform transform)
@@ -174,6 +193,21 @@ namespace Game.Service
             blood.GetComponent<ParticleSystem>().Play();
 
             AudioSource.PlayClipAtPoint(_dictionary.BloodHit.Sound.GetRandom(), point, 1);
+        }
+
+        internal void BloodDecalAtPosition(Vector3 point, Vector3 normal, Transform parent = null)
+        {//TODO: Crear shader solo para decals de impacto
+            GameObject decal = BloodDecalBuffer.GetNext();           
+            decal.GetComponent<DecalProjector>().material.SetTexture("_Color", _dictionary.BloodDecalSet.GetRandom());
+            decal.transform.position = point;
+            decal.transform.forward = normal;
+            decal.transform.Rotate(0, 0, Random.Range(0, 360), Space.Self);
+            decal.gameObject.SetActive(true);
+
+            if (parent != null)
+            {
+                decal.transform.parent = parent;
+            }
         }
     }
 }

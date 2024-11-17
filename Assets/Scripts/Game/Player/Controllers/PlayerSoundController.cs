@@ -43,7 +43,7 @@ namespace Game.Player.Controllers
             if (_controller.IsFalling) _time = 0;
             if (_controller.IsCrouching) _time = 0;
 
-            _time += (_characterController.velocity.magnitude) * Time.deltaTime;
+            _time += ((_characterController.velocity - _controller.GroundMovement.RigidbodyFollowVelocity).magnitude) * Time.deltaTime;
 
             if (_time > _timeBetweenFootstep)
             {

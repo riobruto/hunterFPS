@@ -173,7 +173,7 @@ namespace Game.Player.Weapon.Engines
             _isBoltOpen = false;
             _isManipulatingBolt = false;
             Debug.Log("CloseBoltEnd");
-            NotifyState(WeaponState.END_CLOSE_BOLT);
+
             yield return null;
         }
 
@@ -196,7 +196,7 @@ namespace Game.Player.Weapon.Engines
             yield return new WaitForSeconds(_weaponSettings.Reload.InsertTime);
             _isInserting = false;
             Debug.Log("InsertEnd");
-            NotifyState(WeaponState.END_INSERT);
+
             _isManipulatingBolt = false;
             yield return null;
         }
@@ -209,7 +209,7 @@ namespace Game.Player.Weapon.Engines
             _isBoltOpen = true;
             yield return new WaitForSeconds(_weaponSettings.Reload.BoltOpenTime);
             _isManipulatingBolt = false;
-            NotifyState(WeaponState.END_OPEN_BOLT);
+
             Debug.Log("OpenBoltEnd");
             yield return null;
         }
@@ -235,7 +235,7 @@ namespace Game.Player.Weapon.Engines
             _pinDeactivated = false;
             _isReloading = false;
             yield return new WaitForSeconds(_weaponSettings.Reload.ExitTime);
-            NotifyState(WeaponState.END_RELOADING);
+
             Debug.Log("ReloadEnd");
             yield return null;
         }
@@ -261,7 +261,7 @@ namespace Game.Player.Weapon.Engines
                 {
                     if (!_pinDeactivated)
                     {
-                        if (_isReloading || _isManipulatingBolt || _isBoltOpen) 
+                        if (_isReloading || _isManipulatingBolt || _isBoltOpen)
                             return;
 
                         NotifyState(WeaponState.FAIL_SHOOTING);
@@ -279,8 +279,6 @@ namespace Game.Player.Weapon.Engines
                 _hasReleasedTrigger = false;
                 _currentAmmo -= 1;
                 _timeOfSpray = Mathf.Clamp(_timeOfSpray + _fireRatio, 0, 1);
-                
-                NotifyState(WeaponState.END_SHOOTING);
             }
 
             if (!_isShooting)
@@ -295,15 +293,17 @@ namespace Game.Player.Weapon.Engines
 
             Ray ray = new Ray(GetRay().origin, GetRay().direction);
 
+            Vector3 offset = _playerIsOwner ? transform.right * .25f + transform.up * -.25f : Vector3.zero;
+            
             if (VisualPhysics.Raycast(ray, out RaycastHit hit, 1000, _currentLayerMask))
             {
                 Bootstrap.Resolve<HitScanService>().Dispatch(new HitWeaponEventPayload(hit, new Ray(ray.origin, ray.direction), _weaponSettings.Damage));
 
-                Bootstrap.Resolve<ImpactService>().System.TraceAtPosition(ray.origin, hit.point);
+                Bootstrap.Resolve<ImpactService>().System.TraceAtPosition(ray.origin + offset, hit.point);
             }
             else
             {
-                Bootstrap.Resolve<ImpactService>().System.TraceAtPosition(ray.origin, ray.origin + ray.direction * 100);
+                Bootstrap.Resolve<ImpactService>().System.TraceAtPosition(ray.origin + offset, ray.origin + ray.direction * 100);
             }
         }
 

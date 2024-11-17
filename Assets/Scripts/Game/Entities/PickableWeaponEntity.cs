@@ -17,11 +17,11 @@ namespace Game.Entities
         [SerializeField] private WeaponSettings _weapon;
         [SerializeField] private int _currentAmmo = 0;
 
-        bool IInteractable.BeginInteraction()
+        bool IInteractable.BeginInteraction(Vector3 position)
         {
             if (!_canBeTaken) return false;
             if (_begun) return false;
-            _timer.SetTimer(transform.position);
+            _timer.SetTimer(position);
             _begun = true;
             return true;
         }
@@ -94,5 +94,8 @@ namespace Game.Entities
         {
             _weapon = weapon;
         }
+
+        bool IInteractable.CanInteract() => _canBeTaken;
+       
     }
 }

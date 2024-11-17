@@ -1,4 +1,5 @@
 using Nomnom.RaycastVisualization;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -9,18 +10,24 @@ namespace Game.Player.Movement
         SPRINT,
         WALK,
         IDLE,
-        LANDING
+        LANDING,
+        JUMP_START,
+        JUMP_LAND
     }
 
     public delegate void PlayerGroundMovementDelegate(GroundMovementState last, GroundMovementState current);
 
     public delegate void PlayerGroundCrouchDelegate(bool state);
 
+    public delegate void PlayerGroundFallDelegate(float distance);
+
     public class PlayerGroundMovement : PlayerBaseMovement
     {
         public event PlayerGroundMovementDelegate ChangeStateEvent;
 
         public event PlayerGroundCrouchDelegate CrouchEvent;
+
+        public event PlayerGroundFallDelegate FallEvent;
 
         private GroundMovementState _currentState;
         private GroundMovementState _lastState;
@@ -34,9 +41,11 @@ namespace Game.Player.Movement
         private float _desiredSpeed;
         private float _currentSpeed;
         private Vector3 _move = new Vector3(0, 0, 0);
+
         private float _jumpTime = 0;
-        private bool _isGrounded => CheckGroundCollision();
+        private bool _isGrounded => _groundedInPlane;
         private bool _sprint;
+        private bool _groundedInPlane;
         private bool _canSprint => _isGrounded && _move.z > 0.01f && !_crouch && AllowSprint && Manager.Stamina > 10f;
         private Vector3 _sprintVector;
 
@@ -55,17 +64,22 @@ namespace Game.Player.Movement
         private Vector3 _refSmoothVelocity;
         private Vector3 _verticalVector;
 
+        private Vector3 _fallStartingPosition;
+        private Vector3 _fallEndPosition;
+
         private float _refHeightVelocity;
         [SerializeField] private float _crouchTime = 2f;
         private float _controllerDesiredHeight = 2f;
 
         private RaycastHit _slopeHit;
-        private float _maxSlopeAngle = 5;
+        private float _maxSlopeAngle = 45f;
         private bool _jump;
+        private Vector3 _smoothStepCorrection;
 
         public Vector3 CurrentMovement
-        { get { return _smoothVector + _verticalVector; } }
+        { get { return (_smoothVector + _verticalVector); } }
 
+        public Vector3 RigidbodyFollowVelocity => _rigidbodyFollowVelocity;
         public bool IsGrounded { get => _isGrounded; }
 
         public bool Active;
@@ -74,6 +88,7 @@ namespace Game.Player.Movement
         {
             _desiredSpeed = Manager.Settings.WalkSpeed;
             _currentState = GroundMovementState.IDLE;
+            _fallStartingPosition = transform.position;
         }
 
         private void OnCrouch(InputValue value)
@@ -136,15 +151,41 @@ namespace Game.Player.Movement
             {
                 ManageGravity();
                 ManageMovement();
-
+                ManageFallDamage();
                 _currentState = _smoothVector == Vector3.zero ? GroundMovementState.IDLE : _canSprint && _sprint ? GroundMovementState.SPRINT : GroundMovementState.WALK;
             }
+        }
 
-            //ManageLook();
+        private void ManageFallDamage()
+        {
+            if (_wasGroundedLastFrame != _isGrounded)
+            {
+                if (!_isGrounded) { _fallStartingPosition = transform.position; }
+
+                if (_isGrounded)
+                {
+                    _fallEndPosition = transform.position;
+                    float falldistance = Vector3.Distance(_fallStartingPosition, _fallEndPosition);
+                    FallEvent?.Invoke(falldistance);
+                }
+
+                _wasGroundedLastFrame = _isGrounded;
+            }
+        }
+
+        protected override void OnFixedUpdate()
+        {
+            if (_steppedRigidbody != null)
+            {
+                _rigidbodyFollowVelocity = _steppedRigidbody.velocity;
+            }
+            else _rigidbodyFollowVelocity = Vector3.zero;
         }
 
         private void ManageMovement()
         {
+            bool slide = !CheckPlaneSlope();
+
             _currentSpeed = _desiredSpeed;
             _move.x = _inputBody.x * _currentSpeed * (AllowInputMovement ? 1 : 0);
             _move.z = _inputBody.y * _currentSpeed * (AllowInputMovement ? 1 : 0);
@@ -161,12 +202,16 @@ namespace Game.Player.Movement
             }
 
             _smoothVector = Vector3.SmoothDamp(_smoothVector, _move, ref _refSmoothVelocity, .10f);
-
             Vector3 target = transform.TransformDirection(_smoothVector);
-            CheckGroundSlope();
-            target = Vector3.ProjectOnPlane(target, _slopeHit.normal.normalized);
-            Debug.DrawRay(transform.position, target.normalized, Color.yellow);
-            Manager.Controller.Move((target + _verticalVector) * Time.deltaTime);
+
+            if (_groundedInPlane)
+            {
+                if (slide) target += Vector3.down * Vector3.Dot(transform.up, _slopeHit.normal.normalized);
+                target = Vector3.ProjectOnPlane(target, _slopeHit.normal.normalized);
+                Debug.DrawRay(transform.position, target.normalized, Color.yellow);
+            }
+
+            Manager.Controller.Move((target + _verticalVector + _rigidbodyFollowVelocity) * Time.deltaTime);
         }
 
         public void StopMovement()
@@ -176,25 +221,37 @@ namespace Game.Player.Movement
             _verticalVector = Vector3.zero;
         }
 
+        private IEnumerator Jump()
+        {
+            _verticalVector.y = Manager.Settings.JumpHeight;
+            Manager.Stamina -= 5f;
+            _tryingToJump = true;
+            _currentState = GroundMovementState.JUMP_START;
+            yield return new WaitForSeconds(1);
+            _tryingToJump = false;
+            yield return null;
+        }
+
+        private bool _wasGroundedLastFrame;
+
         private void ManageGravity()
         {
-            if (_jump && AllowJump)
+            if (_jump && AllowJump && !_tryingToJump)
             {
-                _verticalVector.y = Manager.Settings.JumpHeight;
-                Manager.Stamina -= 10f;
+                StartCoroutine(Jump());
                 _jump = false;
                 return;
             }
 
-            if (_isGrounded)
+            if (_isGrounded && !_tryingToJump)
             {
                 _verticalVector.y = -0.001f;
+                _currentState = GroundMovementState.JUMP_LAND;
                 _jumpTime = Mathf.Clamp(_jumpTime + Time.deltaTime, 0, 1);
             }
             else if (!_isGrounded)
             {
                 //Prevent Head Clipping
-
                 if (Manager.Controller.collisionFlags == CollisionFlags.Above)
                 {
                     if (_verticalVector.y > 0)
@@ -218,22 +275,66 @@ namespace Game.Player.Movement
             return VisualPhysics.Raycast(transform.position + transform.up * 1.75f, transform.up, 1);//~_raycastConfiguration.IgnoreLayers);
         }
 
-        private bool CheckGroundSlope()
+
+        [SerializeField] private float _stepCorrectionDistance = .5f;
+
+
+
+        [SerializeField] private float _planeCheckRadius = 0.1f;
+        [SerializeField] private float _planeCheckDistance = 0.1f;
+        [SerializeField] private float _planeCheckAngle = 80f;
+        private bool _tryingToJump;
+
+        private bool _useBoxcast = true;
+
+        private Rigidbody _steppedRigidbody;
+        private Vector3 _rigidbodyFollowVelocity;
+
+        private bool CheckPlaneSlope()
         {
-            if (VisualPhysics.Raycast(transform.position, Vector3.down, out _slopeHit, Manager.Controller.height * .5f + Manager.Controller.skinWidth * 2))
+            if (_useBoxcast)
             {
-                float angle = Vector3.Angle(Vector3.up, _slopeHit.normal);
-                Debug.DrawRay(_slopeHit.point, _slopeHit.normal, Color.red);
-                return angle < _maxSlopeAngle && angle != 0;
+                if (VisualPhysics.BoxCast(transform.position + Manager.Controller.center,
+                   Vector3.one / 2 * (Manager.Controller.radius - Manager.Controller.skinWidth - 0.05f + _planeCheckRadius),
+                   Vector3.down,
+                   out _slopeHit,
+                   transform.rotation,
+                  (Manager.Controller.height * .5f) - Manager.Controller.radius + Manager.Controller.skinWidth + 0.1f + _planeCheckDistance))
+                {
+                    FetchRigidbodyOnPlane();
+
+                    float angle  = Vector3.Angle(Vector3.up, _slopeHit.normal);
+                    //Debug.DrawRay(_slopeHit.point, _slopeHit.normal, Color.red);
+                    _groundedInPlane = angle < _planeCheckAngle;
+                    return angle < _maxSlopeAngle;
+                }
+                _groundedInPlane = false;
+                return false;
             }
 
+            if (VisualPhysics.SphereCast(transform.position + Manager.Controller.center,
+                Manager.Controller.radius - Manager.Controller.skinWidth - 0.05f + _planeCheckRadius,
+                Vector3.down,
+                out _slopeHit,
+               (Manager.Controller.height * .5f) - Manager.Controller.radius + Manager.Controller.skinWidth + 0.1f + _planeCheckDistance))
+            {
+                FetchRigidbodyOnPlane();
+                float angle  = Vector3.Angle(Vector3.up, _slopeHit.normal);
+                //Debug.DrawRay(_slopeHit.point, _slopeHit.normal, Color.red);
+                _groundedInPlane = angle < _planeCheckAngle;
+                return angle < _maxSlopeAngle;
+            }
+            _groundedInPlane = false;
             return false;
         }
 
-        private bool CheckGroundCollision()
+        private void FetchRigidbodyOnPlane()
         {
-            Quaternion dir = _slopeHit.normal == Vector3.zero ? Quaternion.identity : Quaternion.LookRotation(_slopeHit.normal.normalized);
-            return VisualPhysics.BoxCast(transform.position + transform.up, Vector3.one / 2.25f, -transform.up, out _slopeHit, dir, .550f + Manager.Controller.skinWidth * 2);
+            if (_slopeHit.collider.TryGetComponent(out Rigidbody rb))
+            {
+                _steppedRigidbody = rb;
+            }
+            else _steppedRigidbody = null;
         }
 
         private void NotifyState(GroundMovementState last, GroundMovementState current)

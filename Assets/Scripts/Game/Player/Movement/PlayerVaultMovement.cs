@@ -84,7 +84,8 @@ namespace Game.Player.Movement
 
         private void OnJump(InputValue value)
         {
-           // _wantVault = true;
+            return;
+           //_wantVault = true;
         }
 
         private bool DetectFowardCollision()

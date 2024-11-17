@@ -1,9 +1,13 @@
-﻿namespace Game.Entities
+﻿using UnityEngine;
+
+namespace Game.Entities
 {
     public interface IInteractable
     {
-        bool BeginInteraction();
+        bool BeginInteraction(Vector3 position);
 
         bool IsDone(bool cancelRequest);
+
+        bool CanInteract();
     }
 }

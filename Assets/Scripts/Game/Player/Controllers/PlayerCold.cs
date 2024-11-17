@@ -9,7 +9,7 @@ namespace Game.Player.Controllers
         private float _frostingMultiplier = 1;
         private float _frostLevelMax = 100;
         private float _speedFrost = .3f;
-
+        //JUST A CONCEPT!
         private void Update()
         {
             if (_currentFrostLevel > _frostLevelMax)

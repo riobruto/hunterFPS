@@ -28,7 +28,7 @@ namespace Game.Service
 
         public void Initialize()
         {
-            _timer = Instantiate(Resources.Load("VisualItems/InteractionTimer")) as GameObject;
+            _timer = Instantiate(Resources.Load("VisualItems/InteractionTimerObject")) as GameObject;
             _renderer = _timer.GetComponent<MeshRenderer>();
         }
 
@@ -49,7 +49,12 @@ namespace Game.Service
             _renderer.material.SetFloat("_alpha", Mathf.Lerp(_renderer.material.GetFloat("_alpha"), display ? 1 : 0, Time.deltaTime * 10f));
             _renderer.material.SetFloat("_tvalue", time / maxTime);
         }
-
+        public void UpdateTimer(float time, float maxTime, bool display, Vector3 position)
+        {
+            _renderer.material.SetFloat("_alpha", Mathf.Lerp(_renderer.material.GetFloat("_alpha"), display ? 1 : 0, Time.deltaTime * 10f));
+            _renderer.material.SetFloat("_tvalue", time / maxTime);
+            _timer.transform.position = position;
+        }
         internal void Discard()
         {
             Destroy(_timer);

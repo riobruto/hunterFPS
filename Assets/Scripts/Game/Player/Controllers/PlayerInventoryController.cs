@@ -27,6 +27,8 @@ namespace Game.Player.Controllers
 
         public event UnityAction<ConsumableItem> ItemFinishConsumeEvent;
 
+        public bool AllowInput;
+
         private void Start()
         {
             _system = Bootstrap.Resolve<InventoryService>().Instance;
@@ -87,8 +89,20 @@ namespace Game.Player.Controllers
             yield return null;
         }
 
+        public void SetUIActive(bool active)
+        {
+            if (active)
+            {
+                _system.ShowInventoryUI();
+                return;
+            }
+            _system.HideInventoryUI();
+        }
+
         private void OnInventory(InputValue value)
         {
+            if (!AllowInput) return;
+
             //HACK: con caquita, CON CAQUITA
 
             if (GetComponent<PlayerWeapons>().WeaponEngine != null)
@@ -98,16 +112,13 @@ namespace Game.Player.Controllers
                     Debug.Log("Can Show UI, Bolt is Open");
                     return;
                 }
-            }
-
-            if (GetComponent<PlayerWeapons>().WeaponEngine != null)
-            {
                 if (GetComponent<PlayerWeapons>().WeaponEngine.IsReloading)
                 {
                     Debug.Log("Can Show UI, Weapon Is Reloading");
                     return;
                 }
             }
+
             if (_manager.IsFlying)
             {
                 Debug.Log("Can Show UI, Player Is Flying");

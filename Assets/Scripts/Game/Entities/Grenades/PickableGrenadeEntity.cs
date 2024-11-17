@@ -22,7 +22,7 @@ namespace Game.Entities.Grenades
             gameObject.layer = 30;
         }
 
-        bool IInteractable.BeginInteraction()
+        bool IInteractable.BeginInteraction(Vector3 position)
         {
             if (!_canBeTaken) return false;
             if (_begun) return false;
@@ -72,6 +72,8 @@ namespace Game.Entities.Grenades
         {
             Bootstrap.Resolve<InventoryService>().Instance.GiveGrenades(_amount, _type);
         }
+
+        bool IInteractable.CanInteract() => _canBeTaken;
 
         // Use this for initialization
     }

@@ -21,11 +21,9 @@ namespace Game.Player.Animation
         }
 
         private Vector3 _heading;
-        [SerializeField] private float _headingIntensity;
-
         [Header("Run and Walk Bobbing")]
+        [SerializeField] private float _headingIntensity;
         [SerializeField] private float _intensity;
-
         [SerializeField] private float _frequency;
         [SerializeField] private float _amplitude;
         [SerializeField] private Vector3 _rotationMultiplier;

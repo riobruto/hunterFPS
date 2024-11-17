@@ -79,9 +79,12 @@ namespace UI
         internal void Set(PlayerWeaponSlot playerWeaponSlot)
         {
             _name.text = playerWeaponSlot.WeaponInstances[0].Settings.name;
-            //_image.sprite = playerWeaponSlot.WeaponInstances[0].Settings.HUDSprite;
+            Sprite sprite = playerWeaponSlot.WeaponInstances[0].Settings.HUDSprite;
+            
+            if (sprite)
+            {
+                _image.sprite = sprite;
+            }
         }
-    
-
     }
 }

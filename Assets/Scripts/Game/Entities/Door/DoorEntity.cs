@@ -14,7 +14,7 @@ namespace Game.Entities.Doors
         private Vector3 _closedRotation = new Vector3(0, 0, 0);
         private Vector3 _openRotation = new Vector3(0, 95, 0);
 
-        bool IInteractable.BeginInteraction()
+        bool IInteractable.BeginInteraction(Vector3 position)
         {
             if (_isRotating) return false;
             _state = !_state;
@@ -22,6 +22,8 @@ namespace Game.Entities.Doors
             StartCoroutine(Rotate());
             return true;
         }
+
+        bool IInteractable.CanInteract() => !_isRotating;
 
         bool IInteractable.IsDone(bool cancelRequest) => true;
 

@@ -76,7 +76,14 @@ namespace Game.Player.Controllers
         //Called when the weapon engine emits an change in state
         private void OnWeaponChangeState(object sender, WeaponStateEventArgs e)
         {
-            _animator.ResetTrigger("DRY");
+            foreach (var param in _animator.parameters)
+            {
+                if (param.type == AnimatorControllerParameterType.Trigger)
+                {
+                    _animator.ResetTrigger(param.name);
+                }
+            }
+
 
             if (_currentWeapon != null)
             {
@@ -89,12 +96,15 @@ namespace Game.Player.Controllers
                     _firedDryFire = false;
                 }
 
-                _animator.SetTrigger(e.State.ToString());
-
                 _animator.SetBool("EMPTY", _weapons.WeaponEngine.CurrentAmmo == 0);
                 _animator.SetBool("COCKED", _weapons.WeaponEngine.Cocked);
                 _animator.SetBool("DRY", _firedDryFire);
+
+                _animator.SetTrigger(e.State.ToString());
             }
+
+
+           
         }
 
         //Called when the weapon instance change in PlayerWeapons

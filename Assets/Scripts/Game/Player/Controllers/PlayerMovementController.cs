@@ -1,5 +1,6 @@
 ﻿using Core.Configuration;
 using Core.Engine;
+using Game.Player.Controllers;
 using Game.Player.Movement;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -10,7 +11,6 @@ namespace Game.Player
     {
         private CharacterController _characterController;
         private PlayerConfiguration.PlayerControlSettings _settings;
-        private Camera _mainCamera;
 
         private float _stamina;
         private float _maxStamina = 100f;
@@ -39,9 +39,6 @@ namespace Game.Player
         public Transform Head
         { get { return _head; } }
 
-        public Camera MainCamera
-        { get { return _mainCamera; } }
-
         public PlayerConfiguration.PlayerControlSettings Settings
         { get { return _settings; } }
 
@@ -53,13 +50,14 @@ namespace Game.Player
         private PlayerBaseMovement[] _movements;
 
         private bool _canFly = false;
-        private bool _canChangeFly = true;
+        private bool _canChangeFly = false;
+
         private float _lastTimeFlyChange = 0;
         private float _currentRadius;
         private float _targetRadius;
         private float _refRadiusVelocity;
 
-        public Vector3 RelativeVelocity => transform.InverseTransformDirection(Controller.velocity);
+        public Vector3 RelativeVelocity => transform.InverseTransformDirection(Controller.velocity - GroundMovement.RigidbodyFollowVelocity);
 
         private void OnGUI()
         {
@@ -117,8 +115,6 @@ namespace Game.Player
             Cursor.lockState = CursorLockMode.Confined;
             Cursor.visible = false;
 
-            _mainCamera = Camera.main;
-
             _characterController = GetComponent<CharacterController>();
             _settings = Bootstrap.Resolve<GameSettings>().PlayerConfiguration.Settings;
             _stamina = _maxStamina;
@@ -137,9 +133,17 @@ namespace Game.Player
         {
             _vaultMovement.VaultEvent += OnVault;
             _groundMovement.CrouchEvent += OnGroundMovementCrouch;
-
             _groundMovement.ChangeStateEvent += OnGroundMovementChangeState;
+            _groundMovement.FallEvent += OnFall;
             _airMovement.ChangeStateEvent += OnAirMovementChangeState;
+        }
+
+        private void OnFall(float distance)
+        {
+            if (distance > 5)
+            {
+                GetComponent<PlayerHealth>().Hurt(distance);
+            }
         }
 
         private void OnAirMovementChangeState(AirMovementState last, AirMovementState current)
@@ -190,7 +194,7 @@ namespace Game.Player
             _targetRadius = .5f;
             GroundMovement.Active = false;
             AirMovement.Active = true;
-            AirMovement.Impulse(Vector3.up*5f);
+            AirMovement.Impulse(Vector3.up * 5f);
             AirMovement.AllowInput = true;
             AirMovement.AllowBoost = true;
             GroundMovement.AllowCrouch = false;
@@ -248,6 +252,13 @@ namespace Game.Player
             VaultMovement.AllowVault = value;
             LookMovement.AllowHorizontalLook = value;
             LookMovement.AllowVerticalLook = value;
+        }
+
+        internal void Teletransport(Vector3 pushPos)
+        {
+            Controller.enabled = false;
+            transform.position = pushPos;
+            Controller.enabled = true;
         }
 
         public bool IsSprinting { get; private set; }

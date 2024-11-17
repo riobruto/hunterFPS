@@ -30,6 +30,7 @@ namespace MyEditor.Life
             {
                 //Setting dirty to reflect changes every draw call
                 EditorUtility.SetDirty(target);
+
                 DisplayPlayerDetection();
                 DisplayAgentState();
                 DisplayHealthBar();
@@ -129,8 +130,8 @@ namespace MyEditor.Life
             }
 
             Rect playerinforect = EditorGUILayout.BeginVertical();
-            EditorGUI.DrawRect(playerinforect, controller.PlayerDetected ? Color.red / 2 : Color.green / 2);
-            EditorGUI.LabelField(playerinforect, controller.PlayerDetected ? "Player Detected" : "Player Undetected", EditorStyles.centeredGreyMiniLabel);
+            EditorGUI.DrawRect(playerinforect, controller.PlayerVisualDetected ? Color.red / 2 : Color.green / 2);
+            EditorGUI.LabelField(playerinforect, controller.PlayerVisualDetected ? "Player Detected" : "Player Undetected", EditorStyles.centeredGreyMiniLabel);
             GUILayout.Space(18);
             EditorGUILayout.EndVertical();
 

@@ -1,5 +1,4 @@
-﻿
-using Game.Inventory;
+﻿using Game.Inventory;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -42,10 +41,12 @@ namespace UI.Inventory
         {
             _background.enabled = true;
             Item = item;
-            /*Image image = transform.AddChild("ItemImage").gameObject.AddComponent<Image>();
+            Image image = new GameObject("Image").AddComponent<RectTransform>().gameObject.AddComponent<Image>();
+            image.GetComponent<RectTransform>().SetParent(transform);
             image.rectTransform.localScale = Vector3.one;
+            image.rectTransform.localPosition = Vector3.one;
             image.sprite = item.Icon;
-            image.rectTransform.sizeDelta = new Vector2(80, 80);*/
+            image.rectTransform.sizeDelta = new Vector2(80, 80);
         }
 
         void IPointerClickHandler.OnPointerClick(PointerEventData eventData)

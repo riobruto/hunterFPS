@@ -30,7 +30,7 @@ namespace Game.Player.Movement
 
         public void ImpulseLook(Vector2 target)
         {
-            _verticalLookAngle += target.x ;
+            _verticalLookAngle += target.x;
         }
 
         private void OnLook(InputValue value)
@@ -42,6 +42,7 @@ namespace Game.Player.Movement
 
         protected override void OnUpdate()
         {
+
             if (_IsRecenteringLook) return;
 
             if (AllowVerticalLook)
@@ -49,10 +50,23 @@ namespace Game.Player.Movement
                 _verticalLookAngle = Mathf.Clamp(_verticalLookAngle - _inputHead.y * Sensitivity * Time.unscaledDeltaTime, -70, 80);
                 Manager.Head.localRotation = Quaternion.Euler(_verticalLookAngle, 0, 0);
             }
+
+            /*if (_smoothCameraYAxle)
+            {
+                if(_lastYheadPos - Manager.Head.position.y > .2f)
+                {
+
+                }
+
+                Manager.Head.position = new Vector3(Manager.Head.position.x, Mathf.SmoothDamp(_lastYheadPos, Manager.Head.position.y, ref _currentYVelocity, 0.1f), Manager.Head.position.z);
+            }*/
+
             if (AllowVerticalLook)
             {
                 Manager.Controller.transform.Rotate(Vector3.up, _inputHead.x * Sensitivity * Time.unscaledDeltaTime);
             }
+
+            _lastYheadPos = Manager.Head.position.y;
         }
 
         private float _refRecenterVelocity;
@@ -71,6 +85,9 @@ namespace Game.Player.Movement
         }
 
         private float _refRecenterTargetVelocity;
+        private bool _smoothCameraYAxle = true;
+        private float _currentYVelocity;
+        private float _lastYheadPos;
 
         private IEnumerator IRecenterLook(float target)
         {

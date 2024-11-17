@@ -16,7 +16,7 @@ namespace UI
         private float timer = 0;
 
         private void Start()
-        {           
+        {
             image = GetComponent<Image>();
         }
 
@@ -24,9 +24,7 @@ namespace UI
         {
             bool lowLife = Health < MaxHealth / 4;
             _duration = Mathf.Clamp(Mathf.InverseLerp(0, MaxHealth, Health), 0.25f, 1);
-
             _currentSpriteArray = lowLife ? _lowHealthSprites : _defaultSprites;
-
             if ((timer += Time.deltaTime) >= (_duration / _currentSpriteArray.Length))
             {
                 timer = 0;

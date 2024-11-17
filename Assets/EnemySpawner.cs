@@ -15,11 +15,11 @@ public class EnemySpawner : MonoBehaviour
         if (Time.time - _lastTime > _timeBetween)
         {
             _lastTime = Time.time;
-            Spawn();
+            SpawnSquad();
         }
     }
 
-    private void Spawn()
+    private void SpawnSquad()
     {
         Instantiate(_prefab, transform.position, transform.rotation);
     }

@@ -2,6 +2,7 @@
 using Game.Hit;
 using Game.Service;
 using Life.Controllers;
+using Nomnom.RaycastVisualization;
 using UnityEngine;
 
 namespace Game.Entities
@@ -31,12 +32,26 @@ namespace Game.Entities
 
             _ownerAgent.NotifyHurt(CalculateDamage(payload.Damage, payload.Distance));
 
-            Bootstrap.Resolve<ImpactService>().System.BloodImpactAtPosition(payload.RaycastHit.point, payload.RaycastHit.normal, transform);
-
+            ManageVisual(payload);
 
             if (gameObject.TryGetComponent(out Rigidbody rb))
             {
                 rb.AddForceAtPosition(-payload.RaycastHit.normal.normalized, payload.RaycastHit.point, ForceMode.VelocityChange);
+            }
+        }
+
+        private void ManageVisual(HitWeaponEventPayload payload)
+        {
+            Bootstrap.Resolve<ImpactService>().System.BloodImpactAtPosition(payload.RaycastHit.point, payload.RaycastHit.normal, transform);
+
+
+            if (VisualPhysics.Raycast(payload.RaycastHit.point, payload.RaycastHit.point - payload.Ray.origin, out RaycastHit hit, 4f, 1 << 0))
+            {
+                Bootstrap.Resolve<ImpactService>().System.BloodDecalAtPosition(hit.point, hit.normal, hit.collider.gameObject.transform);
+            }
+            else if (VisualPhysics.Raycast(payload.RaycastHit.point, Vector3.down, out RaycastHit hitground, 2f, 1 << 0))
+            {
+                Bootstrap.Resolve<ImpactService>().System.BloodDecalAtPosition(hitground.point, hitground.normal, hitground.collider.gameObject.transform);
             }
         }
 
@@ -70,10 +85,8 @@ namespace Game.Entities
             if (gameObject.TryGetComponent(out Rigidbody rrb))
             {
                 rrb.isKinematic = false;
-            
             }
             GetComponent<Collider>().excludeLayers = 8;
-
         }
 
         private float CalculateDamage(float damage, float distance)

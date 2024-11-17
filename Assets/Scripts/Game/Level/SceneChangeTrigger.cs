@@ -14,7 +14,7 @@ namespace Game.Level
 
         private void OnTriggerEnter(Collider other)
         {
-            StartCoroutine(FindObjectOfType<LoadingScreen>().FadeIn());
+            StartCoroutine(FindObjectOfType<HUDLoadingScreen>().FadeIn());
             StartCoroutine(ChangeScene());
         }
 

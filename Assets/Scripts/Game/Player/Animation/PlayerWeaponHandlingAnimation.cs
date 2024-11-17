@@ -34,7 +34,7 @@ namespace Game.Player.Animation
         private PlayerMovementController _mController;
         [SerializeField] private float _noiseFrequency;
         private Vector3 _obstructedRotation;
-
+        private Vector3 _obstructedPosition;
         private Vector3 _refSmoothVelocity;
 
         [SerializeField] private AnimationTransformCurve _runAnimation;
@@ -53,6 +53,11 @@ namespace Game.Player.Animation
         private Vector3 _aimPosition;
         private Vector3 _aimRotation;
         private float _aimIntensityMultiplier = 1;
+
+        [Header("Obstruction Vectors")]
+        [SerializeField] private Vector3 _targetObstructionPosition;
+
+        [SerializeField] private Vector3 _targetObstructionRotation;
 
         void IObserverFromPlayerWeapon.Detach(PlayerWeapons controller)
         {
@@ -121,7 +126,7 @@ namespace Game.Player.Animation
 
             rayDirection = _wController.WeaponEngine.Initialized ? Quaternion.LookRotation(transform.InverseTransformDirection(_wController.WeaponEngine.Ray.direction), Vector3.up) : Quaternion.identity;
 
-            _transform.localPosition = Vector3.SmoothDamp(_transform.localPosition, _currentPosition + _triggerPosition + _aimPosition, ref _refSmoothVelocity, _smoothFactor);
+            _transform.localPosition = Vector3.SmoothDamp(_transform.localPosition, _currentPosition + _triggerPosition + _obstructedPosition + _aimPosition, ref _refSmoothVelocity, _smoothFactor);
             Vector3 swayRotation = new Vector3(_wController.MouseDelta.y, 0, -_wController.MouseDelta.x) * _aimIntensityMultiplier;
             _finalRotation = rayDirection * Quaternion.Euler(_currentRotation + _triggerRotation + _obstructedRotation + speedRotation + _aimRotation + swayRotation);
             _transform.localRotation = Quaternion.Slerp(_transform.localRotation, _finalRotation, Time.deltaTime / _smoothFactor);
@@ -142,10 +147,12 @@ namespace Game.Player.Animation
         {
             if (state)
             {
-                _obstructedRotation = new Vector3(10, -60, 10);
+                _obstructedPosition = _targetObstructionPosition;
+                _obstructedRotation = _targetObstructionRotation;
                 return;
             }
             _obstructedRotation = Vector3.zero;
+            _obstructedPosition = Vector3.zero;
         }
 
         private void SetMovementEvents()
@@ -162,7 +169,6 @@ namespace Game.Player.Animation
 
         private void OnAim(bool state)
         {
-
             _aimPosition = state ? _wController.WeaponEngine.WeaponSettings.Aim.Position : _wController.WeaponEngine.WeaponSettings.Aim.RestPosition;
             _aimRotation = state ? _wController.WeaponEngine.WeaponSettings.Aim.Rotation : _wController.WeaponEngine.WeaponSettings.Aim.RestRotation;
             _aimIntensityMultiplier = state ? 0.125f : 1f;

@@ -22,12 +22,12 @@ namespace Game.Entities
             gameObject.layer = 30;
         }
 
-        bool IInteractable.BeginInteraction()
+        bool IInteractable.BeginInteraction(Vector3 pos)
         {
             if (!_canBeTaken) return false;
             if (_begun) return false;
 
-            _timer.SetTimer(transform.position);
+            _timer.SetTimer(pos);
             _begun = true;
             return true;
         }
@@ -74,9 +74,11 @@ namespace Game.Entities
             foreach (InventoryItem item in _inventoryItem)
             {
                 bool canGiveItem = Bootstrap.Resolve<InventoryService>().Instance.TryAddItem(item);
-                if (canGiveItem) { Destroy(gameObject); }              
+                if (canGiveItem) { Destroy(gameObject); }
             }
             return true;
         }
+
+        bool IInteractable.CanInteract() => _canBeTaken;
     }
 }

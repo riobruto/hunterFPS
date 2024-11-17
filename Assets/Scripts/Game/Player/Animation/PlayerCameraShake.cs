@@ -19,14 +19,14 @@ namespace Game.Player.Animation
             Bootstrap.Resolve<PlayerService>().Player.gameObject.GetComponent<PlayerHealth>().HurtEvent += OnHurt;
         }
 
-        private void OnHurt()
+        private void OnHurt(HurtPayload arg0)
         {
             Shake();
         }
 
         public void Shake()
         {
-            _shakeVector = Random.insideUnitSphere - (Vector3.one * .5f) * 2  * _randomIntensity;
+            _shakeVector = Random.insideUnitSphere - (Vector3.one * .5f) * 2 * _randomIntensity;
             _currentTime = 1;
         }
 

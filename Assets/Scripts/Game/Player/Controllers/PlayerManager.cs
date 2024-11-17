@@ -16,8 +16,11 @@ namespace Game.Player.Controllers
         private PlayerInteractionController _interactionController;
         private PlayerConfiguration.PlayerControlSettings _settings;
         private PlayerAbilitiesController _abilities;
+        private PlayerTrainController _train;
+        private PlayerHealth _health;
         private bool _inventoryOpen;
         private bool _subscribedtoWeaponState;
+        private bool _inTrain;
 
         private IEnumerator Start()
         {
@@ -27,10 +30,13 @@ namespace Game.Player.Controllers
             _inventoryController = GetComponent<PlayerInventoryController>();
             _interactionController = GetComponent<PlayerInteractionController>();
             _abilities = GetComponent<PlayerAbilitiesController>();
+            _health = GetComponent<PlayerHealth>();
             _settings = Bootstrap.Resolve<GameSettings>().PlayerConfiguration.Settings;
+            _train = GetComponent<PlayerTrainController>();
 
             _weaponController.AllowInput = true;
             _movementController.VaultMovement.AllowVault = false;
+            _inventoryController.AllowInput = true;
 
             Bootstrap.Resolve<InventoryService>().Instance.ToggleInventoryEvent += OnInventoryOpen;
             _weaponController.WeaponAimEvent += OnAimWeapon;
@@ -38,7 +44,44 @@ namespace Game.Player.Controllers
             _inventoryController.ItemBeginConsumingEvent += OnItemBeginConsume;
             _inventoryController.ItemFinishConsumeEvent += OnItemFinishConsume;
             _abilities.OpenRadialEvent += OnRadialOpen;
+            _health.DeadEvent += OnDie;
+            _train.PlayerEnterEvent += OnEnterTrain;
+            _train.PlayerExitEvent += OnExitTrain;
+
+            UIService.CreateMessage(new("Este es un mensaje generado por el juego", 5, Color.white, new Color(0, 0, 0, .5f)));
+            UIService.CreateMessage(new("No puedes interactuar con este elemento", 5, Color.white, new Color(0, 0, 0, .5f)));
+            UIService.CreateMessage(new("Tu inventario esta lleno", 5, Color.white, new Color(0, 0, 0, .5f)));
+
             yield return null;
+        }
+
+        private void OnExitTrain()
+        {
+            //_movementController.Controller.excludeLayers = 0;
+            _inTrain = false;
+            _movementController.GroundMovement.enabled = true;
+            _movementController.AirMovement.enabled = true;
+            //_movementController.LookMovement.AllowHorizontalLook = true;
+            //_movementController.LookMovement.AllowVerticalLook = true;
+            //_inventoryController.SetUIActive(false);
+            _interactionController.AllowInteraction = true;
+            _weaponController.AllowInput = true;
+            _weaponController.Draw();
+        }
+
+        private void OnEnterTrain()
+        {
+            //_movementController.Controller.excludeLayers = 10;
+            _inTrain = true;
+            _movementController.GroundMovement.enabled = false;
+            _movementController.AirMovement.enabled = false;
+            //_movementController.Controller.enabled = false;
+            //_movementController.LookMovement.AllowHorizontalLook = false;
+            //_movementController.LookMovement.AllowVerticalLook = false;
+            _inventoryController.SetUIActive(false);
+            _interactionController.AllowInteraction = false;
+            _weaponController.AllowInput = false;
+            _weaponController.Seathe();
         }
 
         private void OnRadialOpen(bool state)
@@ -92,24 +135,42 @@ namespace Game.Player.Controllers
             _movementController.LookMovement.Sensitivity = state ? _settings.AimSensitivity : _settings.NormalSensitivity;
         }
 
+        private void OnDie()
+        {
+            _inventoryController.SetUIActive(false);
+            _movementController.SetMovementFlags(false);
+            _weaponController.AllowInput = false;
+            _interactionController.AllowInteraction = false;
+            _inventoryController.AllowInput = false;
+
+            if (!_inventoryOpen)
+            {
+                _weaponController.Seathe();
+            }
+        }
+
         private void OnInventoryOpen(bool state)
         {
+            if (_health.Dead) return;
+
             _inventoryOpen = state;
 
             if (state)
             {
                 _abilities.CanOpenRadial = false;
-
                 _movementController.LookMovement.AllowHorizontalLook = false;
                 _movementController.LookMovement.AllowVerticalLook = false;
-
                 _movementController.SetAllowGroundMovement(false);
-                _interactionController.AllowInteraction = false;
-                _weaponController.Seathe();
+
+                if (!_inTrain)
+                {
+                    _interactionController.AllowInteraction = false;
+                    _weaponController.Seathe();
+                }
                 return;
             }
 
-            if (!_inventoryController.IsConsumingItem)
+            if (!_inventoryController.IsConsumingItem && !_inTrain)
             {
                 _weaponController.Draw();
             }
