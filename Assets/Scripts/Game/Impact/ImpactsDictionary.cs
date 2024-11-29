@@ -1,5 +1,6 @@
 ﻿using Game.Player.Sound;
 using System;
+using System.Linq;
 using UnityEngine;
 
 namespace Game.Impact
@@ -14,6 +15,9 @@ namespace Game.Impact
         [SerializeField] private float _tracerMinTime;
         [SerializeField] private float _tracerMaxTime;
 
+        [SerializeField] private Texture _bulletHoles;
+        [SerializeField] private BulletCoordinate[] _bulletCoordinates;
+
         [Header("Decal Sets")]
         [SerializeField] private DecalTextureSet _bloodDecalSet;
 
@@ -21,11 +25,14 @@ namespace Game.Impact
         public ImpactObject ConcreteHit => _concreteHit;
         public ImpactObject BloodHit => _bloodHit;
         public GameObject Tracer { get => _tracer; }
-
         public DecalTextureSet BloodDecalSet => _bloodDecalSet;
-
         public float TracerMinSpeed { get => _tracerMinTime; }
         public float TracerMaxSpeed { get => _tracerMaxTime; }
+
+        public Vector2Int GetBulletHoleFromType(SurfaceType type)
+        {
+            return _bulletCoordinates.First(x => x.SurfaceType == type).AtlasCoordinates;
+        }
     }
 
     [Serializable]

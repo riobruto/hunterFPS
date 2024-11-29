@@ -31,7 +31,7 @@ namespace Game.Player.Animation
         [SerializeField] private AnimationTransformCurve _idleAnimation;
         private Vector3 _idlePosition;
         private Vector3 _idleRotation;
-        private PlayerMovementController _mController;
+        private PlayerRigidbodyMovement _mController;
         [SerializeField] private float _noiseFrequency;
         private Vector3 _obstructedRotation;
         private Vector3 _obstructedPosition;
@@ -65,9 +65,8 @@ namespace Game.Player.Animation
             //throw new System.NotImplementedException();
         }
 
-        void IObserverFromPlayerMovement.Detach(PlayerMovementController controller)
+        void IObserverFromPlayerMovement.Detach(PlayerRigidbodyMovement controller)
         {
-            throw new System.NotImplementedException();
         }
 
         void IObserverFromPlayerWeapon.Initalize(PlayerWeapons controller)
@@ -79,7 +78,7 @@ namespace Game.Player.Animation
             SetWeaponEvents();
         }
 
-        void IObserverFromPlayerMovement.Initalize(PlayerMovementController controller)
+        void IObserverFromPlayerMovement.Initalize(PlayerRigidbodyMovement controller)
         {
             _mController = controller;
             SetMovementEvents();
@@ -95,31 +94,27 @@ namespace Game.Player.Animation
             planeVelocity.y = 0;
 
             if (!_active) return;
+
             _flyAnimation.Evaluate(Time.time, out _flyPosition, out _flyRotation);
             _walkAnimation.Evaluate(Time.time, out _walkPosition, out _walkRotation);
             _runAnimation.Evaluate(Time.time, out _runPosition, out _runRotation);
             _idleAnimation.Evaluate(Time.time, out _idlePosition, out _idleRotation);
             _crouchAnimation.Evaluate(Time.time, out _crouchPosition, out _crouchRotation);
 
-            if (_mController.IsFlying)
-            {
-                _currentPosition = _flyPosition;
-                _currentRotation = _flyRotation;
-            }
-            else if (_mController.RelativeVelocity.magnitude < 0.01f)
+            if (planeVelocity.magnitude < 0.01f)
             {
                 _currentPosition = _idlePosition * _aimIntensityMultiplier;
                 _currentRotation = _idleRotation * _aimIntensityMultiplier;
             }
             else
             {
-                float walkRunInterpolation = Mathf.InverseLerp(_mController.GroundMovement.WalkSpeed, _mController.GroundMovement.SprintSpeed, planeVelocity.magnitude);
+                float walkRunInterpolation = Mathf.InverseLerp(_mController.WalkSpeed, _mController.SprintSpeed, planeVelocity.magnitude);
+                if (_mController.IsFalling) walkRunInterpolation = 0;
 
                 Vector3 WalkRunPosition = Vector3.Lerp(_walkPosition, _runPosition, walkRunInterpolation) * _aimIntensityMultiplier;
                 Vector3 WalkRunRotation = Vector3.Lerp(_walkRotation, _runRotation, walkRunInterpolation) * _aimIntensityMultiplier;
-
-                _currentPosition = Vector3.Lerp(WalkRunPosition, _crouchPosition, _mController.IsCrouching ? 1 : 0);
-                _currentRotation = Vector3.Lerp(WalkRunRotation, _crouchRotation, _mController.IsCrouching ? 1 : 0);
+                _currentPosition = Vector3.Lerp(WalkRunPosition, _crouchPosition, _mController.CurrentState == PlayerMovementState.CROUCH ? 1 : 0);
+                _currentRotation = Vector3.Lerp(WalkRunRotation, _crouchRotation, _mController.CurrentState == PlayerMovementState.CROUCH ? 1 : 0);
             }
             Vector3 speedRotation = new Vector3(_mController.RelativeVelocity.y, 0, _mController.RelativeVelocity.x);
             Quaternion rayDirection;
@@ -157,8 +152,6 @@ namespace Game.Player.Animation
 
         private void SetMovementEvents()
         {
-            _mController.VaultMovement.VaultEvent += OnVault;
-            _mController.GroundMovement.CrouchEvent += OnCrouch;
         }
 
         private void SetWeaponEvents()

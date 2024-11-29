@@ -118,7 +118,7 @@ namespace Game.Player.Controllers
             }
             if (!_activeWeapons.ContainsKey(instance.Settings))
             {
-                GameObject weapon = Instantiate(instance.Settings.WeaponPrefab);
+                GameObject weapon = Instantiate(instance.Settings.ViewWeaponPrefab);
                 _activeWeapons.Add(instance.Settings, weapon);
                 weapon.transform.SetParent(transform, false);
             }

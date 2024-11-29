@@ -26,7 +26,8 @@ namespace Game.Player
         {
             PlayerExitEvent?.Invoke();
             transform.parent = null;
-            GetComponent<PlayerMovementController>().Teletransport(trainControlPossesable.PlayerExitPosition.position);          
+            GetComponent<PlayerRigidbodyMovement>().Teletransport(trainControlPossesable.PlayerExitPosition.position);
+            GetComponent<Rigidbody>().isKinematic = false;
             transform.rotation = Quaternion.identity;
             _inInTrain = false;
             _currentTrain = null;
@@ -36,6 +37,7 @@ namespace Game.Player
         {
             _currentTrain = trainControlPossesable;
             PlayerEnterEvent?.Invoke();
+            GetComponent<Rigidbody>().isKinematic = true;
             transform.parent = trainControlPossesable.PlayerSeatPosition;
             transform.localPosition = Vector3.zero;
             transform.localRotation = Quaternion.identity;

@@ -6,6 +6,7 @@ namespace Game.Life.WaypointPath
     {
         [SerializeField] private Waypoint _nextWaypoint;
         public Waypoint NextWaypoint => _nextWaypoint;
+        public int WaitTime = 1;
 
         public void SetNextWaypoint(Waypoint nextWaypoint)
         {

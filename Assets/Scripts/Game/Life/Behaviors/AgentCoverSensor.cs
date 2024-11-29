@@ -1,9 +1,8 @@
 ﻿using Core.Engine;
-using Nomnom.RaycastVisualization;
 using System.Collections.Generic;
 
 using System.Linq;
-using System.Threading;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -27,29 +26,40 @@ namespace Game.Life
 
         private float _height = 1.75f;
         private float _crouchHeight = .75f;
+        private NavMeshAgent _agent;
 
         public float DetectionRadius { get => _detectionRadius; set => _detectionRadius = value; }
         public int DetectionResolution { get => _detectionResolution; set => _detectionResolution = value; }
         public float Height { get => _height; set => _height = value; }
         public float CrouchHeight { get => _crouchHeight; set => _crouchHeight = value; }
 
+        private void Start()
+        {
+            _agent = GetComponent<NavMeshAgent>();
+        }
+
         //now this points of data make a beautiful line
-        public IEnumerable<SpatialDataPoint> GetCombatSpatialData(Vector3 position, Vector3 threat)
+
+        public IEnumerable<SpatialDataPoint> GetCombatSpatialData(Vector3 position, Vector3 threat, float radius = 20, float safeDistance = 15)
         {
             _debugPos = position;
             _debugThreat = threat;
 
             for (int i = 1; i < _detectionResolution; i++)
             {
-                float dist = Mathf.Pow(i / (_detectionResolution - 1f), 0.5f) * _detectionRadius;
+                float dist = Mathf.Pow(i / (_detectionResolution - 1f), 0.5f) * radius;
                 float angle = 2 * Mathf.PI * 1.618035f * i;
                 float x = dist * Mathf.Cos(angle);
                 float z = dist * Mathf.Sin(angle);
 
                 Vector3 point = new Vector3(x, 0, z);
                 bool validPoint = NavMesh.SamplePosition(position + point, out NavMeshHit hit, 5, NavMesh.AllAreas);
-
                 if (!validPoint) continue;
+
+                NavMeshPath path = new NavMeshPath();
+                bool validPath = _agent.CalculatePath(position + point, path);
+                if (!validPath || path.status == NavMeshPathStatus.PathPartial) continue;
+                if (Vector3.Distance(hit.position, threat) < safeDistance) continue;
 
                 yield return new(
                    hit.position,
@@ -57,8 +67,10 @@ namespace Game.Life
                    Vector3.Distance(hit.position, position),
                    IsSafeForCover(hit.position + Vector3.up * _height, threat),
                    IsSafeForCover(hit.position + Vector3.up * _crouchHeight, threat),
-                   threat.y - (hit.position.y + _height) > 1.5f);
+                   threat.y - (hit.position.y + _height) > 1.5f,
+                   path);
             }
+
             yield break;
         }
 
@@ -82,6 +94,7 @@ namespace Game.Life
                     Gizmos.DrawWireCube(point.Position + Vector3.up, Vector3.one / 2f);
                 }
                 Gizmos.DrawWireSphere(point.Position, .25f);
+                Handles.Label(point.Position + Vector3.up, $"Dist: {point.PathLength}");
             }
         }
     }
@@ -94,8 +107,10 @@ namespace Game.Life
         public bool SafeFromStanding { get; private set; }
         public bool SafeFromCrouch { get; private set; }
         public bool HasHeightAdvantage { get; private set; }
+        public NavMeshPath Path { get; private set; }
+        public float PathLength { get; private set; }
 
-        public SpatialDataPoint(Vector3 position, float distanceFromThreat, float distanceFromPoint, bool safeFromStanding, bool safeFromCrouch, bool heightAdvantage)
+        public SpatialDataPoint(Vector3 position, float distanceFromThreat, float distanceFromPoint, bool safeFromStanding, bool safeFromCrouch, bool heightAdvantage, NavMeshPath path)
         {
             Position = position;
             DistanceFromThreat = distanceFromThreat;
@@ -103,26 +118,24 @@ namespace Game.Life
             SafeFromStanding = safeFromStanding;
             SafeFromCrouch = safeFromCrouch;
             HasHeightAdvantage = heightAdvantage;
-        }
-    }
-
-    public static class SpatialDataUtils
-    {
-        public static SpatialDataPoint ReevaluatePoint(this SpatialDataPoint point, Vector3 threat, float height = 1.75f, float crouchHeight = .75f)
-        {
-            NavMesh.SamplePosition(point.Position, out NavMeshHit hit, 5, NavMesh.AllAreas);
-            return
-           new(hit.position,
-           Vector3.Distance(hit.position, threat),
-           Vector3.Distance(hit.position, point.Position),
-           IsSafeForCover(hit.position + Vector3.up * height, threat),
-           IsSafeForCover(hit.position + Vector3.up * crouchHeight, threat),
-           threat.y - (hit.position.y + height) > 1.5f);
+            Path = path;
+            PathLength = 0;
+            PathLength = CalcultePathDistance(path);
         }
 
-        private static bool IsSafeForCover(Vector3 point, Vector3 threat)
+        private float CalcultePathDistance(NavMeshPath path)
         {
-            return Physics.Linecast(threat, point, Bootstrap.Resolve<GameSettings>().RaycastConfiguration.CoverLayers);
+            float lng = 0.0f;
+
+            if ((path.status != NavMeshPathStatus.PathInvalid) && (path.corners.Length > 1))
+            {
+                for (int i = 1; i < path.corners.Length; ++i)
+                {
+                    lng += Vector3.Distance(path.corners[i - 1], path.corners[i]);
+                }
+            }
+
+            return lng;
         }
     }
 }

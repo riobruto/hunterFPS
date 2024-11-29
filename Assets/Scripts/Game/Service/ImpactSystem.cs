@@ -1,4 +1,5 @@
 ﻿using Core.Engine;
+using Game.Audio;
 using Game.Impact;
 using System.Collections;
 using UnityEngine;
@@ -10,10 +11,15 @@ namespace Game.Service
     public class ImpactService : SceneService
     {
         private ImpactSystem _system;
+        private bool _initialized;
 
         internal override void Initialize()
         {
+            if (_initialized) return;
+            Debug.Log("Initializing Impacts");
             _system = new GameObject("ImpactSystem").AddComponent<ImpactSystem>();
+            _system.Create();
+            _initialized = true;
         }
 
         public ImpactSystem System => _system;
@@ -32,11 +38,6 @@ namespace Game.Service
 
         private void Start()
         {
-            _dictionary = Resources.Load("ImpactDictionary") as ImpactsDictionary;
-            CreateExplosion();
-            CreateImpacts();
-            CreateTracers();
-            CreateBloodDecals();
         }
 
         private void CreateTracers()
@@ -154,7 +155,7 @@ namespace Game.Service
             trace.SetActive(true);
             TrailRenderer rendered = trace.GetComponent<TrailRenderer>();
             rendered.transform.position = from;
-            rendered.startWidth = Random.Range(0.25f, 0.75f);
+            rendered.startWidth = Random.Range(0.05f, 0.15f);
             rendered.Clear();
 
             float trailTime = .25f;
@@ -171,16 +172,26 @@ namespace Game.Service
             yield break;
         }
 
-        internal void ImpactAtPosition(Vector3 point, Vector3 normal, Transform transform)
+        internal void ImpactAtPosition(Vector3 point, Vector3 normal, Transform transform, SurfaceType type = SurfaceType.DARK)
         {
-            GameObject explosion = ImpactBuffer.GetNext();
-            explosion.transform.position = point;
-            explosion.transform.forward = normal;
-            explosion.transform.parent = transform;
-            explosion.SetActive(true);
-            explosion.GetComponent<VisualEffect>().Play();
+            GameObject impact = ImpactBuffer.GetNext();
+            impact.transform.position = point;
+            impact.transform.forward = normal;
+            impact.transform.SetParent(transform, true);
+            //impact.transform.localScale = Vector3.one - impact.transform.parent.lossyScale;
 
-            AudioSource.PlayClipAtPoint(_dictionary.ConcreteHit.Sound.GetRandom(), point, 1);
+            impact.SetActive(true);
+            impact.GetComponent<VisualEffect>().Play();
+
+            Vector2Int coord = _dictionary.GetBulletHoleFromType(type);
+            DecalProjector proyector = impact.GetComponentInChildren<DecalProjector>();
+            //TOO BAD!
+
+            Material mat = new(proyector.material);
+            mat.SetVector("_coordinates", new Vector4(coord.x, coord.y) + new Vector4(Random.Range(0, 2), Random.Range(0, 2), 0, 0));
+            proyector.material = mat;
+            // impact.transform.Rotate(0, 0, Random.Range(0, 360), Space.Self);
+            AudioToolService.PlayClipAtPoint(_dictionary.ConcreteHit.Sound.GetRandom(), point, 1, AudioChannels.ENVIRONMENT);
         }
 
         internal void BloodImpactAtPosition(Vector3 point, Vector3 normal, Transform transform)
@@ -192,12 +203,12 @@ namespace Game.Service
             blood.SetActive(true);
             blood.GetComponent<ParticleSystem>().Play();
 
-            AudioSource.PlayClipAtPoint(_dictionary.BloodHit.Sound.GetRandom(), point, 1);
+            AudioToolService.PlayClipAtPoint(_dictionary.BloodHit.Sound.GetRandom(), point, 1, AudioChannels.ENVIRONMENT);
         }
 
         internal void BloodDecalAtPosition(Vector3 point, Vector3 normal, Transform parent = null)
         {//TODO: Crear shader solo para decals de impacto
-            GameObject decal = BloodDecalBuffer.GetNext();           
+            GameObject decal = BloodDecalBuffer.GetNext();
             decal.GetComponent<DecalProjector>().material.SetTexture("_Color", _dictionary.BloodDecalSet.GetRandom());
             decal.transform.position = point;
             decal.transform.forward = normal;
@@ -208,6 +219,16 @@ namespace Game.Service
             {
                 decal.transform.parent = parent;
             }
+        }
+
+        internal void Create()
+        {
+            _dictionary = Resources.Load("ImpactDictionary") as ImpactsDictionary;
+            CreateExplosion();
+            CreateImpacts();
+            CreateTracers();
+            CreateBloodDecals();
+            Debug.Log("Impacts Done");
         }
     }
 }

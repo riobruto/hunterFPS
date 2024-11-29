@@ -33,7 +33,7 @@ namespace Game.Train
             }
             Vector3 pushPos = _boxCollider.ClosestPointOnBounds(_player.transform.position) - transform.position;
             Debug.DrawRay(transform.position, pushPos);
-            _player.GetComponent<PlayerMovementController>().Teletransport(_player.transform.position + pushPos.normalized * Time.deltaTime*2f);
+            _player.GetComponent<PlayerRigidbodyMovement>().Teletransport(_player.transform.position + pushPos.normalized * Time.deltaTime*2f);
         }
     }
 }

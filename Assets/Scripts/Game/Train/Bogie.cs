@@ -162,11 +162,11 @@ namespace Game.Train
         }
 
         private void OnGUI()
-        {
+        {/*
             Vector3 screen = Camera.main.WorldToScreenPoint(transform.position);
             Vector2 GUIPos = GUIUtility.ScreenToGUIPoint(screen);
             Rect rect = new(GUIPos.x, Screen.height - GUIPos.y, 100, 25);
-            //GUI.Label(rect, $"{timeSegment}");
+            //GUI.Label(rect, $"{timeSegment}");*/
         }
 
         public virtual void OnFixedUpdate()

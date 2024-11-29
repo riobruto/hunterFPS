@@ -1,20 +1,21 @@
-﻿using UnityEngine;
+﻿using Game.Player.Controllers;
+using UnityEngine;
 using UnityEngine.InputSystem;
 
 namespace Game.Player.Movement
 {
-    public class PlayerLeanMovement : PlayerBaseMovement
+    public class PlayerLeanMovement : MonoBehaviour
     {
         [SerializeField] private Transform _leanTransform;
         public float LeanVector { get; private set; }
         public bool AllowLean { get; internal set; }
 
-
-        protected override void OnUpdate()
+      
+        protected void Update()
         {
             float target;
 
-            target = AllowLean ? -LeanVector * Manager.Settings.LeanMaxAngle : 0;
+            target = AllowLean ? -LeanVector * 22 : 0;
 
             if (CheckLeanCollision(LeanVector))
             {

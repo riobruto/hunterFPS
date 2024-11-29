@@ -4,8 +4,8 @@ namespace Game.Player.Movement
 {
     internal interface IObserverFromPlayerMovement
     {
-        void Initalize(PlayerMovementController controller);
+        void Initalize(PlayerRigidbodyMovement controller);
 
-        void Detach(PlayerMovementController controller);
+        void Detach(PlayerRigidbodyMovement controller);
     }
 }

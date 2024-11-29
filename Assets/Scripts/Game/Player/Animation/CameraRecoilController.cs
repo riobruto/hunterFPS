@@ -41,7 +41,7 @@ namespace Game.Player.Animation
                 _currentTime = 1;
                 _recoilVector = e.Sender.WeaponSettings.RecoilShake;
                 _recoilVector += UnityEngine.Random.insideUnitSphere * _randomIntensity;
-                FindObjectOfType<PlayerLookMovement>().ImpulseLook(e.Sender.WeaponSettings.RecoilKick);
+               transform.root.GetComponent<PlayerRigidbodyMovement>().ImpulseLook(e.Sender.WeaponSettings.RecoilKick);
                 _recoverSpeed = e.Sender.WeaponSettings.RecoilRecoverSpeed;
             }
         }

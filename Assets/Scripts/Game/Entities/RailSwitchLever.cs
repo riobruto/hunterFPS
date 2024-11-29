@@ -40,7 +40,7 @@ namespace Game.Entities
         {
             if (value)
             {
-                UIService.CreateMessage(new("Railswitch changed", 5, Color.white, new Color(0, 0, 0, .5f)));
+                UIService.CreateMessage(new MessageParameters("Railswitch changed", 5, Color.white, new Color(0, 0, 0, .5f)));
                 _junction.SetSwitchState(!_currentState);
 
                 ResetInteraction();

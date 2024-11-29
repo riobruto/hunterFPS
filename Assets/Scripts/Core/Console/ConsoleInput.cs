@@ -49,6 +49,8 @@ namespace Core.Console
 
         private void OnGUI()
         {
+
+            if (!_consoleOpen) return;
             using (new GUILayout.HorizontalScope())
             {
                 if (GUILayout.Button("Give Item"))
@@ -66,7 +68,7 @@ namespace Core.Console
                 if (GUILayout.Button("Restore Player"))
                 {
                     Bootstrap.Resolve<PlayerService>().Player.GetComponent<PlayerHealth>().Heal(100f);
-                    Bootstrap.Resolve<PlayerService>().Player.GetComponent<PlayerMovementController>().Stamina = 100;
+                    Bootstrap.Resolve<PlayerService>().Player.GetComponent<PlayerRigidbodyMovement>().Stamina = 100;
                 }
                 if (GUILayout.Button("Give Current Ammo"))
                 {

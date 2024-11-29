@@ -21,7 +21,7 @@ namespace Game.Player.Controllers
         private bool _hasGasmaskOn;
 
         private PlayerHealth _health;
-        private PlayerMovementController _manager;
+        private PlayerRigidbodyMovement _manager;
 
         public event UnityAction<ConsumableItem> ItemBeginConsumingEvent;
 
@@ -34,7 +34,7 @@ namespace Game.Player.Controllers
             _system = Bootstrap.Resolve<InventoryService>().Instance;
             _system.UseConsumableEvent += OnConsumeItem;
             _health = GetComponent<PlayerHealth>();
-            _manager = GetComponent<PlayerMovementController>();
+            _manager = GetComponent<PlayerRigidbodyMovement>();
         }
 
         private void OnConsumeItem(ConsumableItem item)
@@ -117,12 +117,6 @@ namespace Game.Player.Controllers
                     Debug.Log("Can Show UI, Weapon Is Reloading");
                     return;
                 }
-            }
-
-            if (_manager.IsFlying)
-            {
-                Debug.Log("Can Show UI, Player Is Flying");
-                return;
             }
 
             _openRequest = !_openRequest;

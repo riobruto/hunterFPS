@@ -6,16 +6,16 @@ namespace Game.Player.Animation
 {
     public class CameraBobbingAnimator : MonoBehaviour, IObserverFromPlayerMovement
     {
-        private PlayerMovementController _controller;
+        private PlayerRigidbodyMovement _controller;
         private GameSettings settings;
 
-        public void Initalize(PlayerMovementController controller)
+        public void Initalize(PlayerRigidbodyMovement controller)
         {
             settings = Bootstrap.Resolve<GameSettings>();
             _controller = controller;
         }
 
-        public void Detach(PlayerMovementController controller)
+        public void Detach(PlayerRigidbodyMovement controller)
         {
             _controller = null;
         }
@@ -39,10 +39,8 @@ namespace Game.Player.Animation
             dir.y = 0;
             _rateOfWaveTime = dir.magnitude;
 
-            Vector3 bob = BobbingWave() * _intensity;
-
-            if (_controller.IsFlying) bob = Vector3.zero;
-            if (_controller.IsFalling) bob = Vector3.zero;
+            Vector3 bob = BobbingWave() * _intensity;            
+            if (_controller.CurrentState == PlayerMovementState.FALLING) bob = Vector3.zero;
 
             _heading = new Vector3(dir.z, 0, (dir.x * -1f));
 

@@ -16,16 +16,16 @@ namespace Game.Player.Controllers
         [SerializeField] private float _timeBetweenFootstep = 2.33f;
 
         private float _time;
-        private CharacterController _characterController;
+       
         private AudioSource _audioSource;
-        private PlayerMovementController _controller;
+        private PlayerRigidbodyMovement _controller;
         private PlayerWeapons _weapons;
 
         // Start is called before the first frame update
         private void Start()
         {
-            _characterController = transform.root.GetComponent<CharacterController>();
-            _controller = transform.root.GetComponent<PlayerMovementController>();
+          
+            _controller = transform.root.GetComponent<PlayerRigidbodyMovement>();
             _audioSource = GetComponent<AudioSource>();
             _audioSource.volume = 0.33f;
         }
@@ -38,12 +38,8 @@ namespace Game.Player.Controllers
 
         private void ManageFootsteps()
         {
-            //TODO: esto es caca arreglar
-            if (_controller.IsFlying) _time = 0;
-            if (_controller.IsFalling) _time = 0;
-            if (_controller.IsCrouching) _time = 0;
 
-            _time += ((_characterController.velocity - _controller.GroundMovement.RigidbodyFollowVelocity).magnitude) * Time.deltaTime;
+            _time += (_controller.RelativeVelocity.magnitude) * Time.deltaTime;
 
             if (_time > _timeBetweenFootstep)
             {
@@ -55,9 +51,9 @@ namespace Game.Player.Controllers
         private void PlayAudio()
         {
             _audioSource.pitch = Random.Range(0.9f, 1.1f);
-            StepSound?.Invoke(transform.position, _controller.IsSprinting ? 5 : 10);
-            DrawDebug(_controller.IsSprinting ? 5 : 10);
-            AudioClipCompendium current = _controller.IsSprinting ? _walkClips : _runClips;
+            StepSound?.Invoke(transform.position, _controller.CurrentState == PlayerMovementState.SPRINT ? 5 : 10);
+            DrawDebug(_controller.CurrentState == PlayerMovementState.SPRINT ? 5 : 10);
+            AudioClipCompendium current = _controller.CurrentState == PlayerMovementState.SPRINT ? _walkClips : _runClips;
             _audioSource.PlayOneShot(current.GetRandom());
         }
 

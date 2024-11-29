@@ -1,12 +1,15 @@
 ﻿using Game.Entities;
 using Game.Life;
+using Game.Life.WaypointPath;
 using Game.Player.Weapon;
+using Game.Service;
 using Life.StateMachines;
 
 using System.Collections;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.Rendering;
 
 namespace Life.Controllers
 {
@@ -25,12 +28,17 @@ namespace Life.Controllers
 
         public AgentCoverSensor CoverSensor => _cover;
         public AgentFireWeapon Weapon => _weapon;
+        public AgentWaypoints Waypoints => _waypoints;
+
+        [SerializeField] private bool _useWaypoints;
+        private AgentWaypoints _waypoints;
 
         //StealthData
         public override void OnStart()
         {
             _cover = gameObject.AddComponent<AgentCoverSensor>();
             _weapon = gameObject.GetComponent<AgentFireWeapon>();
+            _waypoints = gameObject.GetComponent<AgentWaypoints>();
 
             CreateStates();
             CreateTransitions();
@@ -93,6 +101,7 @@ namespace Life.Controllers
                         StartCoroutine(SetCrouch(false, _runSpeed));
                         break;
                     }
+                    Animator.SetBool("AIM", false);
                     _desiredSpeed = _runSpeed;
                     break;
 
@@ -103,6 +112,7 @@ namespace Life.Controllers
                         StartCoroutine(SetCrouch(false, _walkSpeed));
                         break;
                     }
+                    Animator.SetBool("AIM", true);
                     _desiredSpeed = _walkSpeed;
                     break;
 
@@ -117,6 +127,7 @@ namespace Life.Controllers
                     break;
 
                 case SoldierMovementType.CROUCH:
+                    Animator.SetBool("AIM", true);
                     Animator.SetBool("WARNING", true);
                     StartCoroutine(SetCrouch(true, _crouchSpeed));
                     break;
@@ -167,6 +178,7 @@ namespace Life.Controllers
         private float _suspisiusTime;
 
         public Vector3 InterestPoint { get => _interestPoint; }
+        public bool UseWaypoints => _useWaypoints;
 
         private float _lastBurstTime = 0;
         private float _burstTime = 0;
@@ -174,12 +186,11 @@ namespace Life.Controllers
 
         [SerializeField] private AudioClip[] _shouts;
 
-        private SoldierWanderState _wander;
+        private SoldierPatrolState _wander;
         private SoldierReportState _report;
         private SoldierAttackState _attack;
         private SoldierDieState _die;
         private SoldierRetreatCoverState _retreatCover;
-
         private SoldierSearchAlertState _investigate;
 
         private void CreateStates()
@@ -189,29 +200,26 @@ namespace Life.Controllers
             _attack = new(this);
             _retreatCover = new(this);
             _die = new(this);
-
             _investigate = new(this);
         }
 
         private void CreateTransitions()
         {
             //TODO: MEJORAR FLAGS DE DETECCION, ESTAN MUY INCONSISTENTES
+
             //Definir mejor las transiciones ya que crean bucles
-            //report, detect, suspect, asuntos separados)como la iglesia y el estado))))
+
+            //suspect,detect,report, asuntos separados)como la iglesia y el estado))))
 
             Machine.AddTransition(_wander, _investigate, new FuncPredicate(() => !_isEngaged && _isSuspicius));
-
             Machine.AddTransition(_wander, _report, new FuncPredicate(() => _isEngaged));
-            Machine.AddTransition(_report, _attack, new FuncPredicate(() => _isEngaged && _report.Done));
-
+            Machine.AddTransition(_report, _attack, new FuncPredicate(() => _isEngaged && _report.Done && AgentGlobalService.Instance.TryTakeAttackSlot(this)));
+            Machine.AddTransition(_report, _retreatCover, new FuncPredicate(() => _isEngaged && _report.Done && !AgentGlobalService.Instance.TryTakeAttackSlot(this)));
             Machine.AddTransition(_attack, _retreatCover, new FuncPredicate(() => _weapon.WeaponEngine.CurrentAmmo < _weapon.WeaponEngine.MaxAmmo / 3));
-            Machine.AddTransition(_retreatCover, _attack, new FuncPredicate(() => _retreatCover.Ready && _isEngaged));
-
+            Machine.AddTransition(_retreatCover, _attack, new FuncPredicate(() => _retreatCover.Ready && _isEngaged && AgentGlobalService.Instance.TryTakeAttackSlot(this)));
             Machine.AddTransition(_attack, _wander, new FuncPredicate(() => !_isEngaged && !_isSuspicius));
-
             Machine.AddTransition(_investigate, _attack, new FuncPredicate(() => _isEngaged));
-
-            Machine.AddTransition(_retreatCover, _investigate, new FuncPredicate(() => _retreatCover.Ready && _isSuspicius && !_isEngaged));
+            Machine.AddTransition(_retreatCover, _investigate, new FuncPredicate(() => _retreatCover.Ready && !_isEngaged));
 
             Machine.SetState(_wander);
         }
@@ -226,9 +234,10 @@ namespace Life.Controllers
             if (!_isEngaged) Machine.ForceChangeToState(_retreatCover);
 
             SetHealth(GetHealth() - value);
+
             Animator.SetTrigger("HURT");
             _hurtStopVelocityMultiplier = 0;
-            _engagedTime = 30;
+            _engagedTime = 50;
         }
 
         public void AllowFire(bool state)
@@ -242,12 +251,11 @@ namespace Life.Controllers
 
             if (!PlayerVisualDetected)
             {
-                _suspisiusTime = 60;
-
+                _suspisiusTime = 120;
                 _interestPoint = PlayerGameObject.transform.position;
                 return;
             }
-            _engagedTime = 30;
+            _engagedTime = 40;
         }
 
         private void ManageWeapon()
@@ -270,7 +278,7 @@ namespace Life.Controllers
 
             if (Time.time - _lastBurstTime > _burstTime)
             {
-                _burstTime = Random.Range(0.5f, 2f);
+                _burstTime = Random.Range(0.5f, 1f);
                 _lastBurstTime = Time.time;
                 _shooting = !_shooting;
             }
@@ -282,8 +290,12 @@ namespace Life.Controllers
         public override void OnHeardCombat()
         {
             if (IsDead) return;
-            _engagedTime = 30;
+            _engagedTime = 50;
         }
+
+        public void ForceRetreatToCover() => Machine.ForceChangeToState(_retreatCover);
+
+        public void ForceAttack() => Machine.ForceChangeToState(_attack);
 
         internal void Shout()
         {
@@ -299,11 +311,17 @@ namespace Life.Controllers
         {
             _weapon.DropWeapon();
         }
+
+        public override void ForcePlayerPerception()
+        {
+            if (IsDead) return;
+            _engagedTime = 120;
+        }
     }
 
-    public class SoldierWanderState : BaseState
+    public class SoldierPatrolState : BaseState
     {
-        public SoldierWanderState(AgentController context) : base(context)
+        public SoldierPatrolState(AgentController context) : base(context)
         {
             _observer = context as SoldierAgentController;
         }
@@ -311,6 +329,9 @@ namespace Life.Controllers
         private SoldierAgentController _observer;
 
         private Vector3 _targetPos;
+        private float _lastWaitTime;
+        private float _waitTime;
+        private Waypoint _currentWaypoint;
 
         public override void DrawGizmos()
         {
@@ -326,8 +347,10 @@ namespace Life.Controllers
             _observer.SetMovementType(SoldierMovementType.PATROL);
             _observer.Animator.SetBool("WARNING", false);
             _observer.Animator.SetLayerWeight(3, 0);
-            if (FindNewTarget()) _observer.SetTarget(_targetPos);
+            _observer.Animator.SetLayerWeight(2, 0);
 
+            _currentWaypoint = _observer.Waypoints.CurrentWaypoint;
+            if (FindNewTarget()) _observer.SetTarget(_targetPos);
             _observer.FaceTarget = false;
         }
 
@@ -335,25 +358,44 @@ namespace Life.Controllers
         {
             if (ReachedTarget())
             {
-                if (FindNewTarget())
+                _waitTime += Time.deltaTime;
+
+                if (_waitTime > _currentWaypoint.WaitTime)
                 {
-                    _observer.SetTarget(_targetPos);
+                    _waitTime = 0;
+                    if (FindNewTarget())
+                    {
+                        _observer.SetTarget(_targetPos);
+                    }
                 }
             }
         }
 
         private bool FindNewTarget()
         {
-            int tries = 5;
-            for (int i = 0; i < tries; i++)
+            if (!_observer.UseWaypoints)
             {
-                if (NavMesh.SamplePosition(Random.insideUnitSphere * 10 + _observer.transform.position, out NavMeshHit hit, 5, NavMesh.AllAreas))
+                int randomTries = 5;
+                for (int i = 0; i < randomTries; i++)
                 {
-                    _targetPos = hit.position;
+                    if (NavMesh.SamplePosition(_observer.transform.position + Random.insideUnitSphere * 5f, out NavMeshHit rhit, 5, NavMesh.AllAreas))
+                    {
+                        _targetPos = rhit.position;
 
-                    return true;
+                        return true;
+                    }
                 }
+                return false;
             }
+            _currentWaypoint = _currentWaypoint.NextWaypoint;
+
+            if (NavMesh.SamplePosition(_currentWaypoint.transform.position, out NavMeshHit hit, 5, NavMesh.AllAreas))
+            {
+                _targetPos = hit.position;
+
+                return true;
+            }
+
             return false;
         }
 
@@ -508,51 +550,70 @@ namespace Life.Controllers
         public override void Start()
         {
             _observer.SetMovementType(SoldierMovementType.RUN);
-            _observer.Animator.SetLayerWeight(3, 0);
+            _observer.Animator.SetLayerWeight(3, 1);
+           
             _observer.FaceTarget = false;
             _hasReached = false;
             _reloaded = false;
             _observer.AllowFire(false);
-            _relaxTime = Random.Range(3, 10);
+            _relaxTime = Random.Range(3, 5);
             _timeToExit = 0f;
-
             FindCover();
-            if (_destination != Vector3.zero)
-            {
-            }
         }
 
         private void FindCover()
         {
-            _destination = Vector3.zero;
+            _lastFindCover = Time.time;
+            Vector3 _combatPoint = _observer.transform.position;
 
-            SpatialDataPoint[] points = _observer.CoverSensor.GetCombatSpatialData(_observer.transform.position, _observer.PlayerHeadPosition).OrderBy(x => x.DistanceFromThreat).Reverse().ToArray();
+            SpatialDataPoint[] points = _observer.CoverSensor.GetCombatSpatialData(_combatPoint, _observer.PlayerHeadPosition, 10).ToArray();
 
-            foreach (SpatialDataPoint point in points)
+            points = points.OrderBy(x => x.PathLength).ToArray();
+
+            if (points.Any(x => x.SafeFromStanding))
             {
-                if (point.SafeFromCrouch && point.SafeFromStanding)
-                {
-                    _destination = point.Position;
-                    _observer.SetTarget(_destination);
-                    return;
-                }
-                else if (point.SafeFromCrouch && point.SafeFromStanding)
-                {
-                    _destination = point.Position;
-                    _observer.SetTarget(_destination);
-                    return;
-                }
-
-                _destination = point.Position;
+                _destination = points.First(x => x.SafeFromStanding).Position;
                 _observer.SetTarget(_destination);
                 return;
+            }
+            else if (points.Any(x => x.SafeFromCrouch && !x.SafeFromStanding))
+            {
+                _destination = points.First(x => x.SafeFromCrouch && !x.SafeFromStanding).Position;
+                _observer.SetTarget(_destination);
+                return;
+            }
+            else
+            {
+                if (points.Length > 0) _destination = (points.OrderBy(x => x.DistanceFromThreat).First().Position);
+                _observer.SetTarget(_destination);
             }
         }
 
         public bool _reloaded;
+        private float _lastFindCover;
 
         public override void Update()
         {
+            if (_observer.Weapon.WeaponEngine.CurrentAmmo > 0)
+            {
+                _observer.FaceTarget = true;
+                _observer.Animator.SetLayerWeight(3, 1);
+                _observer.AllowFire(_observer.PlayerVisualDetected);
+                _observer.SetLookTarget(_observer.PlayerHeadPosition);
+            }
+            else
+            {
+                _observer.Animator.SetLayerWeight(3, 0);
+                _observer.FaceTarget = false;
+                _observer.AllowFire(false);
+            }
+
+            if (_observer.PlayerVisualDetected && Time.time - _lastFindCover > 5)
+            {
+                _observer.SetMovementType(SoldierMovementType.RUN);
+                FindCover();
+            }
+
             if (_reached && !_hasReached)
             {
                 _hasReached = true;
@@ -621,6 +682,8 @@ namespace Life.Controllers
             _observer = context as SoldierAgentController;
         }
 
+        private float _cooldown;
+
         private SoldierAgentController _observer;
         private SpatialDataPoint _destination;
         private SpatialDataPoint _nearestAggresive;
@@ -635,42 +698,39 @@ namespace Life.Controllers
 
         public override void End()
         {
+            AgentGlobalService.Instance.ReleaseAttackSlot(_observer);
         }
 
         public override void Start()
         {
+            _cooldown = 2;
             _observer.FaceTarget = true;
             GeneratePoints();
             _observer.SetMovementType(SoldierMovementType.WALK);
+
             _observer.Animator.SetLayerWeight(3, 1);
+            _observer.Animator.SetLayerWeight(2, 1);
         }
 
         private void GeneratePoints()
         {
-            Vector3 _combatPoint = _observer.transform.position;
-            SpatialDataPoint[] points = _observer.CoverSensor.GetCombatSpatialData(_combatPoint, _observer.PlayerHeadPosition).ToArray();
+            Vector3 combatPoint = Vector3.Lerp(_observer.transform.position, _observer.PlayerHeadPosition, 0.5f);
 
-            foreach (SpatialDataPoint point in points)
+            SpatialDataPoint[] points = _observer.CoverSensor.GetCombatSpatialData(combatPoint, _observer.PlayerHeadPosition, 10, Random.Range(3f, 10f)).ToArray();
+
+            if (points.Any(x => x.SafeFromCrouch && !x.SafeFromStanding))
             {
-                if (point.SafeFromCrouch && !point.SafeFromStanding)
-                {
-                    _destination = point;
-                    _observer.SetTarget(_destination.Position);
-                    return;
-                }
-
-                if (!point.SafeFromCrouch && !point.SafeFromStanding)
-                {
-                    _destination = point;
-                    _observer.SetTarget(_destination.Position);
-                    return;
-                }
-                else
-                {
-                    _observer.SetTarget(_observer.transform.position + (_observer.PlayerHeadPosition - _observer.transform.position).normalized * 6f);
-
-                    return;
-                }
+                _observer.SetTarget(points.First(x => x.SafeFromCrouch && !x.SafeFromStanding).Position);
+                return;
+            }
+            if (points.Any(x => !x.SafeFromCrouch && !x.SafeFromStanding))
+            {
+                _observer.SetTarget(points.First(x => !x.SafeFromCrouch && !x.SafeFromStanding).Position);
+                return;
+            }
+            else
+            {
+                _observer.SetTarget(_observer.PlayerHeadPosition - (_observer.PlayerHeadPosition - _observer.transform.position).normalized * 6f);
             }
         }
 
@@ -685,12 +745,10 @@ namespace Life.Controllers
                 //_observer.SetMovementType(SoldierMovementType.RUN);
                 _checkedMovementType = false;
                 _lastEvaluationTime = Time.time;
-                _evaluatinInterval = Random.Range(1, 10);
+                _evaluatinInterval = Random.Range(1, 5);
             }
 
-            _observer.AllowFire(_observer.IsPlayerInRange(50) && _observer.IsPlayerVisible());
-
-            _observer.FaceTarget = _observer.IsPlayerVisible();
+            //_observer.FaceTarget = _observer.IsPlayerVisible();
 
             _observer.SetLookTarget(_observer.PlayerHeadPosition);
 
@@ -705,6 +763,14 @@ namespace Life.Controllers
                 else _observer.SetMovementType(SoldierMovementType.WALK);
                 _checkedMovementType = true;
             }
+
+            if (_cooldown > 0)
+            {
+                _cooldown -= Time.deltaTime;
+                return;
+            }
+
+            _observer.AllowFire(_observer.PlayerVisualDetected);
         }
     }
 

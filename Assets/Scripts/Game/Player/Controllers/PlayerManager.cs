@@ -1,6 +1,7 @@
 ﻿using Core.Configuration;
 using Core.Engine;
 using Game.Inventory;
+using Game.Player.Movement;
 using Game.Player.Weapon;
 using Game.Service;
 using System.Collections;
@@ -11,11 +12,12 @@ namespace Game.Player.Controllers
     public class PlayerManager : MonoBehaviour
     {
         private PlayerWeapons _weaponController;
-        private PlayerMovementController _movementController;
+        private PlayerRigidbodyMovement _movementController;
         private PlayerInventoryController _inventoryController;
         private PlayerInteractionController _interactionController;
         private PlayerConfiguration.PlayerControlSettings _settings;
-        private PlayerAbilitiesController _abilities;
+        private PlayerLeanMovement _lean;
+
         private PlayerTrainController _train;
         private PlayerHealth _health;
         private bool _inventoryOpen;
@@ -26,16 +28,15 @@ namespace Game.Player.Controllers
         {
             yield return new WaitForEndOfFrame();
             _weaponController = GetComponent<PlayerWeapons>();
-            _movementController = GetComponent<PlayerMovementController>();
+            _movementController = GetComponent<PlayerRigidbodyMovement>();
             _inventoryController = GetComponent<PlayerInventoryController>();
             _interactionController = GetComponent<PlayerInteractionController>();
-            _abilities = GetComponent<PlayerAbilitiesController>();
+            _lean = GetComponent<PlayerLeanMovement>();
             _health = GetComponent<PlayerHealth>();
             _settings = Bootstrap.Resolve<GameSettings>().PlayerConfiguration.Settings;
             _train = GetComponent<PlayerTrainController>();
 
             _weaponController.AllowInput = true;
-            _movementController.VaultMovement.AllowVault = false;
             _inventoryController.AllowInput = true;
 
             Bootstrap.Resolve<InventoryService>().Instance.ToggleInventoryEvent += OnInventoryOpen;
@@ -43,24 +44,33 @@ namespace Game.Player.Controllers
             _weaponController.WeaponInstanceChangeEvent += InstanceChanged;
             _inventoryController.ItemBeginConsumingEvent += OnItemBeginConsume;
             _inventoryController.ItemFinishConsumeEvent += OnItemFinishConsume;
-            _abilities.OpenRadialEvent += OnRadialOpen;
+            _movementController.PlayerFallEvent += OnFall;
             _health.DeadEvent += OnDie;
             _train.PlayerEnterEvent += OnEnterTrain;
             _train.PlayerExitEvent += OnExitTrain;
 
-            UIService.CreateMessage(new("Este es un mensaje generado por el juego", 5, Color.white, new Color(0, 0, 0, .5f)));
-            UIService.CreateMessage(new("No puedes interactuar con este elemento", 5, Color.white, new Color(0, 0, 0, .5f)));
-            UIService.CreateMessage(new("Tu inventario esta lleno", 5, Color.white, new Color(0, 0, 0, .5f)));
+            _lean.AllowLean = true;
+
+            UIService.CreateMessage(new MessageParameters("Este es un mensaje generado por el juego", 5, Color.white, new Color(0, 0, 0, .5f)));
+            UIService.CreateMessage(new MessageParameters("No puedes interactuar con este elemento", 5, Color.white, new Color(0, 0, 0, .5f)));
+            UIService.CreateMessage(new MessageParameters("Tu inventario esta lleno", 5, Color.white, new Color(0, 0, 0, .5f)));
+            UIService.CreateMessage(new MessageParameters("Puto el que lee XDDD JIJOLINES", 5, Color.white, new Color(0, 0, 0, .5f)));
 
             yield return null;
+        }
+
+        private void OnFall(Vector3 start, Vector3 end)
+        {
+            float distance = Mathf.Abs(end.y - start.y);
+            if (distance > 10) _health.Hurt(distance);
         }
 
         private void OnExitTrain()
         {
             //_movementController.Controller.excludeLayers = 0;
             _inTrain = false;
-            _movementController.GroundMovement.enabled = true;
-            _movementController.AirMovement.enabled = true;
+            _movementController.AllowMovement = true;
+
             //_movementController.LookMovement.AllowHorizontalLook = true;
             //_movementController.LookMovement.AllowVerticalLook = true;
             //_inventoryController.SetUIActive(false);
@@ -73,8 +83,8 @@ namespace Game.Player.Controllers
         {
             //_movementController.Controller.excludeLayers = 10;
             _inTrain = true;
-            _movementController.GroundMovement.enabled = false;
-            _movementController.AirMovement.enabled = false;
+            _movementController.AllowMovement = false;
+
             //_movementController.Controller.enabled = false;
             //_movementController.LookMovement.AllowHorizontalLook = false;
             //_movementController.LookMovement.AllowVerticalLook = false;
@@ -82,20 +92,6 @@ namespace Game.Player.Controllers
             _interactionController.AllowInteraction = false;
             _weaponController.AllowInput = false;
             _weaponController.Seathe();
-        }
-
-        private void OnRadialOpen(bool state)
-        {
-            if (state)
-            {
-                _movementController.LookMovement.AllowHorizontalLook = false;
-                _movementController.LookMovement.AllowVerticalLook = false;
-                _weaponController.AllowInput = false;
-                return;
-            }
-            _movementController.LookMovement.AllowHorizontalLook = true;
-            _movementController.LookMovement.AllowVerticalLook = true;
-            _weaponController.AllowInput = true;
         }
 
         private void InstanceChanged(PlayerWeaponInstance instance)
@@ -109,20 +105,16 @@ namespace Game.Player.Controllers
 
         private void OnWeaponChangeState(object sender, WeaponStateEventArgs e)
         {
-            if (e.State == Core.Weapon.WeaponState.BEGIN_SHOOTING && _movementController.IsFlying)
-            {
-                _movementController.AirMovement.Impulse(-transform.forward * Mathf.Abs(e.Sender.WeaponSettings.RecoilKick.x));
-            }
         }
 
         private void OnItemBeginConsume(ConsumableItem item)
         {
-            _movementController.GroundMovement.AllowSprint = false;
+            _movementController.AllowSprint = false;
         }
 
         private void OnItemFinishConsume(ConsumableItem item)
         {
-            _movementController.GroundMovement.AllowSprint = true;
+            _movementController.AllowSprint = true;
 
             if (!_inventoryOpen)
             {
@@ -132,16 +124,22 @@ namespace Game.Player.Controllers
 
         private void OnAimWeapon(bool state)
         {
-            _movementController.LookMovement.Sensitivity = state ? _settings.AimSensitivity : _settings.NormalSensitivity;
+            _movementController.Sensitivity = state ? _settings.AimSensitivity : _settings.NormalSensitivity;
         }
 
         private void OnDie()
         {
             _inventoryController.SetUIActive(false);
-            _movementController.SetMovementFlags(false);
+            _movementController.AllowMovement = false;
+            _movementController.AllowJump = false;
+            _movementController.AllowCrouch = false;
+            _movementController.AllowSprint = false;
+            _movementController.AllowLookMovement = false;
+
             _weaponController.AllowInput = false;
             _interactionController.AllowInteraction = false;
             _inventoryController.AllowInput = false;
+            _lean.AllowLean = false;
 
             if (!_inventoryOpen)
             {
@@ -157,10 +155,9 @@ namespace Game.Player.Controllers
 
             if (state)
             {
-                _abilities.CanOpenRadial = false;
-                _movementController.LookMovement.AllowHorizontalLook = false;
-                _movementController.LookMovement.AllowVerticalLook = false;
-                _movementController.SetAllowGroundMovement(false);
+                _movementController.AllowMovement = false;
+                _movementController.AllowLookMovement = false;
+                _lean.AllowLean = false;
 
                 if (!_inTrain)
                 {
@@ -175,11 +172,9 @@ namespace Game.Player.Controllers
                 _weaponController.Draw();
             }
 
-            _abilities.CanOpenRadial = true;
-
-            _movementController.LookMovement.AllowHorizontalLook = true;
-            _movementController.LookMovement.AllowVerticalLook = true;
-            _movementController.SetAllowGroundMovement(true);
+            _movementController.AllowMovement = true;
+            _movementController.AllowLookMovement = true;
+            _lean.AllowLean = true;
             _interactionController.AllowInteraction = true;
         }
     }

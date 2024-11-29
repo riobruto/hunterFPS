@@ -11,6 +11,7 @@ namespace Core.Engine
     {
         public SceneService()
         {
+
         }
 
         internal virtual void Initialize()

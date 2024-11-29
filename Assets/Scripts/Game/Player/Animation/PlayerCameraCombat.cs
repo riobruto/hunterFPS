@@ -2,6 +2,7 @@
 using Game.Player.Controllers;
 using Game.Player.Movement;
 using Game.Player.Weapon;
+using System;
 using System.Collections;
 using UnityEngine;
 
@@ -10,7 +11,7 @@ namespace Game.Player.Animation
     public class PlayerCameraCombat : MonoBehaviour, IObserverFromPlayerMovement, IObserverFromPlayerWeapon
     {
         private PlayerWeapons _wController;
-        private PlayerMovementController _mController;
+        private PlayerRigidbodyMovement _mController;
         private GameSettings _settings;
         private Camera _camera;
         private PlayerHealth _health;
@@ -30,10 +31,10 @@ namespace Game.Player.Animation
 
         private Transform tracker;
 
-        void IObserverFromPlayerMovement.Initalize(PlayerMovementController controller)
+        void IObserverFromPlayerMovement.Initalize(PlayerRigidbodyMovement controller)
         {
             _mController = controller;
-            _mController.GroundMovement.ChangeStateEvent += OnStateChange;
+
             _health = controller.GetComponent<PlayerHealth>();
             _health.DeadEvent += OnDie;
         }
@@ -64,25 +65,9 @@ namespace Game.Player.Animation
             yield return null;
         }
 
-        private void OnStateChange(GroundMovementState last, GroundMovementState current)
-        {
-            switch (current)
-            {
-                case GroundMovementState.SPRINT:
-                case GroundMovementState.WALK:
-                case GroundMovementState.IDLE:
-                    _desiredFov = _settings.PlayerConfiguration.Settings.FOVGround;
-                    break;
-            }
-        }
-
         private float _desiredFov = 60;
         private bool _isAimig;
         private float _refFOVVelocity;
-
-
-
-
 
         private void LateUpdate()
         {
@@ -102,7 +87,7 @@ namespace Game.Player.Animation
             _wController = null;
         }
 
-        void IObserverFromPlayerMovement.Detach(PlayerMovementController controller)
+        void IObserverFromPlayerMovement.Detach(PlayerRigidbodyMovement controller)
         {
             _mController = null;
         }

@@ -14,6 +14,7 @@ namespace Core.Weapon
 
         [SerializeField] private string _name;
         [SerializeField] private GameObject _weaponViewModel;
+        [SerializeField] private GameObject _weaponWorldModel;
         [SerializeField, Range(0, 1000)] private float _damage;
         [SerializeField, Range(1, 1500)] private float _fireRatioPPM;
         [SerializeField] private int _bulletSpeed;
@@ -67,7 +68,8 @@ namespace Core.Weapon
         public WeaponAnimation Animation => _weaponAnimation;
         public WeaponAim Aim => _weaponAim;
         public WeaponReload Reload => _weaponReload;
-        public GameObject WeaponPrefab => _weaponViewModel;
+        public GameObject ViewWeaponPrefab => _weaponViewModel;
+        public GameObject WorldWeaponPrefab => _weaponWorldModel;
         public WeaponFireModes FireModes => _fireMode;
         public Vector2 RecoilShake => _recoilShake;
         public Vector2 RecoilKick => _recoilKick;

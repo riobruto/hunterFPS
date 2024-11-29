@@ -28,6 +28,8 @@ namespace Core.Engine
                 _services.Add(type, s);
                 s.Initialize();
             }
+
+            Debug.Log("Initialization Method");
         }
 
         public static void Register<T>(T instance)

@@ -71,11 +71,11 @@ namespace Game.Player.Controllers
         private bool _isThrowingGranade;
 
         private bool _canUseWeapon => !_isChangingSlot && _weaponEngine != null && !_isThrowingGranade && AllowInput;
-        private bool _canAim => !_playerMovementController.IsSprinting && !_playerMovementController.IsVaulting && !_playerMovementController.IsFalling && !_playerMovementController.IsFlying && !_weaponEngine.BoltOpen && !_weaponEngine.IsReloading && !_isThrowingGranade;
+        private bool _canAim => !_playerMovementController.IsSprinting && !_playerMovementController.IsFalling && !_weaponEngine.BoltOpen && !_weaponEngine.IsReloading && !_isThrowingGranade;
         private bool _isAiming => _aimInput && _canAim;
         private bool _lastIsAiming;
 
-        private PlayerMovementController _playerMovementController;
+        private PlayerRigidbodyMovement _playerMovementController;
         private bool _canChangeWeapons => !_weaponEngine.IsReloading && !_weaponEngine.IsShooting && !_isChangingSlot && !_weaponEngine.BoltOpen && !_isThrowingGranade;
         private bool _canThrowGrenade => !_weaponEngine.IsReloading && !_weaponEngine.IsShooting && !_isChangingSlot && !_weaponEngine.BoltOpen && !_isThrowingGranade;
 
@@ -87,7 +87,7 @@ namespace Game.Player.Controllers
 
         private void Start()
         {
-            _playerMovementController = GetComponent<PlayerMovementController>();
+            _playerMovementController = GetComponent<PlayerRigidbodyMovement>();
             if (_weaponVisualTransform == null) { Debug.LogException(new UnityException("There is no weapon holder transform attached")); return; }
 
             CreateWeaponEngines();
@@ -265,8 +265,11 @@ namespace Game.Player.Controllers
 
                     if (Bootstrap.Resolve<InventoryService>().Instance.Ammunitions[_weaponEngine.WeaponSettings.Ammo.Type] > 0)
                     {
+                        if (_weaponEngine.CurrentAmmo >= _weaponEngine.MaxAmmo) { UIService.CreateMessage("Weapon is full", 2f); }
                         if (_weaponEngine.Insert()) { Bootstrap.Resolve<InventoryService>().Instance.Ammunitions[_weaponEngine.WeaponSettings.Ammo.Type] -= 1; }
                     }
+                    else { UIService.CreateMessage("No ammo", 2f); }
+
                     return;
                 }
 
@@ -308,6 +311,7 @@ namespace Game.Player.Controllers
             {
                 StartCoroutine(ManageReload());
             }
+            else { UIService.CreateMessage("No ammo", 2f); }
         }
 
         private IEnumerator ManageReload()
@@ -484,7 +488,7 @@ namespace Game.Player.Controllers
             {
                 if (wInstance.Settings == weapon)
                 {
-                    Debug.Log("You already have this weapon");
+                    UIService.CreateMessage("You already have this weapon");
                     return false;
                 }
             }
@@ -506,7 +510,7 @@ namespace Game.Player.Controllers
                         StartCoroutine(IReplaceWeaponToInstance(instance));
                     }
                 }
-
+                UIService.CreateMessage($"Picked up {weapon.name} ");
                 Debug.Log($"Player got {weapon.name} with {currentAmmo} rounds remaining");
                 StartCoroutine(IChangeWeaponToInstance(instance));
                 return true;

@@ -28,8 +28,8 @@ namespace Game.Service
         {
             Transform spawnTransform = _controller.SpawnPoints[Random.Range(0, _controller.SpawnPoints.Length)];
             _player = GameObject.Instantiate(Resources.Load<GameObject>("Player"));
-            _player.transform.position = spawnTransform.position;
-            _player.transform.rotation = spawnTransform.rotation;
+            _player.GetComponent<Rigidbody>().position = spawnTransform.position;
+            _player.GetComponent<Rigidbody>().rotation = spawnTransform.rotation;
             _playerCamera = _player.GetComponentInChildren<Camera>();
             Debug.Log("Player Spawned Succesfully");
             GameObject.DontDestroyOnLoad(_player);

@@ -1,6 +1,4 @@
-﻿using Core.Engine;
-using Game.Player.Controllers;
-using Game.Service;
+﻿using Game.Player.Controllers;
 using UnityEngine;
 
 namespace Game.Player.Animation
@@ -16,7 +14,7 @@ namespace Game.Player.Animation
 
         private void Start()
         {
-            Bootstrap.Resolve<PlayerService>().Player.gameObject.GetComponent<PlayerHealth>().HurtEvent += OnHurt;
+            transform.root.gameObject.GetComponent<PlayerHealth>().HurtEvent += OnHurt;
         }
 
         private void OnHurt(HurtPayload arg0)

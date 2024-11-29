@@ -1,29 +1,50 @@
 ﻿using Game.Entities;
+using Game.Objectives;
 using Game.Service;
 using Life.StateMachines;
+using System.Collections;
 using UnityEngine;
 
 namespace Life.Controllers
 {
     public class TalkerAgentController : AgentController, IInteractable
     {
-        private bool _avaliable;
+        private bool _avaliable = true;
+
+        [SerializeField] private AgentDialog _dialog;
 
         bool IInteractable.BeginInteraction(Vector3 position)
         {
+            if (!_avaliable) return false;
             Interact();
             return true;
         }
 
         private void Interact()
         {
-            SubtitleParameters subtitle = new SubtitleParameters();
+            RunDialog();
+            _avaliable = false;
+        }
 
-            subtitle.Name = "John Salchichon";
-            subtitle.Content = "Hola, este es un subtitulo de lo que esta diciendo este chadazo";
+        private void RunDialog()
+        {
+            StartCoroutine(ReadDialog(0));
+        }
+
+        private IEnumerator ReadDialog(int v)
+        {
+            int index = v;
+
+            SubtitleParameters subtitle = new SubtitleParameters();
+            subtitle.Name = _dialog.Name;
+            subtitle.Content = _dialog.Entries[index].Content;
             subtitle.Location = transform.position + transform.up * 1.75f + transform.right * -0.125f;
-            subtitle.Duration = 10f;
+            subtitle.Duration = _dialog.Entries[index].Duration;
             UIService.CreateSubtitle(subtitle);
+            yield return new WaitForSeconds(_dialog.Entries[index].Duration);
+
+            if (_dialog.Entries.Length - 1 > index) { StartCoroutine(ReadDialog(index + 1)); }
+            yield return null;
         }
 
         bool IInteractable.CanInteract() => _avaliable;
@@ -33,14 +54,12 @@ namespace Life.Controllers
             return true;
         }
 
-        // Use this for initialization
-        private void Start()
+        public override void OnStart()
         {
-        }
 
-        // Update is called once per frame
-        private void Update()
-        {
+            TalkerReadLine state = new TalkerReadLine(this);
+            Machine.AddAnyTransition(state, new FuncPredicate(() => false));
+            Machine.SetState(state);
         }
     }
 
@@ -55,22 +74,18 @@ namespace Life.Controllers
 
         public override void DrawGizmos()
         {
-            throw new System.NotImplementedException();
         }
 
         public override void End()
         {
-            throw new System.NotImplementedException();
         }
 
         public override void Start()
         {
-            throw new System.NotImplementedException();
         }
 
         public override void Update()
         {
-            throw new System.NotImplementedException();
         }
     }
 }

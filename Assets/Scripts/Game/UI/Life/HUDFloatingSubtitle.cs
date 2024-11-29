@@ -61,10 +61,13 @@ namespace Game.UI.Life
 
             _rectTransform.anchoredPosition = screenPos / _canvas.scaleFactor;
 
-            _time += Time.deltaTime;
-            if (_time > _duration)
+            if (_duration != 0)
             {
-                Terminate();
+                _time += Time.deltaTime;
+                if (_time > _duration)
+                {
+                    Terminate();
+                }
             }
         }
 

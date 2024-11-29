@@ -159,6 +159,7 @@ namespace Game.Train
 
         private void OnGUI()
         {
+            return;
             GUILayout.Label($"K/h: {Speed * 3.6f}");
             GUILayout.Label($"M/s: {Speed}");
             GUILayout.Label($"Acceleration: {_acceleration}");

@@ -88,7 +88,7 @@ namespace Life.Controllers
         {
             StartCoroutine(AttackPlayer());
         }
-
+        //TODO: ADAPTAR AL GLOBAL AGENT SYSTEM
         private float _runSpeed = 5f;
         private float _walkSpeed = 3f;
         private float _patrolSpeed = 1f;

@@ -5,15 +5,30 @@ using UnityEngine.SceneManagement;
 namespace Game.Service
 {
     public delegate void MessageDelegate(MessageParameters parameters);
+
     public delegate void SubtitleDelegate(SubtitleParameters parameters);
 
     public class UIService : SceneService
     {
         public static event MessageDelegate CreateMessageEvent;
+
         public static event SubtitleDelegate CreateSubtitleEvent;
 
         public static void CreateMessage(MessageParameters parameters)
         {
+            CreateMessageEvent?.Invoke(parameters);
+        }
+
+        internal static void CreateMessage(string text)
+        {
+            MessageParameters parameters = new MessageParameters(text, 4, Color.white, new Color(0, 0, 0, .5f));
+            CreateMessageEvent?.Invoke(parameters);
+        }
+
+        internal static void CreateMessage(string text, float duration)
+        {
+            MessageParameters parameters = new MessageParameters(text, duration, Color.white, new Color(0, 0, 0, .5f));
+
             CreateMessageEvent?.Invoke(parameters);
         }
 

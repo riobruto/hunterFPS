@@ -32,8 +32,7 @@ namespace UI
 
         private PlayerHealth _health;
         private PlayerWeapons _weapon;
-        private PlayerMovementController _movement;
-        private PlayerAbilitiesController _abilities;
+        private PlayerRigidbodyMovement _movement;
 
         private void Start()
         {
@@ -53,20 +52,13 @@ namespace UI
                 throw new UnityException("No Player Weapon in the scene");
             }
 
-            _abilities = Bootstrap.Resolve<PlayerService>().Player.GetComponent<PlayerAbilitiesController>();
-
-            if (_abilities == null)
-            {
-                throw new UnityException("No Player Abilities in the scene");
-            }
-
             _weapon.WeaponSlots[WeaponSlotType.MAIN].SlotWeaponAddedEvent += OnMainAddedWeapon;
             _weapon.WeaponSlots[WeaponSlotType.SECONDARY].SlotWeaponAddedEvent += OnSecondaryAddedWeapon;
             _weapon.WeaponSwapEvent += OnSwapWeapon;
             _weapon.WeaponGrenadeTypeChanged += OnSwapGrenade;
             _weapon.WeaponGrenadeStateEvent += OnGrenade;
 
-            _movement = Bootstrap.Resolve<PlayerService>().Player.GetComponent<PlayerMovementController>();
+            _movement = Bootstrap.Resolve<PlayerService>().Player.GetComponent<PlayerRigidbodyMovement>();
         }
 
         private void OnGrenade(GrenadeType type, GrenadeState state)
@@ -112,8 +104,6 @@ namespace UI
             _regenBar.value = _health.CurrentMaxRegenHealth / 100;
             _healthBar.value = _health.CurrentHealth / 100;
             _heart.Health = _health.CurrentHealth;
-            _powerBar.value = _abilities.CurrentEnergy;
-
             bool hasWeapon = _weapon.WeaponEngine.Initialized;
 
             if (hasWeapon)

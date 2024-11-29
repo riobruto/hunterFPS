@@ -4,6 +4,8 @@ namespace Game.Life.WaypointPath
 {
     public class WaypointGroup : MonoBehaviour
     {
+        [SerializeField] private Transform[] _waypoints;
+
         [ContextMenu("CreateWaypoints")]
         private void CreateWaypoints()
         {
@@ -16,15 +18,6 @@ namespace Game.Life.WaypointPath
                 if (lastInLoop != null) lastInLoop.SetNextWaypoint(waypoint);
                 lastInLoop = waypoint;
             }
-        }
-
-        private void Start()
-        {
-        }
-
-        // Update is called once per frame
-        private void Update()
-        {
         }
     }
 }

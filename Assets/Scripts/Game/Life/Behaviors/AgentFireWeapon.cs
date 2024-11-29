@@ -1,5 +1,6 @@
 ﻿using Core.Engine;
 using Core.Weapon;
+using Game.Audio;
 using Game.Entities;
 using Game.Player.Weapon;
 using Game.Player.Weapon.Engines;
@@ -41,9 +42,12 @@ namespace Game.Life
 
         public void DropWeapon()
         {
-            WeaponVisual.GetComponent<Rigidbody>().isKinematic = false;
-            WeaponVisual.transform.parent = null;
-            WeaponVisual.AddComponent<PickableWeaponEntity>().SetAsset(_weapon);
+            if (WeaponVisual)
+            {
+                WeaponVisual.GetComponent<Rigidbody>().isKinematic = false;
+                WeaponVisual.transform.parent = null;
+                WeaponVisual.AddComponent<PickableWeaponEntity>().SetAsset(_weapon);
+            }
             _weaponEngine.ReleaseFire();
             Destroy(_weaponTransform.gameObject);
         }
@@ -53,30 +57,27 @@ namespace Game.Life
             if (e.State == WeaponState.BEGIN_SHOOTING)
             {
                 ManageFireSound();
-
                 _weaponParticleSystem.Play();
                 GetComponent<Animator>().SetTrigger("FIRE");
             }
 
             if (e.State == WeaponState.BEGIN_RELOADING)
             {
-                AudioSource.PlayClipAtPoint(_reloadSound, transform.position);
+                AudioToolService.PlayClipAtPoint(_reloadSound, transform.position, 1, AudioChannels.AGENT);
                 GetComponent<Animator>().SetTrigger("RELOAD");
             }
         }
 
         private void ManageFireSound()
         {
-            AudioSource.PlayClipAtPoint(_fireSound, transform.position, Mathf.InverseLerp(50, 0, Vector3.Distance(transform.position, _player.position)));
-            AudioSource.PlayClipAtPoint(_fireFarSound, transform.position, Mathf.InverseLerp(0, 50, Vector3.Distance(transform.position, _player.position)));
+            AudioToolService.PlayGunShot(_fireSound, _fireFarSound, _weaponTransform.position, _playerCamera.transform.position, 20, 1, AudioChannels.AGENT);
         }
 
         private void Update()
         {
             _aimTarget = _playerCamera.transform.position - Vector3.up * .5f;
             _weaponEngine.SetMovementDelta(Random.insideUnitCircle * 10f);
-
-            if(_weaponTransform != null) _weaponTransform.LookAt(_aimTarget);
+            if (_weaponTransform != null) _weaponTransform.LookAt(_aimTarget);
         }
     }
 }

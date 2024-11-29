@@ -6,10 +6,10 @@ using UnityEngine;
 
 namespace Game.Life
 {
-    public class AgentPatrolBehavior : MonoBehaviour
+    public class AgentWaypoints : MonoBehaviour
     {
         [SerializeField] private Waypoint _currentWaypoint;
-
+       // [SerializeField] private WaypointGroup _group;
         public Waypoint CurrentWaypoint { get => _currentWaypoint; }
 
         private void Start()
@@ -22,7 +22,8 @@ namespace Game.Life
 
         public Waypoint GetNearestWaypoint()
         {
-            Waypoint[] waypoint = FindObjectsOfType<Waypoint>(); Array.Sort(waypoint, WaypointArraySortComparer);
+            Waypoint[] waypoint = FindObjectsOfType<Waypoint>(); 
+            Array.Sort(waypoint, WaypointArraySortComparer);
             return waypoint[0];
         }
 

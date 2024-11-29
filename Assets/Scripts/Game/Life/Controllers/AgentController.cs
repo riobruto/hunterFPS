@@ -73,7 +73,7 @@ namespace Life.Controllers
         private Camera _playerCamera;
         private AgentGlobalSystem _agentGlobalsystem;
         private PlayerSoundController _playerSound;
-        private bool _playerDetected => IsPlayerInRange(_rangeDistance) && IsPlayerInViewAngle(-0.3f)  && IsPlayerVisible();
+        private bool _playerDetected => IsPlayerInRange(_rangeDistance) && IsPlayerInViewAngle(-0.3f) && IsPlayerVisible();
 
         public Vector3 PlayerPosition => _player.transform.position;
         public Vector3 PlayerHeadPosition => _playerCamera.transform.position;
@@ -85,7 +85,6 @@ namespace Life.Controllers
 
         public AgentGroup AgentGroup => _group;
 
-       
         private void Start()
         {
             _machine = new StateMachine();
@@ -105,7 +104,7 @@ namespace Life.Controllers
             _playerSound.StepSound += OnPlayerStep;
             _playerSound.GunSound += OnPlayerGun;
 
-            _agentGlobalsystem = Bootstrap.Resolve<AgentGlobalService>().Instance;
+            _agentGlobalsystem = AgentGlobalService.Instance;
             _agentGlobalsystem.RegisterAgent(this);
             Initialized = true;
             OnStart();
@@ -125,13 +124,14 @@ namespace Life.Controllers
                 _lastPlayerDetected = _playerDetected;
             }
 
-            if (_alive && _health <= 0 && _maxHealth != 0)
+            if (_alive && _health <= 0)
             {
+                _alive = false;
                 _playerSound.StepSound -= OnPlayerStep;
                 _playerSound.GunSound -= OnPlayerGun;
                 _agentGlobalsystem.DiscardAgent(this);
+                DeadEvent?.Invoke();
                 OnDeath();
-                _alive = false;
             }
 
             OnUpdate();
@@ -160,7 +160,7 @@ namespace Life.Controllers
 
         public bool IsPlayerInViewAngle(float dotAngle)
         {
-            return Vector3.Dot(transform.forward, _playerCamera.transform.position - transform.position) > dotAngle;
+            return Vector3.Dot(_head.transform.forward, _playerCamera.transform.position - transform.position) > dotAngle;
         }
 
         public bool IsPlayerVisible()
@@ -268,6 +268,8 @@ namespace Life.Controllers
 
         public virtual void OnHeardSteps()
         { }
+
+        public virtual void ForcePlayerPerception() { }
 
         internal void NotifyHurt(float value)
         {
