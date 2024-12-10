@@ -34,8 +34,7 @@ namespace UI.Inventory
             switch (item)
             {
                 case EquipableItem: return "Equip";
-                case ConsumableItem: return "Consume";
-                case AmmunitionItem: return "NULL";
+                case ConsumableItem: return "Consume";              
                 case InventoryItem: return "NULL";
                 case null: return "NULL";
             }

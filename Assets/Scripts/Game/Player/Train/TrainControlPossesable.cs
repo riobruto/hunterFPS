@@ -1,6 +1,7 @@
 ﻿using Core.Engine;
 using Game.Service;
 using Game.Train;
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -142,6 +143,14 @@ namespace Game.Player.Train
         internal void ExitRequest()
         {
             _wantExit = true;
+        }
+
+        internal void CoupleRequest()
+        {
+          
+
+
+
         }
     }
 }

@@ -19,41 +19,60 @@ namespace Game.Audio
     {
         private static AudioMixer _mixer;
 
+        public static RingBuffer<AudioBlendOneShot> OneShots { get; private set; }
+
         internal override void Initialize()
         {
             _mixer = Resources.Load("Audio/GameAudioMixer") as AudioMixer;
+            CreateOneshotBuffer();
         }
 
-        public static void PlayClipAtPoint(AudioClip clip, Vector3 position, float volume = 1.0f, AudioChannels channel = AudioChannels.MASTER)
+        private void CreateOneshotBuffer()
+        {
+            AudioBlendOneShot[] oneShots = new AudioBlendOneShot[32 / 2];
+            OneShots = new RingBuffer<AudioBlendOneShot>(oneShots);
+            for (int i = 0; i < oneShots.Length; i++)
+            {
+                oneShots[i] = new GameObject("One shot audio").AddComponent<AudioBlendOneShot>();
+                oneShots[i].Initialize();
+            }
+        }
+
+        public static void PlayClipAtPoint(AudioClip clip, Vector3 position, float volume = 1.0f, AudioChannels channel = AudioChannels.MASTER, float maxDistance = 30)
         {
             if (clip == null) return;
-            GameObject gameObject = new GameObject("One shot audio");
-            gameObject.transform.position = position;
-            AudioSource audioSource = (AudioSource)gameObject.AddComponent(typeof(AudioSource));
+
+            AudioBlendOneShot shot = OneShots.GetNext();
+
+            //GameObject gameObject = new GameObject("One shot audio");
+            shot.transform.position = position;
+            AudioSource audioSource = shot.Near;
+            if (audioSource.isPlaying) audioSource.Stop();
             audioSource.outputAudioMixerGroup = ResolveGroup(channel);
             audioSource.clip = clip;
             audioSource.spatialBlend = 1f;
             audioSource.volume = volume;
             audioSource.Play();
-            Object.Destroy(gameObject, clip.length *
-            (Time.timeScale < 0.009999999776482582 ? 0.01f : Time.timeScale));
+            audioSource.minDistance = 1;
+            audioSource.maxDistance = maxDistance;
         }
 
         public static void PlayGunShot(AudioClip near, AudioClip far, Vector3 position, Vector3 listenerPosition, float blendDistance = 40, float volume = 1.0f, AudioChannels channel = AudioChannels.MASTER)
         {
             if (near == null) return;
 
-            GameObject gameObject = new GameObject("One shot blend audio");
-            gameObject.transform.position = position;
+            AudioBlendOneShot shot = OneShots.GetNext();
 
-            AudioSource audioSourcenear = (AudioSource)gameObject.AddComponent(typeof(AudioSource));
+            shot.transform.position = position;
+
+            AudioSource audioSourcenear = shot.Near;
             audioSourcenear.outputAudioMixerGroup = ResolveGroup(channel);
             audioSourcenear.clip = near;
             audioSourcenear.minDistance = 1f;
             audioSourcenear.maxDistance = blendDistance;
             audioSourcenear.spatialBlend = 1f;
             audioSourcenear.volume = volume;
-            audioSourcenear.pitch = Random.Range(0.9f,1.1f);
+            audioSourcenear.pitch = Random.Range(0.9f, 1.1f);
             audioSourcenear.Play();
             audioSourcenear.rolloffMode = AudioRolloffMode.Linear;
 
@@ -62,22 +81,20 @@ namespace Game.Audio
             if (distance > blendDistance / 2)
             {
                 if (far == null) return;
-                AudioSource audioSourcefar = (AudioSource)gameObject.AddComponent(typeof(AudioSource));
+
+                AudioSource audioSourcefar = shot.Far;
                 audioSourcefar.clip = far;
                 audioSourcefar.outputAudioMixerGroup = ResolveGroup(channel);
                 audioSourcefar.minDistance = blendDistance;
                 audioSourcefar.maxDistance = blendDistance * 2f;
                 audioSourcefar.spatialBlend = 1f;
                 audioSourcefar.volume = volume / Mathf.InverseLerp(0, blendDistance, distance);
-                audioSourcefar.pitch = Random.Range(0.9f,1.1f);
+                audioSourcefar.pitch = Random.Range(0.9f, 1.1f);
                 audioSourcefar.rolloffMode = AudioRolloffMode.Linear;
                 audioSourcefar.Play();
-                Object.Destroy(gameObject, far.length *
-                      (Time.timeScale < 0.009999999776482582 ? 0.01f : Time.timeScale));
+
                 return;
             }
-            Object.Destroy(gameObject, near.length *
-                     (Time.timeScale < 0.009999999776482582 ? 0.01f : Time.timeScale));
         }
 
         private static AudioMixerGroup ResolveGroup(AudioChannels channel)
@@ -89,16 +106,17 @@ namespace Game.Audio
 
         internal static void PlayUISound(AudioClip clip, float volume = 1)
         {
-            GameObject gameObject = new GameObject("One UI audio");
-            gameObject.transform.position = Vector3.zero;
-            AudioSource audioSource = (AudioSource)gameObject.AddComponent(typeof(AudioSource));
+            AudioBlendOneShot shot = OneShots.GetNext();
+
+            //todo: pool o ring buffer, tamaño al limite de voces
+
+            shot.transform.position = Vector3.zero;
+            AudioSource audioSource = shot.Near;
             audioSource.clip = clip;
             audioSource.spatialBlend = 0;
             audioSource.volume = volume;
             audioSource.outputAudioMixerGroup = ResolveGroup(AudioChannels.UI);
             audioSource.Play();
-            Object.Destroy(gameObject, clip.length *
-            (Time.timeScale < 0.009999999776482582 ? 0.01f : Time.timeScale));
         }
     }
 }

@@ -2,39 +2,59 @@
 using Game.Inventory;
 using Game.Service;
 using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.InputSystem;
 
 namespace Game.Player.Controllers
 {
+    public class PlayerModifier
+    {
+        public PlayerModifier(ConsumableItem item)
+
+        {
+            TimeSinceAdded = Time.time;
+            Duration = item.Properties.DurationInMinutes * 60;
+            HealthRecover = item.Properties.HealthRecoverAmount;
+            StaminaResistance = item.Properties.StaminaResistanceAmount;
+            DamageResistance = item.Properties.DamageResistanceAmount;
+        }
+
+        public float TimeSinceAdded { get; private set; }
+        public float Duration { get; private set; }
+        public float HealthRecover { get; private set; }
+        public float StaminaResistance { get; private set; }
+        public float DamageResistance { get; private set; }
+    }
+
     public class PlayerInventoryController : MonoBehaviour
     {
         private InventorySystem _system;
 
         private bool _openRequest;
         private bool _canConsumeItem => !_isConsumingItem;
-
-        public bool IsConsumingItem { get => _isConsumingItem; }
-
-        private bool _isConsumingItem;
         private bool _hasGasmaskOn;
+        private bool _isConsumingItem;
 
         private PlayerHealth _health;
-        private PlayerRigidbodyMovement _manager;
+        private PlayerRigidbodyMovement _movement;
 
         public event UnityAction<ConsumableItem> ItemBeginConsumingEvent;
 
         public event UnityAction<ConsumableItem> ItemFinishConsumeEvent;
 
         public bool AllowInput;
+        public bool IsConsumingItem { get => _isConsumingItem; }
+        private List<PlayerModifier> _activeModifiers = new List<PlayerModifier>();
 
         private void Start()
         {
             _system = Bootstrap.Resolve<InventoryService>().Instance;
             _system.UseConsumableEvent += OnConsumeItem;
             _health = GetComponent<PlayerHealth>();
-            _manager = GetComponent<PlayerRigidbodyMovement>();
+            _movement = GetComponent<PlayerRigidbodyMovement>();
         }
 
         private void OnConsumeItem(ConsumableItem item)
@@ -55,38 +75,11 @@ namespace Game.Player.Controllers
         {
             _isConsumingItem = true;
             ItemBeginConsumingEvent?.Invoke(item);
-            yield return new WaitForSeconds(5);
+            yield return new WaitForSeconds(item.Properties.ConsumeTimeInSeconds);
+            _health.Heal(item.Properties.HealthRecoverAmount);
+            _activeModifiers.Add(new(item));
             _isConsumingItem = false;
             ItemFinishConsumeEvent?.Invoke(item);
-            StartCoroutine(ApplyHealthModifiers(item.Properties));
-            StartCoroutine(ApplyStaminaModifiers(item.Properties));
-        }
-
-        private IEnumerator ApplyHealthModifiers(ConsumableProperties properties)
-        {
-            float time = 0;
-
-            while (time < properties.Health.Duration)
-            {
-                _health.Heal(properties.Health.AmountOverTime);
-                time += Time.deltaTime;
-                yield return null;
-            }
-
-            yield return null;
-        }
-
-        private IEnumerator ApplyStaminaModifiers(ConsumableProperties properties)
-        {
-            float time = 0;
-            while (time < properties.Stamina.Duration)
-            {
-                _manager.Stamina += properties.Stamina.AmountOverTime;
-                time += Time.deltaTime;
-                yield return null;
-            }
-
-            yield return null;
         }
 
         public void SetUIActive(bool active)
@@ -98,6 +91,32 @@ namespace Game.Player.Controllers
             }
             _system.HideInventoryUI();
         }
+
+        private void Update()
+        {
+            if (_activeModifiers.Count == 0) return;
+
+            UpdatePlayerModifiers();
+        }
+
+        public void UpdatePlayerModifiers()
+        {
+            CheckOutdatedModifiers();
+
+            float damageResistance = 0;
+            float staminaResistance = 0;
+
+            foreach (PlayerModifier modifier in _activeModifiers)
+            {
+                staminaResistance += Mathf.Clamp01(modifier.StaminaResistance);
+                damageResistance += Mathf.Clamp01(modifier.DamageResistance);
+            }
+            Debug.Log($"SR:{staminaResistance}; DR:{damageResistance}");
+            _movement.StaminaResistance = staminaResistance;
+            _health.SetDamageResistanceModifier(damageResistance);
+        }
+
+        private void CheckOutdatedModifiers() => _activeModifiers = _activeModifiers.Where(x => Time.time - x.TimeSinceAdded < x.Duration).ToList();
 
         private void OnInventory(InputValue value)
         {

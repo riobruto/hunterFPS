@@ -164,7 +164,7 @@ namespace Game.Player.Animation
         {
             _aimPosition = state ? _wController.WeaponEngine.WeaponSettings.Aim.Position : _wController.WeaponEngine.WeaponSettings.Aim.RestPosition;
             _aimRotation = state ? _wController.WeaponEngine.WeaponSettings.Aim.Rotation : _wController.WeaponEngine.WeaponSettings.Aim.RestRotation;
-            _aimIntensityMultiplier = state ? 0.125f : 1f;
+            _aimIntensityMultiplier = state ? 0.0125f : 1f;
         }
 
         private IEnumerator TriggerClip(AnimationTransformCurve clip, bool flipped)

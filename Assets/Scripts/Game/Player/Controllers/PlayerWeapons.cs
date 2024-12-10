@@ -273,8 +273,8 @@ namespace Game.Player.Controllers
                     return;
                 }
 
-                if (_playerMovementController.IsSprinting) return;
-                if (_isObstructed) return;
+                if (_playerMovementController.IsSprinting) {_weaponEngine.ReleaseFire(); return; }
+                if (_isObstructed) { _weaponEngine.ReleaseFire(); return; }
 
                 _weaponEngine.Fire();
             }
@@ -307,22 +307,7 @@ namespace Game.Player.Controllers
 
             if (_weaponEngine.IsReloading) return;
             if (_weaponEngine.CurrentAmmo >= _weaponEngine.MaxAmmo) return;
-            if (_inventory.Ammunitions[_weaponEngine.WeaponSettings.Ammo.Type] > 0)
-            {
-                StartCoroutine(ManageReload());
-            }
-            else { UIService.CreateMessage("No ammo", 2f); }
-        }
-
-        private IEnumerator ManageReload()
-        {
-            int remainingAmmo = Mathf.Clamp(_weaponEngine.CurrentAmmo, 0, _weaponEngine.MaxAmmo); ;
-            int reloadAmmo = _inventory.Ammunitions[_weaponEngine.WeaponSettings.Ammo.Type];
-            int reloadAmount = Mathf.Clamp(reloadAmmo, 0, _weaponEngine.MaxAmmo);
-            _weaponEngine.Reload(reloadAmount);
-            _inventory.Ammunitions[_weaponEngine.WeaponSettings.Ammo.Type] -= reloadAmount - remainingAmmo;
-
-            yield return null;
+            StartCoroutine(ManageReload());
         }
 
         private void OnMeeleeSlot(InputValue value) => ChangeWeaponBySlot(WeaponSlotType.MEELEE);
@@ -384,6 +369,15 @@ namespace Game.Player.Controllers
             yield return new WaitForSeconds(.5f);
             Draw();
             _isThrowingGranade = false;
+            yield return null;
+        }
+
+        private IEnumerator ManageReload()
+        {
+            int ammo = _inventory.TryTakeAmmo(_weaponEngine.WeaponSettings.Ammo.Type, _weaponEngine.MaxAmmo - _weaponEngine.CurrentAmmo);
+            if (ammo == 0) { UIService.CreateMessage("No ammo", 2f); yield break; };
+            _weaponEngine.Reload(_weaponEngine.CurrentAmmo + ammo);
+
             yield return null;
         }
 

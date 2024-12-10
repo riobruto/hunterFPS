@@ -34,6 +34,11 @@ namespace MyEditor.Life
                 DisplayPlayerDetection();
                 DisplayAgentState();
                 DisplayHealthBar();
+
+                if(GUILayout.Button("Restore") && controller.IsDead)
+                {
+                    controller.Restore();
+                }
             }
         }
 

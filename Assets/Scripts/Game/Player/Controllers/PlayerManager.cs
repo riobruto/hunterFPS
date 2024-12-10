@@ -20,6 +20,7 @@ namespace Game.Player.Controllers
 
         private PlayerTrainController _train;
         private PlayerHealth _health;
+
         private bool _inventoryOpen;
         private bool _subscribedtoWeaponState;
         private bool _inTrain;
@@ -51,10 +52,10 @@ namespace Game.Player.Controllers
 
             _lean.AllowLean = true;
 
-            UIService.CreateMessage(new MessageParameters("Este es un mensaje generado por el juego", 5, Color.white, new Color(0, 0, 0, .5f)));
-            UIService.CreateMessage(new MessageParameters("No puedes interactuar con este elemento", 5, Color.white, new Color(0, 0, 0, .5f)));
-            UIService.CreateMessage(new MessageParameters("Tu inventario esta lleno", 5, Color.white, new Color(0, 0, 0, .5f)));
-            UIService.CreateMessage(new MessageParameters("Puto el que lee XDDD JIJOLINES", 5, Color.white, new Color(0, 0, 0, .5f)));
+            //UIService.CreateMessage(new MessageParameters("Este es un mensaje generado por el juego", 5, Color.white, new Color(0, 0, 0, .5f)));
+            //UIService.CreateMessage(new MessageParameters("No puedes interactuar con este elemento", 5, Color.white, new Color(0, 0, 0, .5f)));
+            //UIService.CreateMessage(new MessageParameters("Tu inventario esta lleno", 5, Color.white, new Color(0, 0, 0, .5f)));
+            //UIService.CreateMessage(new MessageParameters("Puto el que lee XDDD JIJOLINES", 5, Color.white, new Color(0, 0, 0, .5f)));
 
             yield return null;
         }
@@ -62,7 +63,7 @@ namespace Game.Player.Controllers
         private void OnFall(Vector3 start, Vector3 end)
         {
             float distance = Mathf.Abs(end.y - start.y);
-            if (distance > 10) _health.Hurt(distance);
+            if (distance > 2) _health.Hurt(distance);
         }
 
         private void OnExitTrain()
@@ -70,10 +71,6 @@ namespace Game.Player.Controllers
             //_movementController.Controller.excludeLayers = 0;
             _inTrain = false;
             _movementController.AllowMovement = true;
-
-            //_movementController.LookMovement.AllowHorizontalLook = true;
-            //_movementController.LookMovement.AllowVerticalLook = true;
-            //_inventoryController.SetUIActive(false);
             _interactionController.AllowInteraction = true;
             _weaponController.AllowInput = true;
             _weaponController.Draw();
@@ -81,13 +78,9 @@ namespace Game.Player.Controllers
 
         private void OnEnterTrain()
         {
-            //_movementController.Controller.excludeLayers = 10;
+          
             _inTrain = true;
             _movementController.AllowMovement = false;
-
-            //_movementController.Controller.enabled = false;
-            //_movementController.LookMovement.AllowHorizontalLook = false;
-            //_movementController.LookMovement.AllowVerticalLook = false;
             _inventoryController.SetUIActive(false);
             _interactionController.AllowInteraction = false;
             _weaponController.AllowInput = false;
@@ -135,11 +128,12 @@ namespace Game.Player.Controllers
             _movementController.AllowCrouch = false;
             _movementController.AllowSprint = false;
             _movementController.AllowLookMovement = false;
-
             _weaponController.AllowInput = false;
             _interactionController.AllowInteraction = false;
             _inventoryController.AllowInput = false;
             _lean.AllowLean = false;
+
+            _movementController.Die();
 
             if (!_inventoryOpen)
             {

@@ -31,6 +31,9 @@ namespace Game.UI
            // Bootstrap.Resolve<ObjectiveService>().CompleteEvent += (a, b) => PlayClip(ObjectiveCompleted);
             Bootstrap.Resolve<ObjectiveService>().AdvanceEvent += (a, b) => PlayClip(ObjectiveAdvance);
             Bootstrap.Resolve<InventoryService>().Instance.ToggleInventoryEvent += (open) => PlayClip(open ? OpenInventory : CloseInventory, .4f);
+            Bootstrap.Resolve<InventoryService>().Instance.GiveAmmoEvent += (open) => PlayClip(PickAmmo, .4f);
+
+
         }
 
         private void PlayClip(AudioClip clip, float volume = 1)

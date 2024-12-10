@@ -1,5 +1,7 @@
 ﻿using Core.Engine;
+using Game.Audio;
 using Game.Hit;
+using Game.Player.Sound;
 using Game.Service;
 using Life.Controllers;
 using Nomnom.RaycastVisualization;
@@ -7,9 +9,9 @@ using UnityEngine;
 
 namespace Game.Entities
 {
-    public delegate void LimbHitDelegate(float damage, CharacterLimbHitbox sender);
+    public delegate void LimbHitDelegate(float damage, LimbHitbox sender);
 
-    public class CharacterLimbHitbox : MonoBehaviour, IHittableFromWeapon, IDamageableFromExplosive
+    public class LimbHitbox : MonoBehaviour, IHittableFromWeapon, IDamageableFromExplosive
     {
         [SerializeField] private LimbType _type = LimbType.UNDEFINED;
         public LimbType Type { get => _type; }
@@ -17,12 +19,14 @@ namespace Game.Entities
         public event LimbHitDelegate LimbHitEvent;
 
         public bool IsMutilated;
-
         private AgentController _ownerAgent;
+        private Collider _collider;
+        [SerializeField] private AudioClipCompendium _bodyFall;
 
         private void Start()
         {
             GetComponent<Rigidbody>().isKinematic = true;
+            _collider = GetComponent<Collider>();
             _ownerAgent = transform.root.GetComponent<AgentController>();
         }
 
@@ -43,7 +47,6 @@ namespace Game.Entities
         private void ManageVisual(HitWeaponEventPayload payload)
         {
             Bootstrap.Resolve<ImpactService>().System.BloodImpactAtPosition(payload.RaycastHit.point, payload.RaycastHit.normal, transform);
-
 
             if (VisualPhysics.Raycast(payload.RaycastHit.point, payload.RaycastHit.point - payload.Ray.origin, out RaycastHit hit, 4f, 1 << 0))
             {
@@ -85,8 +88,13 @@ namespace Game.Entities
             if (gameObject.TryGetComponent(out Rigidbody rrb))
             {
                 rrb.isKinematic = false;
+                //enemies
+                rrb.excludeLayers <<= 8;
+                //trains
+                rrb.excludeLayers <<= 10;
+                //player
+                rrb.excludeLayers <<= 3;
             }
-            GetComponent<Collider>().excludeLayers = 8;
         }
 
         private float CalculateDamage(float damage, float distance)
@@ -113,6 +121,32 @@ namespace Game.Entities
         {
             LimbHitEvent?.Invoke(damage, this);
             _ownerAgent.NotifyHurt(damage);
+        }
+
+        internal void RunOver(Vector3 velocity, float damage)
+        {
+            _ownerAgent.RunOver(velocity);
+
+            Debug.Log("Atropellado putooo");
+        }
+
+        internal void Impulse(Vector3 velocity)
+        {
+            if (gameObject.TryGetComponent(out Rigidbody rrb))
+            {
+                rrb.AddForce(velocity + Vector3.up, ForceMode.Impulse);
+            }
+        }
+
+        private float _soundCooldown;
+
+        private void OnCollisionEnter(Collision collision)
+        {
+            if (_type != LimbType.TORSO) return;
+            if (collision.relativeVelocity.sqrMagnitude < 5) return;
+            if (Time.time - _soundCooldown < 1) return;
+            AudioToolService.PlayClipAtPoint(_bodyFall.GetRandom(), transform.position, 1, AudioChannels.ENVIRONMENT, 15);
+            _soundCooldown = Time.time;
         }
     }
 

@@ -19,8 +19,6 @@ namespace Life.Controllers
         private Animator _animator;
         private NavMeshAgent _navMeshAgent;
 
-        public bool Initialized { get; private set; }
-
         private float _health;
         private float _maxHealth;
         private bool _isDead => !_alive;
@@ -73,7 +71,12 @@ namespace Life.Controllers
         private Camera _playerCamera;
         private AgentGlobalSystem _agentGlobalsystem;
         private PlayerSoundController _playerSound;
-        private bool _playerDetected => IsPlayerInRange(_rangeDistance) && IsPlayerInViewAngle(-0.3f) && IsPlayerVisible();
+        private bool _playerDetected => GetPlayerDetection();
+
+        public virtual bool GetPlayerDetection()
+        {
+            return IsPlayerInRange(_rangeDistance) && IsPlayerInViewAngle(0.3f) && IsPlayerVisible();
+        }
 
         public Vector3 PlayerPosition => _player.transform.position;
         public Vector3 PlayerHeadPosition => _playerCamera.transform.position;
@@ -82,8 +85,15 @@ namespace Life.Controllers
         public Vector3 LastPlayerKnownPosition => _lastKnownPosition;
         public Transform Head => _head;
         public AgentGlobalSystem AgentGlobalSystem => _agentGlobalsystem;
-
+        public float DetectionRange { get => _rangeDistance; }
+        public bool Initialized { get; private set; }
         public AgentGroup AgentGroup => _group;
+
+        public virtual void Restore()
+        {
+            SetMaxHealth(_maxHealth);
+            SetHealth(_maxHealth);
+        }
 
         private void Start()
         {
@@ -114,7 +124,11 @@ namespace Life.Controllers
         {
             if (!Initialized) return;
 
-            _machine?.Update();
+            if (!AgentGlobalService.AIDisabled)
+            {
+                _machine?.Update();
+            }
+
             UpdateMovement();
 
             if (_lastPlayerDetected != _playerDetected)
@@ -139,6 +153,7 @@ namespace Life.Controllers
 
         private void OnPlayerGun(Vector3 position, float radius)
         {
+            if (AgentGlobalService.IgnorePlayer) return;
             if (Vector3.Distance(position, transform.position) <= radius)
             {
                 OnHeardCombat();
@@ -147,6 +162,7 @@ namespace Life.Controllers
 
         private void OnPlayerStep(Vector3 position, float radius)
         {
+            if (AgentGlobalService.IgnorePlayer) return;
             if (Vector3.Distance(position, transform.position) <= radius)
             {
                 OnHeardSteps();
@@ -155,16 +171,19 @@ namespace Life.Controllers
 
         public bool IsPlayerInRange(float distance)
         {
+            if (AgentGlobalService.IgnorePlayer) return false;
             return Vector3.Distance(_head.position, _playerCamera.transform.position) < distance;
         }
 
         public bool IsPlayerInViewAngle(float dotAngle)
         {
+            if (AgentGlobalService.IgnorePlayer) return false;
             return Vector3.Dot(_head.transform.forward, _playerCamera.transform.position - transform.position) > dotAngle;
         }
 
         public bool IsPlayerVisible()
         {
+            if (AgentGlobalService.IgnorePlayer) return false;
             //Debug.DrawLine(_playerCamera.transform.position, transform.position);
 
             if (VisualPhysics.Linecast(_playerCamera.transform.position, _head.position, out RaycastHit hit, _ignoreMask))
@@ -198,6 +217,7 @@ namespace Life.Controllers
             set
             {
                 _faceTarget = value;
+                Animator.SetLayerWeight(2, _faceTarget ? 1 : 0);
                 _animator.SetBool("FACETARGET", value);
             }
         }
@@ -242,34 +262,28 @@ namespace Life.Controllers
             {
                 _machine.DrawGizmos();
             }
-
             Gizmos.DrawLine(_head.position, _aimTarget);
+            DrawGizmos();
         }
 
         #region Virtual Methods
 
-        public virtual void OnUpdate()
-        {
-        }
-
+        public virtual void DrawGizmos() { }
+        public virtual void OnUpdate() { }
         public virtual void OnStart()
         {
         }
-
         public virtual void OnDeath()
         {
         }
-
         public virtual void OnHurt(float value)
         { }
-
         public virtual void OnHeardCombat()
         { }
-
         public virtual void OnHeardSteps()
         { }
-
-        public virtual void ForcePlayerPerception() { }
+        public virtual void RunOver(Vector3 velocity)   { }
+        public virtual void ForcePlayerPerception()  { }
 
         internal void NotifyHurt(float value)
         {

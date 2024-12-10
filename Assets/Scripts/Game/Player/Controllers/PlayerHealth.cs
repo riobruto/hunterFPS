@@ -10,13 +10,17 @@ namespace Game.Player.Controllers
     public class PlayerHealth : MonoBehaviour, IDamageableFromExplosive, IHittableFromWeapon, IDamagableForHurtbox
     {
         private float _maxHealth = 100f;
+        private float _lastTimeHurt;
+        private bool _dead;
+        private float _damageMultiplier = 0.1f;
+        private float _regenSpeed = 1f;
+        private float _noHurtTimeForRegen = 2;
         private float _currentHealth = 100;
         private float _regenHealthLimit = 100f;
-        private float _regenSpeed = 1f;
-        private float _lastTimeHurt;
-        private float _noHurtTimeForRegen = 2;
-        private float _damageMultiplier = 0.1f;
-        private bool _dead;
+
+        private float _damageResistanceModifier = 0;
+
+        public void SetDamageResistanceModifier(float value) => _damageResistanceModifier = value;
 
         public float CurrentHealth => _currentHealth;
         public float CurrentMaxRegenHealth => _regenHealthLimit;
@@ -29,6 +33,9 @@ namespace Game.Player.Controllers
         private AudioSource _source;
         [SerializeField] private AudioClipCompendium _bodyHit;
         private Vector3 _lastDirection;
+        private bool _inmune;
+
+        public void SetInmunity(bool value) => _inmune = value;
 
         private void Update()
         {
@@ -36,14 +43,17 @@ namespace Game.Player.Controllers
             _currentHealth = Mathf.Clamp(_currentHealth, 0, _regenHealthLimit);
             _regenHealthLimit = Mathf.Clamp(_regenHealthLimit, 25f, 100f);
         }
+
         //TODO: Crear metodo para pasar direccion de daño
         public void Hurt(float damage)
         {
+            if (_inmune) return;
+
             ManageSound();
 
             if (_dead) return;
             _lastTimeHurt = Time.time;
-            _currentHealth -= damage;
+            _currentHealth -= damage - (damage * _damageResistanceModifier);
             _regenHealthLimit -= damage * _damageMultiplier;
 
             if (_currentHealth <= 0 && !_dead)

@@ -110,7 +110,6 @@ namespace UI
             {
                 _currentAmmo.text = $"{_weapon.WeaponEngine.CurrentAmmo}";
                 //Extraer del inventario;
-
                 _inventoryAmmo.text = $"{Bootstrap.Resolve<InventoryService>().Instance.Ammunitions[_weapon.WeaponEngine.WeaponSettings.Ammo.Type]}";
 
                 _ammoType.text = $"{_weapon.WeaponEngine.WeaponSettings.Ammo.Type.Name}";

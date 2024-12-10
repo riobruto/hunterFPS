@@ -1,4 +1,6 @@
 ﻿using Core.Engine;
+using Game.Entities;
+using Game.Player;
 using Game.Player.Controllers;
 using Game.Service;
 using Nomnom.RaycastVisualization;
@@ -53,12 +55,14 @@ namespace Game.Train
             p.IsCoupled = true;
             joint.anchor = transform.InverseTransformPoint(p.Position);
             SoftJointLimit limit = new SoftJointLimit();
+            limit.limit = 0.02f;
+
             joint.zMotion = ConfigurableJointMotion.Limited;
             joint.xMotion = ConfigurableJointMotion.Free;
             joint.yMotion = ConfigurableJointMotion.Free;
-            limit.limit = 0.02f;
             joint.linearLimit = limit;
             joint.connectedBody = part.Rigidbody;
+
             part.NotifyConnectionFromPrevious(this);
             OnPartConnected(part);
             ConnectedPartNext = part;
@@ -125,18 +129,34 @@ namespace Game.Train
         }
 
         private GameObject p;
+        private Vector3 _lastVelocity;
 
         private void OnCollisionEnter(Collision collision)
         {
+
+
+
+
             if (collision.gameObject == p)
             {
                 if (Vector3.Dot(collision.relativeVelocity, -Vector3.up) > 0.5f)
                 {
-                    if (_rigidbody.velocity.magnitude > 2.5f)
+                    if (collision.relativeVelocity.magnitude > .5f)
                     {
                         p.GetComponent<PlayerHealth>().Hurt(10000000);
+                        p.GetComponent<PlayerRigidbodyMovement>().Push(collision.relativeVelocity);
+                        _rigidbody.velocity = _lastVelocity;
                     }
                 }
+            }
+
+            if (collision.gameObject.TryGetComponent(out LimbHitbox hitbox))
+            {
+                if (collision.relativeVelocity.magnitude > .5f)
+                {
+                    hitbox.RunOver(_rigidbody.velocity, 10000);
+                }
+                _rigidbody.velocity = _lastVelocity;
             }
         }
 
@@ -165,7 +185,7 @@ namespace Game.Train
                 {
                     //if (Input.GetKeyDown(KeyCode.K))
                     {
-                        hit.collider.gameObject.TryGetComponent(out TrainBase part);
+                        if (!hit.collider.gameObject.TryGetComponent(out TrainBase part)) return;
                         point.IsCoupled = true;
                         part.CoupleTo(this);
                         Debug.Log(hit.collider.name);
@@ -184,6 +204,7 @@ namespace Game.Train
             FindNearCars();
 
             _speed = Vector3.Magnitude(Rigidbody.velocity);
+            _lastVelocity = _rigidbody.velocity;
             OnFixedUpdate();
         }
 

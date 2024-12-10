@@ -36,7 +36,7 @@ namespace Core.Console
 
         private void Update()
         {
-            if (Keyboard.current.f10Key.isPressed)
+            if (Keyboard.current.f10Key.wasPressedThisFrame)
             {
                 _consoleOpen = !_consoleOpen;
             }
@@ -46,58 +46,106 @@ namespace Core.Console
         private bool _giveWeaponMenu;
         private List<InventoryItem> _cachedSearch;
         private List<WeaponSettings> _cachedWeaponSearch;
+        private bool _inmune;
+        private bool _disabledAI;
+        private bool _ignorePlayer;
 
         private void OnGUI()
         {
 
             if (!_consoleOpen) return;
-            using (new GUILayout.HorizontalScope())
+
+
+
+            using (new GUILayout.VerticalScope())
             {
-                if (GUILayout.Button("Give Item"))
-                {
-                    _giveItemMenu = !_giveItemMenu;
-                    _cachedSearch = FindAll<InventoryItem>("Assets/Resources");
-                }
 
-                if (GUILayout.Button("Give Weapon"))
+                using (new GUILayout.HorizontalScope())
                 {
-                    _giveWeaponMenu = !_giveWeaponMenu;
-                    _cachedWeaponSearch = FindAll<WeaponSettings>("Assets/Resources");
-                }
 
-                if (GUILayout.Button("Restore Player"))
-                {
-                    Bootstrap.Resolve<PlayerService>().Player.GetComponent<PlayerHealth>().Heal(100f);
-                    Bootstrap.Resolve<PlayerService>().Player.GetComponent<PlayerRigidbodyMovement>().Stamina = 100;
-                }
-                if (GUILayout.Button("Give Current Ammo"))
-                {
-                    Bootstrap.Resolve<InventoryService>().Instance.Ammunitions[FindObjectOfType<PlayerWeapons>().WeaponEngine.WeaponSettings.Ammo.Type] = 9999;
-                }
-                if (_giveWeaponMenu)
-                {
-                    using (new GUILayout.VerticalScope())
+                    if (GUILayout.Button("Give Item"))
                     {
-                        foreach (WeaponSettings weapon in _cachedWeaponSearch)
+                        _giveItemMenu = !_giveItemMenu;
+                        _cachedSearch = FindAll<InventoryItem>("Assets/Resources");
+                    }
+
+                    if (GUILayout.Button("Give Weapon"))
+                    {
+                        _giveWeaponMenu = !_giveWeaponMenu;
+                        _cachedWeaponSearch = FindAll<WeaponSettings>("Assets/Resources");
+                    }
+
+                    if (GUILayout.Button("Restore Player"))
+                    {
+                        Bootstrap.Resolve<PlayerService>().Player.GetComponent<PlayerHealth>().Heal(100f);
+                        Bootstrap.Resolve<PlayerService>().Player.GetComponent<PlayerRigidbodyMovement>().Stamina = 100;
+                    }
+                    if (GUILayout.Button("Give Current Ammo"))
+                    {
+                        Bootstrap.Resolve<InventoryService>().Instance.Ammunitions[FindObjectOfType<PlayerWeapons>().WeaponEngine.WeaponSettings.Ammo.Type] = 9999;
+                    }
+
+                    if (GUILayout.Button("Toggle Player Inmunnity"))
+                    {
+                        _inmune = !_inmune;
+                        Bootstrap.Resolve<PlayerService>().Player.GetComponent<PlayerHealth>().SetInmunity(_inmune);
+
+                    }
+                    if (GUILayout.Button(_disabledAI ? "Enable AI" : "Disable AI"))
+                    {
+                        _disabledAI = !_disabledAI;
+                        AgentGlobalService.SetDisableAI(_disabledAI);
+
+                    }
+
+                    if (GUILayout.Button($"Ignore Player: {_ignorePlayer}"))
+                    {
+                        _ignorePlayer = !_ignorePlayer;
+                        AgentGlobalService.SetIgnorePlayer(_ignorePlayer);
+
+                    }
+
+                    if (_giveWeaponMenu)
+                    {
+                        using (new GUILayout.VerticalScope())
                         {
-                            if (GUILayout.Button(weapon.name))
+                            foreach (WeaponSettings weapon in _cachedWeaponSearch)
                             {
-                                FindObjectOfType<PlayerWeapons>().TryGiveWeapon(weapon, weapon.Ammo.Size);
+                                if (GUILayout.Button(weapon.name))
+                                {
+                                    Bootstrap.Resolve<InventoryService>().Instance.TryGiveAmmo(weapon.Ammo.Type, weapon.Ammo.Type.PlayerLimit);
+                                    FindObjectOfType<PlayerWeapons>().TryGiveWeapon(weapon, weapon.Ammo.Size);
+                                }
+                            }
+                        }
+                    }
+                    if (_giveItemMenu)
+                    {
+                        using (new GUILayout.VerticalScope())
+                        {
+                            foreach (InventoryItem item in _cachedSearch)
+                            {
+                                if (GUILayout.Button(item.name))
+                                {
+                                    Bootstrap.Resolve<InventoryService>().Instance.TryAddItem(item);
+                                }
                             }
                         }
                     }
                 }
-                if (_giveItemMenu)
+
+                using (new GUILayout.HorizontalScope())
                 {
-                    using (new GUILayout.VerticalScope())
+                    if (GUILayout.Button("Spawn Soldier"))
                     {
-                        foreach (InventoryItem item in _cachedSearch)
-                        {
-                            if (GUILayout.Button(item.name))
-                            {
-                                Bootstrap.Resolve<InventoryService>().Instance.TryAddItem(item);
-                            }
-                        }
+
+
+                    }
+
+                    if (GUILayout.Button("Spawn Soul"))
+                    {
+
+
                     }
                 }
             }

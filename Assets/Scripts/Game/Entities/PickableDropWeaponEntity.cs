@@ -1,17 +1,17 @@
-﻿using Core.Weapon;
-using Game.Player.Controllers;
+﻿using Core.Engine;
+using Core.Weapon;
+using Game.Service;
 using UnityEngine;
 
 namespace Game.Entities
 {
-    public class PickableWeaponEntity : SimpleInteractable
+    public class PickableDropWeaponEntity : SimpleInteractable
     {
         [SerializeField] private WeaponSettings _weapon;
-        [SerializeField] private int _currentAmmo = 0;
+
         private bool _taken = false;
 
         public override bool CanInteract => !Taken;
-
         public override bool Taken => _taken;
 
         public override event InteractableDelegate InteractEvent;
@@ -20,7 +20,6 @@ namespace Game.Entities
         {
             gameObject.layer = 30;
             SetLayerAllChildren(this.transform, 30);
-            _currentAmmo = _weapon.Ammo.Size;
         }
 
         private void SetLayerAllChildren(Transform root, int layer)
@@ -33,18 +32,6 @@ namespace Game.Entities
             }
         }
 
-        private bool GiveItem()
-        {
-            if (FindObjectOfType<PlayerWeapons>().TryGiveWeapon(_weapon, _currentAmmo))
-            {
-                _taken = true;
-                InteractEvent?.Invoke();
-                Destroy(gameObject);
-                return true;
-            }
-            return false;
-        }
-
         internal void SetAsset(WeaponSettings weapon)
         {
             _weapon = weapon;
@@ -52,7 +39,14 @@ namespace Game.Entities
 
         public override bool Interact()
         {
-            return GiveItem();
+            if (Bootstrap.Resolve<InventoryService>().Instance.TryGiveAmmo(_weapon.Ammo.Type, _weapon.Ammo.Type.PickUpAmount))
+            {
+                _taken = true;
+                InteractEvent?.Invoke();
+                Destroy(gameObject);
+                return true;
+            }
+            else return false;
         }
     }
 }

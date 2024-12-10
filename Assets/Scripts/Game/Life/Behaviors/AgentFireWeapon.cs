@@ -9,6 +9,9 @@ using UnityEngine;
 
 namespace Game.Life
 {
+    public enum WeaponAnimationType
+    { NONE, PISTOL, SMG, RIFLE, SHOTGUN }
+
     public class AgentFireWeapon : MonoBehaviour
     {
         [SerializeField] private AudioClip _fireSound;
@@ -17,7 +20,10 @@ namespace Game.Life
         [SerializeField] private Transform _weaponTransform;
         [SerializeField] private ParticleSystem _weaponParticleSystem;
         [SerializeField] private TrailRenderer _trailRenderer;
+
         [SerializeField] private WeaponSettings _weapon;
+        [SerializeField] private WeaponAnimationType _weaponType;
+
         [SerializeField] private GameObject WeaponVisual;
         private Vector3 _aimTarget;
         private Camera _playerCamera;
@@ -25,6 +31,7 @@ namespace Game.Life
         private IWeapon _weaponEngine;
 
         public Vector3 _target;
+
         public IWeapon WeaponEngine => _weaponEngine;
         public bool HasNoAmmo => _weaponEngine.CurrentAmmo == 0;
         public bool IsShooting => _weaponEngine.IsShooting;
@@ -38,22 +45,29 @@ namespace Game.Life
             _weaponEngine.WeaponChangedState += OnWeaponChangeState;
             _weaponEngine.SetHitScanMask(Bootstrap.Resolve<GameSettings>().RaycastConfiguration.EnemyGunLayers);
             _playerCamera = Bootstrap.Resolve<PlayerService>().PlayerCamera;
+
+            GetComponent<Animator>().SetInteger("WEAPON_TYPE", (int)_weaponType);
         }
 
         public void DropWeapon()
         {
             if (WeaponVisual)
             {
-                WeaponVisual.GetComponent<Rigidbody>().isKinematic = false;
+                WeaponVisual.AddComponent<MeshCollider>().convex = true;
+
+                WeaponVisual.AddComponent<Rigidbody>().isKinematic = false;
+                WeaponVisual.AddComponent<PickableDropWeaponEntity>().SetAsset(_weapon);
                 WeaponVisual.transform.parent = null;
-                WeaponVisual.AddComponent<PickableWeaponEntity>().SetAsset(_weapon);
             }
+
             _weaponEngine.ReleaseFire();
             Destroy(_weaponTransform.gameObject);
         }
 
         private void OnWeaponChangeState(object sender, WeaponStateEventArgs e)
         {
+            GetComponent<Animator>().SetInteger("WEAPON_TYPE", (int)_weaponType);
+
             if (e.State == WeaponState.BEGIN_SHOOTING)
             {
                 ManageFireSound();

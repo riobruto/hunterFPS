@@ -43,9 +43,7 @@ namespace Game.Service
 
         public ConsumableItem[] Consumables = new ConsumableItem[8];
         public EquipableItem[] Equipables = new EquipableItem[8];
-
         public EquipableItem[] Equipped = new EquipableItem[3];
-
         public Dictionary<AmmunitionItem, int> Ammunitions;
 
         public Dictionary<GrenadeType, int> Grenades;
@@ -59,6 +57,8 @@ namespace Game.Service
         public event InventoryConsumableDelegate UseConsumableEvent;
 
         public event InventoryEquippableDelegate UseEquippableEvent;
+
+        public event UnityAction<AmmunitionItem> GiveAmmoEvent;
 
         public bool TryAddItem(InventoryItem item)
         {
@@ -131,12 +131,7 @@ namespace Game.Service
         public void Initialize()
         {
             Ammunitions = new Dictionary<AmmunitionItem, int>();
-            AmmunitionItem[] _types = Resources.FindObjectsOfTypeAll<AmmunitionItem>();
-
-            foreach (AmmunitionItem ammo in _types)
-            {
-                Ammunitions.Add(ammo, 150);
-            }
+            //LOAD AMMO FROM SAVE
 
             Grenades = new Dictionary<GrenadeType, int>();
 
@@ -180,151 +175,38 @@ namespace Game.Service
         {
             Grenades[type] = amount - Grenades[type];
         }
+
+        internal bool TryGiveAmmo(AmmunitionItem type, int amount)
+        {
+            if (amount <= 0) return false;
+
+            if (!Ammunitions.ContainsKey(type))
+            {
+                GiveAmmoEvent?.Invoke(type);
+                UIService.CreateMessage($"Picked: <b>{amount}</b> rounds of <b>{type.Name}</b>");
+                Ammunitions.Add(type, amount);
+                return true;
+            }
+
+            int resultant = Mathf.Clamp(Ammunitions[type] + amount, 0, type.PlayerLimit);
+            if (Mathf.Abs(Ammunitions[type] - resultant) <= 0)
+            {
+                UIService.CreateMessage($"<b>{type.Name}</b> full ");
+                return false;
+            }
+            UIService.CreateMessage($"Picked: <b>{Mathf.Abs(Ammunitions[type] - resultant)}</b> rounds of <b>{type.Name}</b>");
+            Ammunitions[type] = resultant;
+            GiveAmmoEvent?.Invoke(type);
+            return true;
+        }
+
+        internal int TryTakeAmmo(AmmunitionItem type, int desiredAmount)
+        {
+            if (desiredAmount <= 0) return 0;
+            if (!Ammunitions.ContainsKey(type)) { return 0; }
+            int resultant = Mathf.Clamp(Ammunitions[type], 0, desiredAmount);
+            Ammunitions[type] -= resultant;
+            return resultant;
+        }
     }
-
-    //INVENTARIO VIEJO!!
-
-    /*public class InventorySystem : MonoBehaviour
-    {
-        public event InventoryControllerDelegate ShowInventoryEvent;
-
-        private UI_GridInventoryController _UIController;
-        private Vector2Int _size;
-
-        public void Initialize()
-        {
-            _itemGrid = new InventoryItem[_size.x, _size.y];
-
-            CreateUI();
-        }
-
-        //TODO: Control this array from the ui
-        private void CreateUI()
-        {
-            GameObject inventory = Resources.Load("UI/Inventory") as GameObject;
-            inventory = Instantiate(inventory);
-            inventory.transform.parent = FindObjectOfType<Canvas>().transform;
-            inventory.GetComponent<RectTransform>().anchoredPosition = Vector3.zero;
-            inventory.SetActive(false);
-            _UIController = inventory.GetComponent<UI_GridInventoryController>();
-        }
-
-        public void ShowInventory()
-        {
-            _UIController.ShowInventory();
-            ShowInventoryEvent?.Invoke(true);
-        }
-
-        public void HideInventory()
-        {
-            _UIController.HideInventory();
-            ShowInventoryEvent?.Invoke(false);
-        }
-
-        private InventoryItem[,] _itemGrid;
-
-        private bool HasItem(InventoryItem item)
-        {
-            for (int x = 0; x < _size.x; x++)
-            {
-                for (int y = 0; y < _size.y; y++)
-                {
-                    if (_itemGrid[x, y] != null)
-                    {
-                        if (_itemGrid[x, y] == item) return true;
-                    }
-                }
-            }
-            return false;
-        }
-
-        private bool AddItem(InventoryItem item)
-        {
-            return false;
-        }
-
-        public bool PlaceItem(InventoryItem inventoryItem, int posX, int posY)
-        {
-            if (BoundaryCheck(posX, posY, inventoryItem.Width, inventoryItem.Height) == false)
-            {
-                return false;
-            }
-
-            if (OverlapCheck(posX, posY, inventoryItem.Width, inventoryItem.Height))
-            {
-                return false;
-            }
-
-            for (int x = 0; x < inventoryItem.Width; x++)
-            {
-                for (int y = 0; y < inventoryItem.Height; y++)
-                {
-                    _itemGrid[posX + x, posY + y] = inventoryItem;
-                }
-            }
-
-            return true;
-        }
-
-        private Vector2Int? HasSpaceForItem(InventoryItem item)
-        {
-            int width = _size.x - item.Width + 1;
-            int height = _size.y - item.Height + 1;
-
-            for (int y = 0; y < height; y++)
-            {
-                for (int x = 0; x < width; x++)
-                {
-                    if (!OverlapCheck(x, y, item.Width, item.Height))
-                    {
-                        Debug.Log("Found Position");
-                        return new Vector2Int?(new Vector2Int(x, y));
-                    }
-                }
-            }
-            Debug.Log("Inventory Full");
-            return null;
-        }
-
-        private bool TakeItem(InventoryItem item)
-        {
-            return false;
-        }
-
-        private bool BoundaryCheck(int x, int y, int width, int height)
-        {
-            if (PositionCheck(x, y) == false) return false;
-            x += width - 1;
-            y += height - 1;
-            if (PositionCheck(x, y) == false) return false;
-
-            return true;
-        }
-
-        private bool OverlapCheck(int x, int y, int width, int height)
-        {
-            for (int ix = 0; ix < width; ix++)
-            {
-                for (int iy = 0; iy < height; iy++)
-                {
-                    if (_itemGrid[x + ix, y + iy] != null)
-                        return true;
-                }
-            }
-            return false;
-        }
-
-        private bool PositionCheck(int x, int y)
-        {
-            if (x < 0 || y < 0)
-            {
-                return false;
-            }
-            if (x >= _size.x || y >= _size.y)
-            {
-                return false;
-            }
-            return true;
-        }
-    }*/
 }

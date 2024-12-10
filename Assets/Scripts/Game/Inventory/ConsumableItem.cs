@@ -25,19 +25,11 @@ namespace Game.Inventory
     [Serializable]
     public class ConsumableProperties
     {
-        public float ConsumeTime;
-        public PlayerModificatorProperty Health;
-        public PlayerModificatorProperty Stamina;
-        public PlayerModificatorProperty Acurracy;
-        public PlayerModificatorProperty Speed;
-    }
-
-    [Serializable]
-    public class PlayerModificatorProperty
-    {
-        [Tooltip("The amount by frame that is going to apply during a period of time")]
-        public float AmountOverTime;
-
-        public float Duration;
+        public float ConsumeTimeInSeconds;
+        [Header("Properties")]
+        public float HealthRecoverAmount;
+        public float DurationInMinutes;
+        public float DamageResistanceAmount;
+        public float StaminaResistanceAmount;
     }
 }

@@ -14,9 +14,9 @@ namespace Game.Life
             GetComponent<NavMeshAgent>().enabled = false;
 
 
-            CharacterLimbHitbox[] limbs = GetComponentsInChildren<CharacterLimbHitbox>();
+            LimbHitbox[] limbs = GetComponentsInChildren<LimbHitbox>();
 
-            foreach (CharacterLimbHitbox limb in limbs)
+            foreach (LimbHitbox limb in limbs)
             {
                 limb.Ragdoll();
             }

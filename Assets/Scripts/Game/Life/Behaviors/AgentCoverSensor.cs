@@ -1,4 +1,5 @@
 ﻿using Core.Engine;
+using System;
 using System.Collections.Generic;
 
 using System.Linq;
@@ -81,6 +82,7 @@ namespace Game.Life
 
         private void OnDrawGizmos()
         {
+            return;
             Gizmos.DrawWireSphere(_debugPos, _detectionRadius);
 
             foreach (SpatialDataPoint point in GetCombatSpatialData(_debugPos, _debugThreat).ToArray())
@@ -96,6 +98,11 @@ namespace Game.Life
                 Gizmos.DrawWireSphere(point.Position, .25f);
                 Handles.Label(point.Position + Vector3.up, $"Dist: {point.PathLength}");
             }
+        }
+
+        internal object GetCombatSpatialData(Vector3 combatPoint, Vector3 playerHeadPosition, object detectionRange, float v)
+        {
+            throw new NotImplementedException();
         }
     }
 

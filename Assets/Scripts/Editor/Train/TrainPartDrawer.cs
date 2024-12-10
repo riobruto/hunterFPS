@@ -34,6 +34,15 @@ namespace MyEditor.Train
                         controller.transform.position = data.NearestPosition;
                         controller.transform.forward = forward;
                     }
+                    if (GUILayout.Button($"Flip Direction"))
+                    {
+                      
+                        controller.transform.forward = -controller.transform.forward;
+                    }
+
+
+
+
                 }
             }
         }

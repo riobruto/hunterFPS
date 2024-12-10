@@ -73,19 +73,10 @@ namespace Game.UI.Inventory
                     _buttonEmpty.gameObject.SetActive(true);
                     _buttonEmptyText.text = "Equip";
                     _rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 128);
-
                     _buttonDescription.GetComponent<RectTransform>().anchoredPosition = new Vector2(0, -64);
                     _buttonDrop.GetComponent<RectTransform>().anchoredPosition = new Vector2(0, -96);
 
-                    break;
-
-                case AmmunitionItem:
-                    _buttonEmpty.gameObject.SetActive(false);
-                    _buttonEmptyText.text = "";
-                    _rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 96);
-                    _buttonDescription.GetComponent<RectTransform>().anchoredPosition = new Vector2(0, -32);
-                    _buttonDrop.GetComponent<RectTransform>().anchoredPosition = new Vector2(0, -64);
-                    break;
+                    break;                                
             }
         }
 

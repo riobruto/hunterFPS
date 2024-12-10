@@ -4,6 +4,7 @@ using Game.Service;
 using Life.Controllers;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Events;
 
 namespace Game.Objectives
 {
@@ -20,7 +21,6 @@ namespace Game.Objectives
         [SerializeField] private AgentController[] _targetEnemies;
 
         public event ReckonerDelegate ReckonerAdvancedEvent;
-
         public event ReckonerDelegate ReckonerCompletedEvent;
 
         private ObjectiveService service => Bootstrap.Resolve<ObjectiveService>();
@@ -43,20 +43,18 @@ namespace Game.Objectives
         {
             _current.CompletedEvent -= Advance;
             UIService.CreateMessage("Objective Completed");
-
-            if (_objectives.Count == _index + 1)
-            {
+            if (_objectives.Count == _index + 1){
                 _completed = true;
                 ReckonerCompletedEvent?.Invoke(this);
                 return;
-            }
-
+            }            
             _index++;
             _current = _objectives[_index];
             _current.CompletedEvent += Advance;
             _current.Run();
+
             ReckonerAdvancedEvent?.Invoke(this);
-            UIService.CreateMessage($"Objective Updated: {_current.TaskName}");         
+            UIService.CreateMessage($"Objective Updated: {_current.TaskName}");
         }
 
         private void CreateObjectives()

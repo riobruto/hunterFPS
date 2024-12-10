@@ -203,6 +203,11 @@ namespace Game.Service
             blood.SetActive(true);
             blood.GetComponent<ParticleSystem>().Play();
 
+            Vector2Int coord = _dictionary.GetBulletHoleFromType(SurfaceType.FLESH);
+            DecalProjector proyector = blood.GetComponentInChildren<DecalProjector>();
+            Material mat = new(proyector.material);
+            mat.SetVector("_coordinates", new Vector4(coord.x, coord.y) + new Vector4(Random.Range(0, 2), Random.Range(0, 2), 0, 0));
+            proyector.material = mat;
             AudioToolService.PlayClipAtPoint(_dictionary.BloodHit.Sound.GetRandom(), point, 1, AudioChannels.ENVIRONMENT);
         }
 

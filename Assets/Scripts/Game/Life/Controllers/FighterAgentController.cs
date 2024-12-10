@@ -68,7 +68,7 @@ namespace Life.Controllers
         public void Ragdoll()
         {
             Animator.enabled = false;
-            foreach (CharacterLimbHitbox body in GetComponentsInChildren<CharacterLimbHitbox>(true))
+            foreach (LimbHitbox body in GetComponentsInChildren<LimbHitbox>(true))
             {
                 body.Ragdoll();
             }

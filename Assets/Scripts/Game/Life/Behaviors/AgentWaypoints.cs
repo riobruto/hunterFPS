@@ -3,26 +3,18 @@ using System;
 using System.Collections;
 using UnityEngine;
 
-
 namespace Game.Life
 {
     public class AgentWaypoints : MonoBehaviour
     {
         [SerializeField] private Waypoint _currentWaypoint;
-       // [SerializeField] private WaypointGroup _group;
-        public Waypoint CurrentWaypoint { get => _currentWaypoint; }
 
-        private void Start()
-        {
-            if (_currentWaypoint == null)
-            {
-                _currentWaypoint = GetNearestWaypoint();
-            }
-        }
+        // [SerializeField] private WaypointGroup _group;
+        public Waypoint CurrentWaypoint { get => _currentWaypoint; }
 
         public Waypoint GetNearestWaypoint()
         {
-            Waypoint[] waypoint = FindObjectsOfType<Waypoint>(); 
+            Waypoint[] waypoint = FindObjectsOfType<Waypoint>();
             Array.Sort(waypoint, WaypointArraySortComparer);
             return waypoint[0];
         }

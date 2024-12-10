@@ -8,6 +8,16 @@ namespace Game.Service
     public class AgentGlobalService : SceneService
     {
         public static AgentGlobalSystem Instance { get; private set; }
+        public static bool AIDisabled { get; private set; }
+        public static bool IgnorePlayer { get; private set; }
+
+        public static void SetDisableAI(bool value)
+        { AIDisabled = value; }
+
+        internal static void SetIgnorePlayer(bool ignorePlayer)
+        {
+            IgnorePlayer = ignorePlayer;
+        }
 
         internal override void Initialize()
         {
@@ -30,18 +40,17 @@ namespace Game.Service
 
         internal void Initialize()
         {
-
         }
+
         public int _attackSlots = 2;
         public List<AgentController> _attackingAgents = new List<AgentController>();
-
 
         public bool TryTakeAttackSlot(AgentController controller)
         {
             if (_attackingAgents.Count == _attackSlots) return false;
             else _attackingAgents.Add(controller);
             return true;
-        }       
+        }
 
         public void TakeAttackSlotForce(AgentController controller)
         {
@@ -89,6 +98,7 @@ namespace Game.Service
 
         private void OnGUI()
         {
+            return;
             using (new GUILayout.VerticalScope())
             {
                 GUILayout.Space(180);

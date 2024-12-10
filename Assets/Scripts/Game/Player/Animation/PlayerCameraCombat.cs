@@ -41,7 +41,7 @@ namespace Game.Player.Animation
 
         private void OnDie()
         {
-            StartCoroutine(KillCam());
+            //StartCoroutine(KillCam());
         }
 
         private IEnumerator KillCam()

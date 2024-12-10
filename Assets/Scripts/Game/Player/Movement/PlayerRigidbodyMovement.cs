@@ -1,7 +1,6 @@
 ﻿using Core.Engine;
 using Game.Player.Movement;
 using Nomnom.RaycastVisualization;
-using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -100,6 +99,7 @@ namespace Game.Player
             _collider = GetComponent<CapsuleCollider>();
             _rigidBody = GetComponent<Rigidbody>();
             _layer = Bootstrap.Resolve<GameSettings>().RaycastConfiguration.IgnoreLayers;
+            _rigidBody.freezeRotation = true;
             foreach (IObserverFromPlayerMovement movement in GetComponentsInChildren<IObserverFromPlayerMovement>()) { movement.Initalize(this); }
         }
 
@@ -119,6 +119,8 @@ namespace Game.Player
         private float _stamina;
         private float _maxStamina = 100f;
         private float _lastTimeStaminaReduced;
+        private float _staminaDecrement = 4f;
+        private float _staminaResistance = 0;
         private bool _canIncrementStamina => Time.time - _lastTimeStaminaReduced > 3;
 
         public float Stamina
@@ -136,7 +138,7 @@ namespace Game.Player
         }
 
         public float MaxStamina => _maxStamina;
-
+        public float StaminaResistance { set => _staminaResistance = value; }
         public float VerticalLookAngle { get => _verticalLookAngle; }
         public float WalkSpeed { get => _walkSpeed; }
         public float SprintSpeed { get => _sprintSpeed; }
@@ -173,7 +175,6 @@ namespace Game.Player
         private Vector3 _fallStart;
         private Vector3 _fallEnd;
         private bool _lastIsGrounded;
-        private float _lastFallDamage;
 
         private void OnCrouch(InputValue value)
         {
@@ -186,6 +187,7 @@ namespace Game.Player
 
         private void OnSprint(InputValue value)
         {
+            if (_pauseMovement) return;
             if (!AllowSprint) { _wantSprinting = false; return; }
             if (_wantCrouching && !_wantSprinting) return;
             else _wantSprinting = value.isPressed;
@@ -193,12 +195,15 @@ namespace Game.Player
 
         private void OnJump(InputValue value)
         {
+            if (_pauseMovement) return;
             if (!AllowJump) { _wantJump = false; return; }
             _wantJump = value.isPressed && !_wantCrouching;
         }
 
         private void ManageCrouchRezise()
         {
+            if (_pauseMovement) { _crouchAmount = 0; return; }
+
             _crouchAmount = Mathf.SmoothDamp(_crouchAmount, _wantCrouching && AllowCrouch || !_grounded ? 1 : 0, ref _crouchRefVelocity, _crouchChangeSpeed);
             _collider.center = Vector3.up * Mathf.Lerp(1.25f, .75f, _crouchAmount);
             _collider.height = Mathf.Lerp(1.75f, 1f, _crouchAmount);
@@ -207,7 +212,7 @@ namespace Game.Player
 
         private bool CheckHeadObstruction()
         {
-            return VisualPhysics.Raycast(transform.position + transform.up, transform.up, 1, _layer);//~_raycastConfiguration.IgnoreLayers);
+            return VisualPhysics.Raycast(transform.position + transform.up, transform.up, 1, _layer); //~_raycastConfiguration.IgnoreLayers);
         }
 
         private void ManageLook()
@@ -216,9 +221,14 @@ namespace Game.Player
             {
                 _verticalLookAngle = Mathf.Clamp(_verticalLookAngle - _inputHead.y * _sensitivity * Time.deltaTime, -70, 80);
                 _head.localRotation = Quaternion.Euler(_verticalLookAngle, 0, 0);
-                _rigidBody.MoveRotation(_rigidBody.rotation * Quaternion.Euler(Vector3.up * _inputHead.x * _sensitivity * Time.fixedDeltaTime));
+
+                if (_pauseMovement)
+                {
+                    transform.rotation = transform.rotation * Quaternion.Euler(Vector3.up * _inputHead.x * _sensitivity * Time.fixedDeltaTime);
+                }
+                else
+                    _rigidBody.MoveRotation(_rigidBody.rotation * Quaternion.Euler(Vector3.up * _inputHead.x * _sensitivity * Time.fixedDeltaTime));
             }
-            _rigidBody.freezeRotation = true;
         }
 
         public void ImpulseLook(Vector2 target)
@@ -230,6 +240,7 @@ namespace Game.Player
         {
             _jumpCool = Mathf.Clamp(_jumpCool - Time.fixedDeltaTime, 0f, 1f);
 
+            if (_pauseMovement) return;
             if (_grounded = CastRay())
             {
                 _otherRigidBody = null;
@@ -245,13 +256,13 @@ namespace Game.Player
                 //We create jump forces
                 Vector3 jumpImpulse = Vector3.zero;
                 //todo: manage stamina
-                if (_wantJump && _grounded && _jumpCool == 0 && AllowJump)
+                if (_wantJump && _grounded && _jumpCool == 0 && AllowJump && Stamina > 10)
                 {
                     _jumpCool = 1;
                     _currentState = PlayerMovementState.JUMP;
                     jumpImpulse = (Vector3.up) * _jumpForce;
                     _wantJump = false;
-                    Stamina -= 10;
+                    Stamina -= 10 - (10*_staminaResistance);
                 }
 
                 //Spring and Slipping forces
@@ -341,9 +352,15 @@ namespace Game.Player
             else _move = Vector3.zero;
 
             Vector3.ClampMagnitude(_move, 1);
-            _move *= _walkSpeed;
-            bool canSprint = _move.z > 0 && _grounded && AllowSprint;
-            if (canSprint && _wantSprinting) { _move.z += (_sprintSpeed - _walkSpeed); Stamina -= Time.fixedDeltaTime; }
+            _move *= _walkSpeed; 
+            bool canSprint = _move.z > 0 && _grounded && AllowSprint && Stamina > 5;
+            if (canSprint && _wantSprinting)
+            {
+                _move.z += (_sprintSpeed - _walkSpeed);
+
+                Debug.Log(_staminaDecrement * _staminaResistance);
+                Stamina -= (Time.fixedDeltaTime * (_staminaDecrement - (_staminaDecrement * _staminaResistance)));
+            }
             if (_wantCrouching) { _move = Vector3.ClampMagnitude(_move, _crouchSpeed); }
 
             _currentState = _wantCrouching ? PlayerMovementState.CROUCH : _wantSprinting && canSprint ? PlayerMovementState.SPRINT : _move.magnitude > 0 ? PlayerMovementState.WALK : PlayerMovementState.IDLE;
@@ -384,6 +401,9 @@ namespace Game.Player
             GUILayout.Label($"CurrentState: {_currentState}");
             GUILayout.Label($"LastState: {_lastState}");
             GUILayout.Label($"Fall Damage from last fall: {_fallEnd.y - _fallStart.y}");
+            GUILayout.Space(100);
+            GUILayout.Label($"Stamina Resistance{_staminaResistance}");
+            GUILayout.Label($"Stamina{_staminaDecrement - (_staminaDecrement * _staminaResistance)}");
         }
 
         private void OnDrawGizmos()
@@ -401,6 +421,28 @@ namespace Game.Player
         internal void Teletransport(Vector3 position)
         {
             _rigidBody.position = position;
+        }
+
+        private bool _pauseMovement;
+       
+
+        internal void Simulate(bool value)
+        {
+            _rigidBody.detectCollisions = value;
+            _rigidBody.useGravity = value;
+            _rigidBody.isKinematic = !value;
+            _rigidBody.interpolation = value ? RigidbodyInterpolation.Interpolate : RigidbodyInterpolation.None;
+            _pauseMovement = !value;
+        }
+
+        internal void Die()
+        {
+            _pauseMovement = true;
+            _rigidBody.isKinematic = false;
+            _rigidBody.useGravity = true;
+            _rigidBody.freezeRotation = false;
+            _collider.material = default;
+            _rigidBody.AddForce(_rigidBody.velocity);
         }
     }
 }
