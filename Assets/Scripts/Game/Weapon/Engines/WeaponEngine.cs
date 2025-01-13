@@ -330,12 +330,8 @@ namespace Game.Player.Weapon.Engines
             }
         }
 
-
-
         private void CreateHitScan()
         {
-           
-
             Vector3 offset = _playerIsOwner ? transform.right * .25f + transform.up * -.25f : Vector3.zero;
 
             if (_weaponSettings.Shot.Mode == WeaponShotType.SHOTGUN)
@@ -347,14 +343,12 @@ namespace Game.Player.Weapon.Engines
                     Vector3 spreadVector = new Vector3(UnityEngine.Random.Range(-spread.x, spread.x), UnityEngine.Random.Range(-spread.y, spread.y), UnityEngine.Random.Range(-spread.y, spread.y));
                     Ray ray = new Ray(GetRay().origin, GetRay().direction + spreadVector);
 
-
                     if (VisualPhysics.Raycast(ray, out RaycastHit hit, 1000, _currentLayerMask))
                     {
                         Bootstrap.Resolve<HitScanService>().Dispatch(new HitWeaponEventPayload(hit, new Ray(ray.origin, ray.direction), _damage / _weaponSettings.Shot.Amount, _playerIsOwner));
 
                         Bootstrap.Resolve<ImpactService>().System.TraceAtPosition(ray.origin + offset, hit.point);
                     }
-
                     else
                     {
                         Bootstrap.Resolve<ImpactService>().System.TraceAtPosition(ray.origin + offset, ray.origin + ray.direction * 100);
