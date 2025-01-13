@@ -11,7 +11,7 @@ namespace Game.Entities
 {
     public delegate void LimbHitDelegate(float damage, LimbHitbox sender);
 
-    public class LimbHitbox : MonoBehaviour, IHittableFromWeapon, IDamageableFromExplosive
+    public class LimbHitbox : MonoBehaviour, IHittableFromWeapon, IDamageableFromExplosive, IDamagableFromHurtbox
     {
         [SerializeField] private LimbType _type = LimbType.UNDEFINED;
         public LimbType Type { get => _type; }
@@ -20,33 +20,30 @@ namespace Game.Entities
 
         public bool IsMutilated;
         private AgentController _ownerAgent;
-        private Collider _collider;
-        [SerializeField] private AudioClipCompendium _bodyFall;
+
+        [SerializeField] private AudioClipGroup _bodyFall;
+        private Rigidbody _rb;
 
         private void Start()
         {
-            GetComponent<Rigidbody>().isKinematic = true;
-            _collider = GetComponent<Collider>();
+            _rb = GetComponent<Rigidbody>();
+            _rb.isKinematic = true;
             _ownerAgent = transform.root.GetComponent<AgentController>();
         }
 
-        void IHittableFromWeapon.OnHit(HitWeaponEventPayload payload)
+        void IHittableFromWeapon.Hit(HitWeaponEventPayload payload)
         {
+            Debug.Log($"limb that got hitteado NAME: {gameObject.name}");
+
             LimbHitEvent?.Invoke(CalculateDamage(payload.Damage, payload.Distance), this);
-
-            _ownerAgent.NotifyHurt(CalculateDamage(payload.Damage, payload.Distance));
-
+            _ownerAgent.HurtAgent(new AgentHurtPayload(payload.IsSenderPlayer, CalculateDamage(payload.Damage, payload.Distance), payload.Ray.origin, this));
+            _rb.AddForceAtPosition(-payload.RaycastHit.normal.normalized, payload.RaycastHit.point, ForceMode.VelocityChange);
             ManageVisual(payload);
-
-            if (gameObject.TryGetComponent(out Rigidbody rb))
-            {
-                rb.AddForceAtPosition(-payload.RaycastHit.normal.normalized, payload.RaycastHit.point, ForceMode.VelocityChange);
-            }
         }
 
         private void ManageVisual(HitWeaponEventPayload payload)
         {
-            Bootstrap.Resolve<ImpactService>().System.BloodImpactAtPosition(payload.RaycastHit.point, payload.RaycastHit.normal, transform);
+            Bootstrap.Resolve<ImpactService>().System.ImpactAtPosition(payload.RaycastHit.point, payload.RaycastHit.normal, transform, Impact.SurfaceType.FLESH);
 
             if (VisualPhysics.Raycast(payload.RaycastHit.point, payload.RaycastHit.point - payload.Ray.origin, out RaycastHit hit, 4f, 1 << 0))
             {
@@ -84,17 +81,11 @@ namespace Game.Entities
         public void Ragdoll()
         {
             if (IsMutilated) return;
+            gameObject.layer = 17;
 
-            if (gameObject.TryGetComponent(out Rigidbody rrb))
-            {
-                rrb.isKinematic = false;
-                //enemies
-                rrb.excludeLayers <<= 8;
-                //trains
-                rrb.excludeLayers <<= 10;
-                //player
-                rrb.excludeLayers <<= 3;
-            }
+            _rb.isKinematic = false;
+
+            _rb.velocity = (_ownerAgent.NavMeshAgent.velocity);
         }
 
         private float CalculateDamage(float damage, float distance)
@@ -108,11 +99,8 @@ namespace Game.Entities
                     return 100;
 
                 case LimbType.TORSO:
-
                 case LimbType.ARM:
-
                 case LimbType.LEG:
-
                 case LimbType: return damage;
             }
         }
@@ -120,7 +108,7 @@ namespace Game.Entities
         void IDamageableFromExplosive.NotifyDamage(float damage)
         {
             LimbHitEvent?.Invoke(damage, this);
-            _ownerAgent.NotifyHurt(damage);
+            _ownerAgent.Damage(damage);
         }
 
         internal void RunOver(Vector3 velocity, float damage)
@@ -132,21 +120,27 @@ namespace Game.Entities
 
         internal void Impulse(Vector3 velocity)
         {
-            if (gameObject.TryGetComponent(out Rigidbody rrb))
-            {
-                rrb.AddForce(velocity + Vector3.up, ForceMode.Impulse);
-            }
+            _rb.AddForce(velocity + Vector3.up, ForceMode.Impulse);
         }
 
         private float _soundCooldown;
 
         private void OnCollisionEnter(Collision collision)
         {
+            if (!_ownerAgent.IsDead) return;
             if (_type != LimbType.TORSO) return;
             if (collision.relativeVelocity.sqrMagnitude < 5) return;
             if (Time.time - _soundCooldown < 1) return;
-            AudioToolService.PlayClipAtPoint(_bodyFall.GetRandom(), transform.position, 1, AudioChannels.ENVIRONMENT, 15);
+            AudioToolService.PlayClipAtPoint(_bodyFall.GetRandom(), transform.position, .5f, AudioChannels.ENVIRONMENT, 15);
             _soundCooldown = Time.time;
+        }
+
+        void IDamagableFromHurtbox.NotifyDamage(float damage, Vector3 position, Vector3 direction)
+        {
+            LimbHitEvent?.Invoke(CalculateDamage(damage, 1), this);
+            _ownerAgent.Damage(CalculateDamage(damage, 1));
+            _ownerAgent.Kick(position, direction);
+            Impulse(direction);
         }
     }
 

@@ -27,8 +27,8 @@ namespace Life.Controllers
 
         private void CreateTransitions()
         {
-            Machine.AddTransition(_rest, _goto, new FuncPredicate(() => PlayerVisualDetected));
-            Machine.AddTransition(_rest, _goto, new FuncPredicate(() => PendingPlayerSoundChase && !PlayerVisualDetected));
+            Machine.AddTransition(_rest, _goto, new FuncPredicate(() => HasPlayerVisual));
+            Machine.AddTransition(_rest, _goto, new FuncPredicate(() => PendingPlayerSoundChase && !HasPlayerVisual));
             Machine.AddTransition(_goto, _attack, new FuncPredicate(() => IsPlayerInRange(1.5f)));
             Machine.AddTransition(_attack, _goto, new FuncPredicate(() => !_isAttackingPlayer && !_forgotPlayer));
             Machine.AddTransition(_attack, _rest, new FuncPredicate(() => !_isAttackingPlayer && _forgotPlayer));
@@ -62,7 +62,13 @@ namespace Life.Controllers
         {
             Machine.ForceChangeToState(_die);
             Ragdoll();
-            NavMesh.isStopped = true;
+            NavMeshAgent.isStopped = true;
+        }
+
+        public override void UpdateMovement()
+        {
+            base.UpdateMovement();
+            NavMeshAgent.angularSpeed = NavMeshAgent.speed;
         }
 
         public void Ragdoll()
@@ -88,8 +94,10 @@ namespace Life.Controllers
         {
             StartCoroutine(AttackPlayer());
         }
+
         //TODO: ADAPTAR AL GLOBAL AGENT SYSTEM
         private float _runSpeed = 5f;
+
         private float _walkSpeed = 3f;
         private float _patrolSpeed = 1f;
         private float _crouchSpeed = 1f;
@@ -151,21 +159,21 @@ namespace Life.Controllers
         public override void OnUpdate()
         {
             _hurtStopVelocityMultiplier = Mathf.Clamp(_hurtStopVelocityMultiplier + Time.deltaTime, 0, 1);
-            NavMesh.speed = _desiredSpeed * _hurtStopVelocityMultiplier;
+            NavMeshAgent.speed = _desiredSpeed * _hurtStopVelocityMultiplier;
 
-            if (PlayerVisualDetected)
+            if (HasPlayerVisual)
             {
                 _lastReportTime = Time.realtimeSinceStartup;
             }
 
-            if (_isAttackingPlayer) NavMesh.speed = 0;
+            if (_isAttackingPlayer) NavMeshAgent.speed = 0;
         }
 
-        public override void OnHurt(float value)
+        public override void OnHurt(AgentHurtPayload payload)
         {
             if (IsDead) return;
 
-            SetHealth(GetHealth() - value);
+            SetHealth(GetHealth() - payload.Amount);
 
             Animator.SetTrigger("HURT");
 
@@ -221,7 +229,7 @@ namespace Life.Controllers
 
         public override void Update()
         {
-           // blind.SetTarget(Vector3.zero);
+            // blind.SetTarget(Vector3.zero);
         }
     }
 
@@ -248,14 +256,13 @@ namespace Life.Controllers
         {
             blind.FaceTarget = true;
             blind.SetMovementType(SoldierMovementType.RUN);
-
         }
 
         public override void Update()
         {
             blind.SetLookTarget(blind.PlayerHeadPosition);
 
-            if (blind.PlayerVisualDetected)
+            if (blind.HasPlayerVisual)
             {
                 blind.SetTarget(blind.PlayerPosition + (blind.transform.position - blind.PlayerPosition).normalized * 1.25f);
             }

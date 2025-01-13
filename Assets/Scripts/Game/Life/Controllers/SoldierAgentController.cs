@@ -1,17 +1,23 @@
-﻿using Game.Audio;
+﻿using Core.Engine;
+using Game.Audio;
 using Game.Entities;
 using Game.Life;
+using Game.Life.Entities;
 using Game.Life.WaypointPath;
 using Game.Player.Sound;
 using Game.Player.Weapon;
 using Game.Service;
 using Life.StateMachines;
-
+using Life.StateMachines.Interfaces;
+using Nomnom.RaycastVisualization;
+using Player.Weapon.Interfaces;
+using System;
 using System.Collections;
 
 using System.Linq;
 using UnityEngine;
 using UnityEngine.AI;
+using Random = UnityEngine.Random;
 
 namespace Life.Controllers
 {
@@ -23,50 +29,129 @@ namespace Life.Controllers
         CROUCH
     }
 
+    public delegate void SoldierDelegate(SoldierAgentController csoldier);
+
+    public delegate void SoldierGrenadeDelegate(SoldierAgentController csoldier, Vector3 grenadeTarget);
+
     public class SoldierAgentController : AgentController
     {
-        [SerializeField] private AudioClip[] _footsteps;
-        [SerializeField] private AudioClip[] _shouts;
-        [SerializeField] private AudioClipCompendium _painScream;
-        [SerializeField] private AudioClipCompendium _deadScream;
+        [Header("Sounds")]
+        [SerializeField] private AudioClipGroup _footsteps;
 
+        [SerializeField] private AudioClip[] _shouts;
+        [SerializeField] private AudioClipGroup _painScream;
+        [SerializeField] private AudioClipGroup _deadScream;
+        [SerializeField] private AudioClipGroup _coverCall;
+        [SerializeField] private AudioClipGroup _attackCall;
+        [SerializeField] private AudioClipGroup _searchCall;
+
+        [Header("Movement")]
         [SerializeField] private bool _useWaypoints;
+
         [SerializeField] private float _footstepDistance;
         [SerializeField] private float _crouchSpeed = 1f;
         [SerializeField] private float _patrolSpeed = 1f;
         [SerializeField] private float _runSpeed = 4.5f;
         [SerializeField] private float _walkSpeed = 2.5f;
-        private bool _allowFire;
+
         private Vector3 _attackPoint;
-        private float _burstTime = 0;
+
         private SoldierMovementType _current;
         private float _desiredSpeed;
         private float _engagedTime;
         private Vector3 _enterPoint;
         private float _hurtStopVelocityMultiplier;
         private Vector3 _interestPoint;
-        private float _lastBurstTime = 0;
+
         private AudioSource _movementAudio;
-        private bool _shooting;
+
         private float _suspisiusTime;
         private float _travelledDistance;
+        private bool _hasNearThreat;
+
+        [Header("Cover Values")]
+        [SerializeField] private bool _canShootFromCover;
+
+        [Header("Combat Values")]
+        [Range(1, 100)]
+        private float _minAttackDesiredRange;
+
+        [Range(10, 100)]
+        private float _maxAttackDesiredRange;
+
+        [Range(0, 1)]
+        private float _boldness;
+
+        [Header("Grenade")]
+        [SerializeField] private float _minDistanceGrenade = 4;
+
+        [SerializeField] private GameObject _granade;
 
         //STATES
         private SoldierReportState _report;
 
-        private SoldierSearchAlertState _investigate;
+        private SoldierGoToPlayer _goToPlayer;
         private SoldierEnterState _enter;
         private SoldierDieState _die;
-        private SoldierAttackState _attack;
-        private SoldierIncapacitatedState _incapacitated;
+        private SoldierEngagePlayerState _attack;
         private SoldierRetreatCoverState _retreatCover;
+        private SoldierPatrolState _actBusy;
+        private SoldierNearThreatAttackState _nearThreat;
 
-        private SoldierPatrolState _wander;
         private AgentWaypoints _waypoints;
         private AgentFireWeapon _weapon;
         private AgentCoverSensor _cover;
         private float _desiredWeight;
         private float _desiredRefWeight;
+
+        //Events
+        public event SoldierDelegate TakingCoverEvent;
+
+        public event SoldierDelegate FlankingEvent;
+
+        public event SoldierDelegate TakingDamageEvent;
+
+        public event SoldierDelegate AdvancingAttackEvent;
+
+        public event SoldierDelegate SearchingPlayerEvent;
+
+        public event SoldierGrenadeDelegate ThrowGrenadeEvent;
+
+        //Squad
+        private SoldierSquad _currentSquad;
+
+        public void SetSquad(SoldierSquad squad)
+        {
+            if (squad == null)
+            {
+                //TODO: DUMP SQUAD EVENTS HERE!
+
+                _currentSquad.SquadMemberSawPlayer -= OnSquadSawPlayer;
+                _currentSquad.SquadMemberThrowGranadeToPlayer -= OnSquadThrownGrenade;
+                _currentSquad = null;
+                return;
+            }
+
+            _currentSquad = squad;
+            squad.SquadMemberSawPlayer += OnSquadSawPlayer;
+            squad.SquadMemberThrowGranadeToPlayer += OnSquadThrownGrenade;
+            //TODO: SQUAD VALUES AND EVENTS
+        }
+
+        private void OnSquadThrownGrenade(SoldierAgentController soldier, Vector3 target)
+        {
+            if (soldier == this) return;
+            if (Vector3.Distance(target, transform.position) < _grenadeSafeDistance)
+            {
+                _grenadePosition = target;
+                Machine.ForceChangeToState(_grenadeCover);
+            }
+        }
+
+        private void OnSquadSawPlayer(SoldierAgentController soldier)
+        {
+            _attackPoint = PlayerHeadPosition;
+        }
 
         public Vector3 AttackPoint { get => _attackPoint; }
         public AgentCoverSensor CoverSensor => _cover;
@@ -75,20 +160,21 @@ namespace Life.Controllers
         public bool UseWaypoints => _useWaypoints;
         public AgentWaypoints Waypoints => _waypoints;
         public AgentFireWeapon Weapon => _weapon;
-        private bool _isEngaged => _engagedTime > 0;
+        private bool _isEngaged => !_currentSquad.HasEngageTimeout;
         private bool _isSuspicius => _suspisiusTime > 0;
+        public SoldierSquad Squad => _currentSquad;
 
-        public void SetArmsLayerWeight(float target)
+        public void SetAimLayerWeight(float target)
         {
             _desiredWeight = target;
         }
 
-        public void AllowFire(bool state)
-        {
-            _allowFire = state;
-        }
+        private bool _incapacitated;
 
-        public void ForceAttack() => Machine.ForceChangeToState(_attack);
+        //TODO: CREATE RELEASES FOR ATTACK SLOTS
+        public void SetAllowFire(bool state) => Weapon.AllowFire = state;
+
+        public void SetAllowReload(bool state) => Weapon.AllowReload = state;
 
         //TODO: IMPLEMENT ENTER STATE FOR SPAWNING
         public void ForceGoToPoint(Vector3 point)
@@ -105,16 +191,16 @@ namespace Life.Controllers
             _interestPoint = PlayerGameObject.transform.position;
         }
 
-        public void ForceRetreatToCover() => Machine.ForceChangeToState(_retreatCover);
-
         public override void OnDeath()
         {
+            AllowThinking(false);
             Machine.ForceChangeToState(_die);
-            NavMesh.isStopped = true;
+            NavMeshAgent.isStopped = true;
             Animator.SetTrigger("DIE");
             Animator.SetLayerWeight(2, 0);
             Animator.SetLayerWeight(3, 0);
             Animator.SetLayerWeight(4, 0);
+            CurrentCoverSpot = null;
             if (!IsPlayerInRange(15)) { ShoutDead(); }
         }
 
@@ -134,17 +220,25 @@ namespace Life.Controllers
             _attackPoint = PlayerHeadPosition;
         }
 
-        public override void OnHurt(float value)
+        public bool WaitToRagdoll;
+
+        public override void OnHurt(AgentHurtPayload payload)
         {
             if (IsDead) return;
-            Machine.ForceChangeToState(_incapacitated);
-            SetHealth(GetHealth() - value);
+            SetHealth(GetHealth() - payload.Amount);
+            if (GetHealth() <= 0) return;
 
-            Animator.SetTrigger("HURT");
-            _hurtStopVelocityMultiplier = 0;
+            if (payload.HurtByPlayer) TakingDamageEvent?.Invoke(this);
+            _hurtStopVelocityMultiplier = -1.2f;
+
             _engagedTime = 50;
             _interestPoint = PlayerGameObject.transform.position;
             _attackPoint = PlayerHeadPosition;
+
+            if (_currentSquad != null) _currentSquad.ReleaseAttackSlot(this);
+
+            Animator.SetTrigger("HURT");
+            Animator.SetFloat("INCAP_ANIM", Random.Range(0f, 1f));
         }
 
         public override void OnStart()
@@ -159,34 +253,93 @@ namespace Life.Controllers
             _movementAudio.outputAudioMixerGroup = AudioToolService.GetMixerGroup(AudioChannels.AGENT);
             _movementAudio.maxDistance = 15;
             _movementAudio.minDistance = 1;
+            _cover.DetectionRadius = 10;
 
             CreateStates();
             CreateTransitions();
             SetMaxHealth(100);
             SetHealth(100);
-
             StartCoroutine(BindWeapon());
+            SetAllowReload(true);
+            Machine.ChangeStateEvent += OnStateChangedFromMachine;
+        }
+
+        private void OnStateChangedFromMachine(IState current, IState next)
+        {
+            if (next == _retreatCover)
+            {
+                TakingCoverEvent?.Invoke(this);
+                AudioSource.PlayClipAtPoint(_coverCall.GetRandom(), Head.transform.position);
+            }
+            if (next == _attack)
+            {
+                AudioSource.PlayClipAtPoint(_attackCall.GetRandom(), Head.transform.position);
+                AdvancingAttackEvent?.Invoke(this);
+            }
+            if (next == _goToPlayer)
+            {
+                AudioSource.PlayClipAtPoint(_searchCall.GetRandom(), Head.transform.position);
+                SearchingPlayerEvent?.Invoke(this);
+            }
         }
 
         public override void OnUpdate()
         {
+            ManageHurtSlowdown();
+            ManageNearThreat();
             ManageStealth();
-            ManageWeapon();
+            ManageContact();
 
-            Animator.SetLayerWeight(3, Mathf.SmoothDamp(Animator.GetLayerWeight(3), _desiredWeight, ref _desiredRefWeight, .25f));
+            _weapon.SetFireTarget(_attackPoint);
+            Animator.SetLayerWeight(2, Mathf.SmoothDamp(Animator.GetLayerWeight(2), _desiredWeight, ref _desiredRefWeight, .25f));
 
-            if (PlayerVisualDetected)
+            ManageFootsteps();
+        }
+
+        private void ManageNearThreat()
+        {
+            _nearThreatAgent = FindNearThreat();
+            _hasNearThreat = _nearThreatAgent != null;
+            if (_hasNearThreat)
             {
+                _attackPoint = _nearThreatAgent.Head.position;
+            }
+        }
+
+        private void ManageHurtSlowdown()
+        {
+            _hurtStopVelocityMultiplier = Mathf.Clamp(_hurtStopVelocityMultiplier + Time.deltaTime, -10, 1);
+            NavMeshAgent.speed = _desiredSpeed * Mathf.Clamp01(_hurtStopVelocityMultiplier);
+        }
+
+        private void ManageContact()
+        {
+            if (HasPlayerVisual && !_hasNearThreat)
+            {
+                if (_currentSquad != null && _currentSquad.HasEngageTimeout)
+                {
+                    _currentSquad.TakeAttackSlotForce(this);
+                }
+
                 _interestPoint = PlayerGameObject.transform.position;
                 _attackPoint = PlayerHeadPosition;
                 _engagedTime = 50;
                 _suspisiusTime = 150;
             }
+        }
 
-            _hurtStopVelocityMultiplier = Mathf.Clamp(_hurtStopVelocityMultiplier + Time.deltaTime, 0, 1);
-            NavMesh.speed = _desiredSpeed * _hurtStopVelocityMultiplier;
+        private AgentController _nearThreatAgent;
+        public AgentController NearThreatAgent => _nearThreatAgent;
 
-            ManageFootsteps();
+        private AgentController FindNearThreat()
+        {
+            AgentController[] agents = AgentGlobalService.Instance.ActiveAgents.ToArray();
+            if (agents.Length == 0) { return null; }
+            agents = agents.Where(x => x.AgentGroup == AgentGroup.MONSTER).ToArray();
+            if (agents.Length == 0) { return null; }
+            AgentController result = agents.OrderBy(x => Vector3.Distance(x.transform.position, transform.position)).ToArray()[0];
+            if (Vector3.Distance(result.transform.position, transform.position) > 3) { return null; }
+            return result;
         }
 
         public void RagdollBody()
@@ -198,22 +351,17 @@ namespace Life.Controllers
             }
         }
 
-        public void ResetInvestigate()
-        {
-            _interestPoint = Vector3.zero;
-        }
-
         public override void Restore()
         {
             base.Restore();
 
             Animator.enabled = true;
-            NavMesh.isStopped = false;
+            NavMeshAgent.isStopped = false;
             foreach (LimbHitbox body in GetComponentsInChildren<LimbHitbox>(true))
             {
                 body.GetComponent<Rigidbody>().isKinematic = true;
             }
-            Machine.ForceChangeToState(_wander);
+            Machine.ForceChangeToState(_actBusy);
         }
 
         public override void RunOver(Vector3 velocity)
@@ -229,44 +377,45 @@ namespace Life.Controllers
 
         public void SetMovementType(SoldierMovementType type)
         {
+            if (type == _current) return;
+
             switch (type)
             {
                 case SoldierMovementType.RUN:
+
                     if (_current == SoldierMovementType.CROUCH)
                     {
-                        Animator.SetBool("WARNING", true);
                         StartCoroutine(SetCrouch(false, _runSpeed));
+                        Animator.SetBool("RUN", true);
                         break;
                     }
-                    Animator.SetBool("AIM", false);
+
+                    SetAimLayerWeight(0);
+                    Animator.SetBool("RUN", true);
                     _desiredSpeed = _runSpeed;
                     break;
 
                 case SoldierMovementType.WALK:
                     if (_current == SoldierMovementType.CROUCH)
                     {
-                        Animator.SetBool("WARNING", true);
                         StartCoroutine(SetCrouch(false, _walkSpeed));
+                        Animator.SetBool("RUN", false);
                         break;
                     }
-                    Animator.SetBool("AIM", true);
+
+                    SetAimLayerWeight(1);
+                    Animator.SetBool("RUN", false);
                     _desiredSpeed = _walkSpeed;
                     break;
 
                 case SoldierMovementType.PATROL:
-                    if (_current == SoldierMovementType.CROUCH)
-                    {
-                        Animator.SetBool("WARNING", false);
-                        StartCoroutine(SetCrouch(false, _patrolSpeed));
-                        break;
-                    }
-                    _desiredSpeed = _patrolSpeed;
+                    Debug.LogError("NO IMPLEMENTADO PATROL MOVEMENT!");
                     break;
 
                 case SoldierMovementType.CROUCH:
-                    Animator.SetBool("AIM", true);
-                    Animator.SetBool("WARNING", true);
+
                     StartCoroutine(SetCrouch(true, _crouchSpeed));
+                    Animator.SetBool("RUN", false);
                     break;
             }
             _current = type;
@@ -291,12 +440,14 @@ namespace Life.Controllers
         private void CreateStates()
         {
             _enter = new(this);
-            _wander = new(this);
+            _actBusy = new(this);
             _report = new(this);
             _attack = new(this);
             _retreatCover = new(this);
             _die = new(this);
-            _investigate = new(this); _incapacitated = new(this);
+            _goToPlayer = new(this);
+            _nearThreat = new(this);
+            _grenadeCover = new(this);
         }
 
         private void CreateTransitions()
@@ -305,26 +456,27 @@ namespace Life.Controllers
 
             //Definir mejor las transiciones ya que crean bucles
 
-            //suspect,detect,report, asuntos separados)como la iglesia y el estado))))
+            //suspect,detect,report, asuntos separados)como la iglesia y el estado)))
 
-            Machine.AddTransition(_wander, _investigate, new FuncPredicate(() => !_isEngaged && _isSuspicius));
-            Machine.AddTransition(_wander, _report, new FuncPredicate(() => _isEngaged));
-            Machine.AddTransition(_report, _attack, new FuncPredicate(() => _isEngaged && _report.Done && AgentGlobalService.Instance.TryTakeAttackSlot(this)));
-            Machine.AddTransition(_report, _retreatCover, new FuncPredicate(() => _isEngaged && _report.Done && !AgentGlobalService.Instance.TryTakeAttackSlot(this)));
-            Machine.AddTransition(_attack, _retreatCover, new FuncPredicate(() => _weapon.WeaponEngine.CurrentAmmo < _weapon.WeaponEngine.MaxAmmo / 3));
+            Machine.AddTransition(_retreatCover, _goToPlayer, new FuncPredicate(() => ShouldSearchForThePlayer));
+            Machine.AddTransition(_retreatCover, _attack, new FuncPredicate(() => ShouldEngageThePlayer));
 
-            Machine.AddTransition(_attack, _investigate, new FuncPredicate(() => !_isEngaged && _isSuspicius && _interestPoint != Vector3.zero));
-            Machine.AddTransition(_investigate, _attack, new FuncPredicate(() => _isEngaged));
-            Machine.AddTransition(_retreatCover, _investigate, new FuncPredicate(() => _retreatCover.Ready && !_isEngaged));
-            Machine.AddTransition(_retreatCover, _attack, new FuncPredicate(() => _retreatCover.Ready && _isEngaged && AgentGlobalService.Instance.TryTakeAttackSlot(this)));
-            Machine.AddTransition(_enter, _retreatCover, new FuncPredicate(() => _enter.Reached));
-            Machine.AddTransition(_enter, _retreatCover, new FuncPredicate(() => _isEngaged && !AgentGlobalService.Instance.TryTakeAttackSlot(this)));
-            Machine.AddTransition(_enter, _attack, new FuncPredicate(() => _isEngaged && AgentGlobalService.Instance.TryTakeAttackSlot(this)));
+            Machine.AddTransition(
+                _actBusy, _attack,
+                new FuncPredicate(() => ShouldEngageThePlayer));
 
-            Machine.AddTransition(_incapacitated, _retreatCover, new FuncPredicate(() => _incapacitated.Done && _isEngaged && !AgentGlobalService.Instance.TryTakeAttackSlot(this)));
-            Machine.AddTransition(_incapacitated, _attack, new FuncPredicate(() => _incapacitated.Done && _isEngaged && AgentGlobalService.Instance.TryTakeAttackSlot(this)));
+            Machine.AddTransition(_retreatCover, _actBusy, new FuncPredicate(() => false));
 
-            Machine.SetState(_wander);
+            Machine.AddTransition(_attack, _goToPlayer, new FuncPredicate(() => ShouldSearchForThePlayer));
+            Machine.AddTransition(_attack, _retreatCover, new FuncPredicate(() => ShouldCoverFromThePlayer));
+
+            Machine.AddTransition(_goToPlayer, _attack, new FuncPredicate(() => ShouldEngageThePlayer));
+            Machine.AddTransition(_goToPlayer, _retreatCover, new FuncPredicate(() => ShouldCoverFromThePlayer));
+
+            Machine.AddTransition(_grenadeCover, _attack, new FuncPredicate(() => _grenadeCover.Safe && ShouldEngageThePlayer));
+            Machine.AddTransition(_grenadeCover, _retreatCover, new FuncPredicate(() => _grenadeCover.Safe && ShouldCoverFromThePlayer));
+
+            Machine.SetState(_actBusy);
         }
 
         private IEnumerator IGoToPointSpawn()
@@ -335,52 +487,12 @@ namespace Life.Controllers
             yield break;
         }
 
-        private void ManageFootsteps()
-        {
-            _travelledDistance += NavMesh.velocity.sqrMagnitude * Time.deltaTime;
-
-            if (_travelledDistance / (NavMesh.speed + 0.001f) > _footstepDistance)
-            {
-                PlayFootstep();
-                _travelledDistance = 0;
-            }
-        }
-
         private void ManageStealth()
         {
-            if (PlayerVisualDetected) { _engagedTime = 40; }
+            if (HasPlayerVisual) { _engagedTime = 40; }
 
             _suspisiusTime = Mathf.Clamp(_suspisiusTime - Time.deltaTime, 0, float.MaxValue);
             _engagedTime = Mathf.Clamp(_engagedTime - Time.deltaTime, 0, float.MaxValue);
-        }
-
-        private void ManageWeapon()
-        {
-            if (IsDead) return;
-
-            if (_weapon.HasNoAmmo)
-            {
-                _weapon.WeaponEngine.ReleaseFire();
-                _shooting = false;
-                return;
-            }
-
-            if (!_allowFire)
-            {
-                _weapon.WeaponEngine.ReleaseFire();
-                _shooting = false;
-                return;
-            }
-
-            if (Time.time - _lastBurstTime > _burstTime)
-            {
-                _burstTime = Random.Range(0.5f, 1f);
-                _lastBurstTime = Time.time;
-                _shooting = !_shooting;
-            }
-
-            if (_shooting) _weapon.WeaponEngine.Fire();
-            else _weapon.WeaponEngine.ReleaseFire();
         }
 
         private void OnWeaponChangeState(object sender, WeaponStateEventArgs e)
@@ -399,140 +511,517 @@ namespace Life.Controllers
             }
         }
 
-        private void PlayFootstep()
-        {
-            _movementAudio.PlayOneShot(_footsteps[Random.Range(0, _footsteps.Length)]);
-        }
-
         private IEnumerator SetCrouch(bool state, float target)
         {
             _desiredSpeed = 0;
             Animator.SetBool("CROUCH", state);
-            yield return new WaitForSeconds(1);
+            yield return new WaitForSeconds(.5f);
             _desiredSpeed = target;
+        }
+
+        private void PlayFootstep()
+        {
+            _movementAudio.PlayOneShot(_footsteps.GetRandom());
+        }
+
+        private void ManageFootsteps()
+        {
+            _travelledDistance += NavMeshAgent.velocity.sqrMagnitude * Time.deltaTime;
+
+            if (_travelledDistance / (NavMeshAgent.speed + 0.001f) > _footstepDistance)
+            {
+                PlayFootstep();
+                _travelledDistance = 0;
+            }
+        }
+
+        public void ShoutPain() => AudioToolService.PlayClipAtPoint(_painScream.GetRandom(), transform.position + Vector3.one, 1, AudioChannels.AGENT, 10);
+
+        public void ShoutDead() => AudioToolService.PlayClipAtPoint(_deadScream.GetRandom(), transform.position + Vector3.one, 1, AudioChannels.AGENT, 50);
+
+        [ContextMenu("Force Attack")]
+        public void ForceAttack()
+        {
+            Machine.ForceChangeToState(_attack);//para probar nomas no te calentes
+            _attackPoint = PlayerHeadPosition;
+        }
+
+        [ContextMenu("Force Cover")]
+        public void ForceRetreatToCover() => Machine.ForceChangeToState(_retreatCover);
+
+        public void ForceActBusy()
+        { }
+
+        public bool ShouldEngageThePlayer
+        {
+            get
+            {
+                if (Weapon.Empty)
+                {
+                    return false;
+                }
+                if (_currentSquad != null)
+                {
+                    if (_currentSquad.HasEngageTimeout) return false;
+                    return _currentSquad.TryTakeAttackSlot(this);
+                }
+                //if (!HasPlayerVisual) return false; deberia chequear el engaged de la squad no?
+
+                return false;
+            }
+        }
+
+        public bool ShouldSearchForThePlayer
+        {
+            get
+            {
+                if (Weapon.Empty) return false;
+                if (HasPlayerVisual) return false;
+                if (_currentSquad == null) return true;
+                if (_currentSquad.HasEngageTimeout && _currentSquad.TryTakeAttackSlot(this))
+                {
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        public bool ShouldCoverFromThePlayer
+        {
+            get
+            {
+                if (Weapon.Empty) return true;
+                if (_currentSquad != null)
+                {
+                    return !_currentSquad.TryTakeAttackSlot(this);
+                }
+                return false;
+            }
+        }
+
+        public bool ShouldFlankThePlayer
+        {
+            get
+            {
+                //tengo municion?
+                //ya hay otros enemigos flanqueando?
+
+                return false;
+            }
+        }
+
+        public bool ShouldThrowGranadeToThePlayer
+        {
+            get
+            {
+                //tengo granadas?
+                //hace poco que tiraron una granada?
+                //hay otros enemigos tirando una granada?
+                //hay radio para la granada?
+
+                return false;
+            }
+        }
+
+        public bool ShouldCoverFromGrenade
+        {
+            get
+            {
+                //hay una granada cerca?
+                //hay covertura de la granada cerca?
+                return false;
+            }
+        }
+
+        public bool ShouldMove
+        {
+            get
+            {
+                return true;
+            }
+        }
+
+        public override void Kick(Vector3 position, Vector3 direction)
+        {//ADD COOLDOWN FOR BEING HURT DUE TO MULTIPLE HITBOXES
+            Damage(10);
+        }
+
+        private SpatialDataQuery _debugQuery;
+        [SerializeField] private bool _debugSpatialData;
+
+        public CoverSpotEntity CurrentCoverSpot
+        {
+            get { return _currentCoverSpot; }
+            set
+            {
+                if (value == null && _currentCoverSpot != null)
+                {
+                    _currentCoverSpot.Release(this);
+                    _currentCoverSpot = null;
+                    return;
+                }
+                _currentCoverSpot = value;
+            }
+        }
+
+        private CoverSpotEntity _currentCoverSpot;
+
+        public Vector3 FindCoverFromPlayer(bool mantainVisual)
+        {
+            CurrentCoverSpot = null;
+
+            CoverSpotQuery cpQuery = new CoverSpotQuery(this);
+            if (cpQuery.CoverSpots.Length > 0)
+            {
+                foreach (CoverSpotEntity ent in cpQuery.CoverSpots)
+                {
+                    if (ent.TryTake(this, PlayerHeadPosition))
+                    {
+                        CurrentCoverSpot = ent;
+                        return CurrentCoverSpot.transform.position;
+                    }
+                }
+            }
+
+            Vector3 center = PlayerPosition;
+            if (_currentSquad != null && _currentSquad.ShouldHoldPlayer)
+            {
+                center = _currentSquad.HoldPosition;
+            }
+
+            SpatialDataQuery query = new SpatialDataQuery(new SpatialQueryData(this, center, PlayerHeadPosition, 2f));
+            _debugQuery = query;
+
+            if (query.WallCoverPoints.Count > 0) { return query.WallCoverPoints[0].Position; }
+            if (query.SafePoints.Count > 0) { return query.SafePoints[0].Position; }
+            if (query.WallCoverCrouchedPoints.Count > 0) { return query.WallCoverCrouchedPoints[0].Position; }
+            if (query.SafeCrouchPoints.Count > 0) { return query.SafeCrouchPoints[0].Position; }
+            else return query.UnsafePoints[query.UnsafePoints.Count].Position;
+        }
+
+        public Vector3 FindAgressivePosition(bool mantainVisual)
+        {
+            //buscar el punto en el jugador o el el player o en el punto medio? el punto medio deberia tener un limite de distancia, ya que despues todos los puntos quedan invalidos
+            //find first cover spots
+            CurrentCoverSpot = null;
+
+            CoverSpotQuery cpQuery = new CoverSpotQuery(this);
+            if (cpQuery.CoverSpots.Length > 0)
+            {
+                foreach (CoverSpotEntity ent in cpQuery.CoverSpots)
+                {
+                    if (!ent.HasVisibility(PlayerHeadPosition)) continue;
+                    if (ent.TryTake(this, PlayerHeadPosition))
+                    {
+                        CurrentCoverSpot = ent;
+                        return CurrentCoverSpot.transform.position;
+                    }
+                }
+            }
+            //si no hay cover points, fallbackear a esto!
+            //find first cover spots
+
+            Vector3 center = PlayerPosition;
+            if (_currentSquad != null && _currentSquad.ShouldHoldPlayer)
+            {
+                center = _currentSquad.HoldPosition;
+            }
+
+            SpatialDataQuery query = new SpatialDataQuery(new SpatialQueryData(this, center, PlayerHeadPosition, 5f));
+            _debugQuery = query;
+            if (query.WallCoverCrouchedPoints.Count > 0) { return query.WallCoverCrouchedPoints[0].Position; }
+            if (query.SafeCrouchPoints.Count > 0) { return query.SafeCrouchPoints[0].Position; }
+            if (query.UnsafePoints.Count > 0) return query.UnsafePoints[0].Position;
+
+            if (_currentSquad != null)
+            {
+                _currentSquad.ReleaseAttackSlot(this);
+            }
+            return query.SafePoints.OrderBy(x => x.DistanceFromThreat).Last().Position;
+        }
+
+        private Vector3 CalculateGrenadeThrowVector(Vector3 start, Vector3 target)
+        {
+            float displacementY = target.y - start.y;
+            Vector3 displacementXZ = new Vector3(target.x - start.x, 0, target.z - start.z);
+            float height = 2.5f;
+            float gravity = Physics.gravity.y;
+            float time = Mathf.Sqrt(-2 * height / gravity) + Mathf.Sqrt(2 * (displacementY - height) / gravity);
+            Vector3 velocityY = Vector3.up * Mathf.Sqrt(-2 * gravity * height);
+            Vector3 velocityXZ = displacementXZ / time;
+
+            //??? no es suficiente velocitdad
+            return velocityY + velocityXZ;
+        }
+
+        private Vector3 _grenadePosition;
+        private SoldierCoverFromGrenadeState _grenadeCover;
+
+        private float _grenadeSafeDistance = 7;
+        private float _maxDistanceGrenade = 15f;
+
+        public SpatialDataPoint FindCoverFromGrenade()
+        {
+            SpatialDataQuery query = new SpatialDataQuery(new SpatialQueryData(this, transform.position, _grenadePosition, _grenadeSafeDistance));
+            _debugQuery = query;
+            return query.AllPoints[query.AllPoints.Count - 1];
+        }
+
+        public bool TryThrowGrenade()
+        {
+            if (Vector3.Distance(AttackPoint, transform.position) < _minDistanceGrenade) return false;
+            if (Vector3.Distance(PlayerOccluderPosition, transform.position) < _minDistanceGrenade) return false;
+            if (Vector3.Distance(AttackPoint, transform.position) > _maxDistanceGrenade) return false;
+
+            if (PlayerOccluderGameObject.layer == gameObject.layer) return false;
+
+            if (_currentSquad != null)
+            {
+                if (!_currentSquad.CanThrowGrenade) return false;
+                else _currentSquad.ReleaseAttackSlot(this);
+            }
+
+            StartCoroutine(ThrowGrenade());
+
+            //throw grende
+            //coroutine delay
+
+            return true;
+        }
+
+        private IEnumerator ThrowGrenade()
+        {
+            Animator.SetTrigger("GRENADE");
+            _desiredSpeed = 0;
+            ThrowGrenadeEvent?.Invoke(this, AttackPoint);
+            //we stop thinking so it maintains location and state
+            AllowThinking(false);
+            SetAllowFire(false);
+            SetAllowReload(false);
+            //create shout/call
+            Vector3 instancePos = transform.position + Vector3.up * 1.60f + transform.forward * .5f + transform.right * .5f;
+            yield return new WaitForSeconds(1.25f);
+
+            if (IsDead)
+            {// prevent enemy dying and throwing grenade
+                GameObject GOgrenade = Instantiate(_granade);
+                GOgrenade.transform.position = instancePos;
+                IGrenade grenade = GOgrenade.GetComponent<IGrenade>();
+                grenade.Trigger(5);
+                yield break;
+            }
+
+            {
+                GameObject GOgrenade = Instantiate(_granade);
+                GOgrenade.transform.position = instancePos;
+                IGrenade grenade = GOgrenade.GetComponent<IGrenade>();
+                grenade.Trigger(5);
+                grenade.Rigidbody.AddForce(CalculateGrenadeThrowVector(GOgrenade.transform.position, AttackPoint), ForceMode.VelocityChange);
+                AllowThinking(true);
+                SetAllowReload(true);
+                yield return null;
+            }
         }
 
         public override void DrawGizmos()
         {
+            Debug.DrawRay(transform.position + Vector3.up * 1.60f + transform.forward * .5f, CalculateGrenadeThrowVector(transform.position + Vector3.up * 1.60f + transform.forward * .5f, PlayerPosition).normalized, Color.red);
             base.DrawGizmos();
+            if (_debugSpatialData && _debugQuery != null)
+            {
+                foreach (SpatialDataPoint point in _debugQuery.UnsafePoints) { Gizmos.color = Color.red; Gizmos.DrawCube(point.Position, Vector3.one * .125f); }
+                foreach (SpatialDataPoint point in _debugQuery.SafePoints) { Gizmos.color = Color.green; Gizmos.DrawCube(point.Position, Vector3.one * .125f); }
+                foreach (SpatialDataPoint point in _debugQuery.SafeCrouchPoints) { Gizmos.color = Color.yellow; Gizmos.DrawCube(point.Position, Vector3.one * .125f); }
+                foreach (SpatialDataPoint point in _debugQuery.WallCoverCrouchedPoints) { Gizmos.color = Color.yellow + Color.red; Gizmos.DrawCube(point.Position, Vector3.one * .125f); }
+                foreach (SpatialDataPoint point in _debugQuery.WallCoverPoints) { Gizmos.color = Color.blue; Gizmos.DrawCube(point.Position, Vector3.one * .125f); }
+            }
+
             Gizmos.color = Color.red;
             Gizmos.DrawSphere(_attackPoint, .125f);
             Gizmos.color = Color.green;
             Gizmos.DrawSphere(_interestPoint, .125f);
+            Gizmos.color = Color.blue;
         }
-        public void ShoutPain() => AudioToolService.PlayClipAtPoint(_painScream.GetRandom(), transform.position + Vector3.one, 1, AudioChannels.AGENT, 10);
-        public void ShoutDead() => AudioToolService.PlayClipAtPoint(_deadScream.GetRandom(), transform.position + Vector3.one, 1, AudioChannels.AGENT, 50);
+
+        public enum SquadCallType
+        {
+            COVER,
+            CONTACT,
+            LOSTCONTACT,
+            SEARCH,
+        }
+
+        internal void SquadCall(SquadCallType type)
+        {
+            switch (type)
+            {
+                case SquadCallType.COVER:
+                    break;
+
+                case SquadCallType.CONTACT:
+                    break;
+
+                case SquadCallType.LOSTCONTACT:
+                    break;
+
+                case SquadCallType.SEARCH:
+                    break;
+            }
+        }
     }
 
-    public class SoldierAttackState : BaseState
+    public class SoldierCoverFromGrenadeState : BaseState
     {
-        private bool _checkedMovementType;
+        private SoldierAgentController _soldier;
 
-        private float _cooldown;
+        public SoldierCoverFromGrenadeState(AgentController context) : base(context)
+        {
+            _soldier = context as SoldierAgentController;
+        }
 
-        private SpatialDataPoint _destination;
+        public override void DrawGizmos()
+        {
+        }
 
-        private float _evaluatinInterval;
+        public override void End()
+        {
+        }
 
-        private float _lastEvaluationTime;
+        public bool Safe => Vector3.Distance(_targetPosition, _soldier.transform.position) < 1f;
+        private Vector3 _targetPosition;
 
-        private SpatialDataPoint _nearestAggresive;
+        public override void Start()
+        {
+            _targetPosition = _soldier.FindCoverFromGrenade().Position;
 
+            _soldier.SetTarget(_targetPosition);
+            _soldier.SetMovementType(SoldierMovementType.RUN);
+            _soldier.FaceTarget = false;
+            _soldier.SetAllowFire(false);
+        }
+
+        public override void Update()
+        {
+        }
+    }
+
+    public class SoldierEngagePlayerState : BaseState
+    {
+        private Vector3 _destination;
+        private SoldierAgentController _soldier;
+
+        //creates a timespan so shooting is not inmediate
+        public float _waitForChase;
+
+        private float _reactionTime;
+        private float _chaseWaitTime = .5f;
+
+        //creates a timeout for not wanting to shoot anymore
+        private float _engageTimeOut;
+
+        public SoldierEngagePlayerState(AgentController context) : base(context)
+        {
+            _soldier = context as SoldierAgentController;
+        }
+
+        public override void DrawGizmos()
+        {
+        }
+
+        public override void End()
+        {
+        }
+
+        public override void Start()
+        {
+            _reactionTime = Time.time;
+            _engageTimeOut = Random.Range(4f, 8f);
+            FindAttackPoint();
+
+            if (_soldier.HasPlayerVisual) { _soldier.FaceTarget = true; _soldier.SetMovementType(SoldierMovementType.WALK); }
+            else { _soldier.SetMovementType(SoldierMovementType.RUN); _soldier.FaceTarget = false; }
+        }
+
+        public override void Update()
+        {
+            if (Time.time - _reactionTime > _engageTimeOut) { _soldier.Squad.ReleaseAttackSlot(_soldier); }
+
+            bool hasDistance = Vector3.Distance(_destination, _soldier.transform.position) > 2f;
+            _soldier.SetLookTarget(_soldier.AttackPoint);
+            _soldier.SetAllowFire(_soldier.IsPlayerInViewAngle(.25f) && _soldier.FaceTarget && Time.time - _reactionTime > 1f);
+
+            if (_soldier.IsPlayerVisible())
+            {
+                _soldier.FaceTarget = true;
+                _soldier.SetMovementType(SoldierMovementType.WALK);
+                return;
+            }
+
+            _soldier.FaceTarget = !hasDistance;
+            _soldier.SetMovementType(hasDistance ? SoldierMovementType.RUN : SoldierMovementType.WALK);
+
+            //si perdi al jugador y no tengo recorrido hacia un nuevo punto valido
+            if (!_soldier.IsPlayerVisible() && !hasDistance)
+            {
+                //Check return value maybe???
+                if (_soldier.TryThrowGrenade())
+                {
+                    _soldier.SetTarget(_soldier.transform.position);
+                    //reset reaction time for a pause
+                    _reactionTime = Time.time;
+                    return;
+                }
+
+                if (_waitForChase > _chaseWaitTime)
+                {
+                    FindAttackPoint();
+                    _waitForChase = 0;
+                }
+                else _waitForChase += Time.deltaTime;
+            }
+        }
+
+        private void FindAttackPoint()
+        {
+            _destination = _soldier.FindAgressivePosition(true);
+            _soldier.SetTarget(_destination);
+        }
+    }
+
+    public class SoldierNearThreatAttackState : BaseState
+    {
         private SoldierAgentController _observer;
 
-        public SoldierAttackState(AgentController context) : base(context)
+        public SoldierNearThreatAttackState(AgentController context) : base(context)
         {
             _observer = context as SoldierAgentController;
         }
 
         public override void DrawGizmos()
         {
-            Gizmos.DrawWireSphere(_destination.Position, 1.15f);
-            Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(_nearestAggresive.Position, 1f);
         }
 
         public override void End()
         {
-            AgentGlobalService.Instance.ReleaseAttackSlot(_observer);
         }
 
         public override void Start()
         {
-            _cooldown = 2;
-            _observer.FaceTarget = true;
-            GeneratePoints();
-            _observer.SetMovementType(SoldierMovementType.WALK);
-            _observer.SetArmsLayerWeight(1);
-            //_observer.Animator.SetLayerWeight(3, 1);
-            //_observer.Animator.SetLayerWeight(2, 1);
-            //_observer.Animator.SetLayerWeight(1, 1);
+            _observer.SetMovementType(SoldierMovementType.RUN);
+            _observer.SetAllowFire(true);
         }
 
         public override void Update()
         {
-            if (Time.time - _lastEvaluationTime > _evaluatinInterval)
-            {
-                GeneratePoints();
-                //_observer.SetMovementType(SoldierMovementType.RUN);
-                _checkedMovementType = false;
-                _lastEvaluationTime = Time.time;
-                _evaluatinInterval = Random.Range(1, 5);
-            }
-
-            //_observer.FaceTarget = _observer.IsPlayerVisible();
-
-            _observer.SetLookTarget(_observer.AttackPoint);
-
-            if (Vector3.Distance(_destination.Position, _observer.transform.position) < 1 && !_checkedMovementType)
-            {
-                bool wantCrouch = Random.Range(0, 10) > 7;
-
-                if (wantCrouch)
-                {
-                    _observer.SetMovementType(SoldierMovementType.CROUCH);
-                }
-                else _observer.SetMovementType(SoldierMovementType.WALK);
-                _checkedMovementType = true;
-            }
-
-            if (_cooldown > 0)
-            {
-                _cooldown -= Time.deltaTime;
-                return;
-            }
-
-            _observer.AllowFire(_observer.PlayerVisualDetected);
-        }
-
-        private void GeneratePoints()
-        {
-            Vector3 combatPoint = Vector3.Lerp(_observer.transform.position, _observer.AttackPoint, 0.5f);
-
-            SpatialDataPoint[] points = _observer.CoverSensor.GetCombatSpatialData(combatPoint, _observer.AttackPoint, _observer.DetectionRange, Random.Range(3f, 10f)).ToArray();
-
-            if (points.Any(x => x.SafeFromCrouch && !x.SafeFromStanding))
-            {
-                _observer.SetTarget(points.First(x => x.SafeFromCrouch && !x.SafeFromStanding).Position);
-                return;
-            }
-            if (points.Any(x => !x.SafeFromCrouch && !x.SafeFromStanding))
-            {
-                _observer.SetTarget(points.First(x => !x.SafeFromCrouch && !x.SafeFromStanding).Position);
-                return;
-            }
-            else
-            {
-                _observer.SetTarget(_observer.AttackPoint - (_observer.AttackPoint - _observer.transform.position).normalized * 6f);
-            }
+            _observer.SetLookTarget(_observer.NearThreatAgent.Head.position);
+            _observer.SetTarget(_observer.transform.position + (_observer.transform.position - _observer.NearThreatAgent.transform.position).normalized * 4f);
         }
     }
 
     public class SoldierDieState : BaseState
     {
         private SoldierAgentController _observer;
-
-        private float _waitForRagdollTime = 0;
+        private float _waitForRagdollTime = .4f;
         private float _time;
         private bool _done;
 
@@ -551,21 +1040,13 @@ namespace Life.Controllers
 
         public override void Start()
         {
-            _observer.AllowFire(false);
+            _observer.SetAllowFire(false);
             _observer.DropWeapon();
-            _time = 0;
-            _done = false;
+            _observer.RagdollBody();
         }
 
         public override void Update()
         {
-            if (_done) return;
-            _time += Time.deltaTime;
-            if (_time > _waitForRagdollTime)
-            {
-                _done = true;
-                _observer.RagdollBody();
-            }
         }
     }
 
@@ -642,7 +1123,7 @@ namespace Life.Controllers
             _observer.Animator.SetBool("WARNING", true);
             //_observer.Animator.SetLayerWeight(3, 0);
             //_observer.Animator.SetLayerWeight(2, 0);
-            _observer.SetArmsLayerWeight(1);
+            ;
             _currentWaypoint = _observer.Waypoints.CurrentWaypoint;
             if (FindNewTarget()) _observer.SetTarget(_targetPos);
             _observer.FaceTarget = false;
@@ -748,134 +1229,104 @@ namespace Life.Controllers
 
     public class SoldierRetreatCoverState : BaseState
     {
-        public bool _reloaded;
         private Vector3 _destination;
-        private bool _hasReached;
         private float _lastFindCover;
-        private SoldierAgentController _observer;
-        private float _relaxTime;
-        private float _timeToExit;
+        private SoldierAgentController _soldier;
 
         public SoldierRetreatCoverState(AgentController context) : base(context)
         {
-            _observer = context as SoldierAgentController;
+            _soldier = context as SoldierAgentController;
         }
 
-        public bool Ready => _hasReached && _reloaded && _timeToExit > _relaxTime;
-        private bool _reached => Vector3.Distance(_observer.transform.position, _destination) < 2f;
+        public bool IsCurrentPositionValid()
+        {
+            return _soldier.HasPlayerVisual;
+        }
+
+        public bool IsCurrentPositionValidCrouch()
+        {
+            if (VisualPhysics.Linecast(_soldier.PlayerHeadPosition, _soldier.transform.position + _soldier.transform.up * _soldier.CrouchHeight, out RaycastHit hit, Bootstrap.Resolve<GameSettings>().RaycastConfiguration.CoverLayers, QueryTriggerInteraction.Ignore))
+            {
+                if (hit.transform.gameObject.layer == 8) return false;
+                return !hit.collider.gameObject.transform.root == _soldier.transform;
+            }
+
+            return false;
+        }
 
         public override void DrawGizmos()
         {
-            Gizmos.DrawWireSphere(_destination, 1f);
         }
 
         public override void End()
         {
+            _soldier.HurtEvent -= OnHurt;
         }
 
         public override void Start()
         {
-            _observer.SetArmsLayerWeight(1);
-            _observer.SetMovementType(SoldierMovementType.RUN);
-            //_observer.Animator.SetLayerWeight(3, 1);
+            _soldier.Animator.SetTrigger("COVER");
 
-            _observer.FaceTarget = false;
-            _hasReached = false;
-            _reloaded = false;
-            _observer.AllowFire(false);
-            _relaxTime = Random.Range(3, 5);
-            _timeToExit = 0f;
-            FindCover();
+            _soldier.Squad.ReleaseAttackSlot(_soldier);
+            _soldier.SetAllowFire(false);
+            _soldier.FaceTarget = false;
+            _soldier.HurtEvent += OnHurt;
+
+            if (IsCurrentPositionValidCrouch())
+            {
+                _soldier.SetAllowReload(true);
+                _soldier.SetMovementType(SoldierMovementType.CROUCH);
+            }
+            else MoveToCover();
+        }
+
+        private void OnHurt(AgentHurtPayload payload, AgentController controller)
+        {
+            MoveToCover();
         }
 
         public override void Update()
         {
-            if (_observer.Weapon.WeaponEngine.CurrentAmmo > 0)
-            {
-                _observer.FaceTarget = true;
-                //_observer.Animator.SetLayerWeight(3, 1);
-                _observer.AllowFire(_observer.PlayerVisualDetected);
-                _observer.SetLookTarget(_observer.AttackPoint);
-                _observer.SetMovementType(SoldierMovementType.WALK);
-            }
-            else
-            {
-                _observer.SetMovementType(SoldierMovementType.RUN);
-                //_observer.Animator.SetLayerWeight(3, 0);
-                _observer.FaceTarget = false;
-                _observer.AllowFire(false);
-            }
+            if (Time.time - _lastFindCover < 2) return;
 
-            if (_observer.IsPlayerInRange(10) && _observer.IsPlayerVisible() && _reloaded) _observer.ForceAttack();
-
-            if (_observer.PlayerVisualDetected && Time.time - _lastFindCover > 5)
+            if (Vector3.Distance(_destination, _soldier.transform.position) < 1.1)
             {
-                _observer.FaceTarget = false;
-                _observer.AllowFire(false);
-                _observer.SetMovementType(SoldierMovementType.RUN);
-                FindCover();
-            }
-
-            if (_reached && !_hasReached)
-            {
-                _hasReached = true;
-                _observer.SetMovementType(SoldierMovementType.CROUCH);
-            }
-
-            if (_hasReached)
-            {
-                if (!_reloaded)
+                if (_soldier.CurrentCoverSpot != null || IsCurrentPositionValidCrouch())
                 {
-                    _observer.Weapon.WeaponEngine.Reload(_observer.Weapon.WeaponEngine.WeaponSettings.Ammo.Size);
-                    _reloaded = true;
+                    _soldier.SetAllowReload(true);
+                    _soldier.SetMovementType(SoldierMovementType.CROUCH);
                 }
-                _timeToExit += Time.deltaTime;
+                else if (!IsCurrentPositionValid())
+                {
+                    MoveToCover();
+                }
             }
+            _soldier.SetLookTarget(_soldier.AttackPoint);
         }
 
-        private void FindCover()
+        private void MoveToCover()
         {
+            _soldier.SetMovementType(SoldierMovementType.RUN);
+
             _lastFindCover = Time.time;
-            Vector3 _combatPoint = _observer.transform.position;
-
-            SpatialDataPoint[] points = _observer.CoverSensor.GetCombatSpatialData(_combatPoint, _observer.AttackPoint, 10).ToArray();
-
-            points = points.OrderBy(x => x.PathLength).ToArray();
-
-            if (points.Any(x => x.SafeFromStanding))
-            {
-                _destination = points.First(x => x.SafeFromStanding).Position;
-                _observer.SetTarget(_destination);
-                return;
-            }
-            else if (points.Any(x => x.SafeFromCrouch && !x.SafeFromStanding))
-            {
-                _destination = points.First(x => x.SafeFromCrouch && !x.SafeFromStanding).Position;
-                _observer.SetTarget(_destination);
-                return;
-            }
-            else
-            {
-                if (points.Length > 0) _destination = (points.OrderBy(x => x.DistanceFromThreat).First().Position);
-                _observer.SetTarget(_destination);
-            }
+            _destination = _soldier.FindCoverFromPlayer(true);
+            _soldier.SetTarget(_destination);
         }
     }
 
-    public class SoldierSearchAlertState : BaseState
+    public class SoldierGoToPlayer : BaseState
     {
-        private SoldierAgentController _observer;
+        private SoldierAgentController _soldier;
+        private Vector3 _destination;
+        private Vector3 _lookPoint;
 
-        private Vector3 _targetPos;
-
-        public SoldierSearchAlertState(AgentController context) : base(context)
+        public SoldierGoToPlayer(AgentController context) : base(context)
         {
-            _observer = context as SoldierAgentController;
+            _soldier = context as SoldierAgentController;
         }
 
         public override void DrawGizmos()
         {
-            Gizmos.DrawSphere(_targetPos, 0.33f);
         }
 
         public override void End()
@@ -884,89 +1335,28 @@ namespace Life.Controllers
 
         public override void Start()
         {
-            _observer.SetMovementType(SoldierMovementType.RUN);
-            _observer.Animator.SetBool("WARNING", true);
-            //  _observer.Animator.SetLayerWeight(3, 0);
-            _observer.SetTarget(_observer.InterestPoint);
-            _observer.FaceTarget = false;
+            _soldier.SetMovementType(SoldierMovementType.WALK);
+            _soldier.Animator.SetBool("WARNING", true);
+            _soldier.Animator.SetTrigger("SUSPECT");
+            _soldier.SetTarget(_destination = _soldier.AttackPoint);
+            _lookPoint = _soldier.AttackPoint;
+        }
+
+        private void SearchRandom()
+        {
+            if (Vector3.Distance(_soldier.transform.position, _destination) < 2)
+            {
+                SpatialDataQuery newQuery = new SpatialDataQuery(new SpatialQueryData(_soldier, _soldier.PlayerPosition, _soldier.PlayerHeadPosition, 1));
+                _soldier.SetTarget(_destination = newQuery.AllPoints[Random.Range(0, newQuery.AllPoints.Count)].Position);
+                //REPORT CLEAR HERE??
+                _lookPoint = _destination + Vector3.up * 1.75f;
+            }
         }
 
         public override void Update()
         {
-            if (ReachedTarget())
-            {
-                _observer.SetMovementType(SoldierMovementType.WALK);
-                //_observer.ResetInvestigate();
-            }
-        }
-
-        private bool ReachedTarget()
-        {
-            Vector3 pos = _observer.InterestPoint;
-            pos.y = _observer.transform.position.y;
-            return Vector3.Distance(_observer.transform.position, pos) < 1.5f;
-        }
-    }
-
-    public class SoldierIncapacitatedState : BaseState
-    {
-        private SoldierAgentController _observer;
-
-        private float _waitFor = 2.65f;
-        private float _time;
-        private bool _done;
-
-        public SoldierIncapacitatedState(AgentController context) : base(context)
-        {
-            _observer = context as SoldierAgentController;
-        }
-
-        public bool Done { get => _done; }
-
-        public override void DrawGizmos()
-        {
-        }
-
-        public override void End()
-        {
-            _observer.HealthChangedEvent -= Hurt;
-        }
-
-        public override void Start()
-        {
-            _observer.HealthChangedEvent += Hurt;
-            Hurt(0);
-        }
-
-        private void Hurt(float ignore)
-        {
-            _observer.AllowFire(false);
-            _time = 0;
-            _done = false;
-            _observer.NavMesh.isStopped = true;
-            _observer.Animator.SetFloat("INCAP_ANIM", Random.Range(0f, 1f));
-            _observer.Animator.SetTrigger("INCAP");
-            _observer.Animator.SetLayerWeight(2, 0);
-            _observer.SetArmsLayerWeight(0.05f);
-            if (_observer.IsPlayerInRange(15)) { _observer.ShoutPain(); }
-        }
-
-        public override void Update()
-        {
-            if (_done) return;
-            _time += Time.deltaTime;
-            if (_time > _waitFor)
-            {
-                Recover();
-            }
-        }
-
-        private void Recover()
-        {
-            _observer.Animator.SetLayerWeight(2, 1);
-            _observer.SetArmsLayerWeight(1);
-            _observer.NavMesh.isStopped = false;
-            _done = true;
+            _soldier.SetLookTarget(_lookPoint);
+            SearchRandom();
         }
     }
 }

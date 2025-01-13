@@ -26,13 +26,26 @@ namespace UI
 
         [SerializeField] private HUDHeartDisplay _heart;
 
-        [SerializeField] private HUDWeaponSlot _mainWeaponSlot;
-        [SerializeField] private HUDWeaponSlot _secondaryWeaponSlot;
+        [SerializeField] private HUDWeaponSlot _pistolWeaponSlot;
+        [SerializeField] private HUDWeaponSlot _smgWeaponSlot;
+        [SerializeField] private HUDWeaponSlot _rifleWeaponSlot;
+        [SerializeField] private HUDWeaponSlot _sniperWeaponSlot;
+        [SerializeField] private HUDWeaponSlot _shotgunWeaponSlot;
+
         [SerializeField] private HUDGrenadeSlot _grenadeSlot;
 
         private PlayerHealth _health;
         private PlayerWeapons _weapon;
         private PlayerRigidbodyMovement _movement;
+
+        private HUDWeaponSlot[] _weaponSlots => new HUDWeaponSlot[]
+        {
+            _pistolWeaponSlot,
+            _smgWeaponSlot,
+            _rifleWeaponSlot,
+            _sniperWeaponSlot,
+            _shotgunWeaponSlot
+        };
 
         private void Start()
         {
@@ -52,8 +65,11 @@ namespace UI
                 throw new UnityException("No Player Weapon in the scene");
             }
 
-            _weapon.WeaponSlots[WeaponSlotType.MAIN].SlotWeaponAddedEvent += OnMainAddedWeapon;
-            _weapon.WeaponSlots[WeaponSlotType.SECONDARY].SlotWeaponAddedEvent += OnSecondaryAddedWeapon;
+            foreach (PlayerWeaponSlot slot in _weapon.WeaponSlots.Values)
+            {
+                slot.SlotWeaponAddedEvent += OnWeaponAdded;
+            }
+
             _weapon.WeaponSwapEvent += OnSwapWeapon;
             _weapon.WeaponGrenadeTypeChanged += OnSwapGrenade;
             _weapon.WeaponGrenadeStateEvent += OnGrenade;
@@ -74,29 +90,30 @@ namespace UI
 
         private void OnSwapWeapon(WeaponSlotType type)
         {
-            if (type == WeaponSlotType.MAIN)
+            foreach (HUDWeaponSlot slot in _weaponSlots)
             {
-                _mainWeaponSlot.Show(2f);
-                _secondaryWeaponSlot.Hide();
-            }
-
-            if (type == WeaponSlotType.SECONDARY)
-            {
-                _secondaryWeaponSlot.Show(2f);
-                _mainWeaponSlot.Hide();
+                if (slot.Type == type) { slot.Show(2); }
+                else slot.Hide();
             }
         }
 
         private void OnSecondaryAddedWeapon(PlayerWeaponSlot slot)
         {
-            _secondaryWeaponSlot.Set(slot);
-            _secondaryWeaponSlot.Show(5f);
+            _smgWeaponSlot.Set(slot);
+            _smgWeaponSlot.Show(5f);
         }
 
-        private void OnMainAddedWeapon(PlayerWeaponSlot slot)
+        private void OnWeaponAdded(PlayerWeaponSlot slot)
         {
-            _mainWeaponSlot.Set(slot);
-            _mainWeaponSlot.Show(5f);
+            foreach (HUDWeaponSlot hudslot in _weaponSlots)
+            {
+                if (hudslot.Type == slot.SlotType)
+                {
+                    hudslot.Set(slot);
+                    _sniperWeaponSlot.Show(5f);
+                }
+                else hudslot.Hide();
+            }
         }
 
         private void LateUpdate()
@@ -110,7 +127,7 @@ namespace UI
             {
                 _currentAmmo.text = $"{_weapon.WeaponEngine.CurrentAmmo}";
                 //Extraer del inventario;
-                _inventoryAmmo.text = $"{Bootstrap.Resolve<InventoryService>().Instance.Ammunitions[_weapon.WeaponEngine.WeaponSettings.Ammo.Type]}";
+                _inventoryAmmo.text = $"{InventoryService.Instance.Ammunitions[_weapon.WeaponEngine.WeaponSettings.Ammo.Type]}";
 
                 _ammoType.text = $"{_weapon.WeaponEngine.WeaponSettings.Ammo.Type.Name}";
             }

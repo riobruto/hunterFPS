@@ -5,19 +5,20 @@ using UnityEngine;
 
 namespace Life.StateMachines
 {
+    public delegate void ChangeStateDelegate(IState current, IState next);
+
     public class StateMachine
     {
         private StateNode _current;
         private Dictionary<Type, StateNode> nodes = new();
         private HashSet<ITransition> anyTransition = new();
-
+        public event ChangeStateDelegate ChangeStateEvent;
         public IState CurrentState { get => _current.State; }
 
         public void Update()
         {
             ITransition transition = GetTransition();
             if (transition != null) ChangeState(transition.To);
-
             _current.State?.Update();
         }
 
@@ -65,10 +66,11 @@ namespace Life.StateMachines
         {
             if (state == _current.State)
             {
-                Debug.LogError("StateController tried changing state to current state");
+                Debug.LogError($"StateController tried changing state to current state {state}");
                 return;
             }
             _current.State?.End();
+            ChangeStateEvent?.Invoke(_current.State, state);
             _current = nodes[state.GetType()];
             _current.State?.Start();
             Debug.Log($"Current State is now {_current.State}");
@@ -86,6 +88,8 @@ namespace Life.StateMachines
             }
             return null;
         }
+
+        
 
         private class StateNode
         {

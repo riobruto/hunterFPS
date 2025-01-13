@@ -10,24 +10,25 @@ namespace Game.Inventory
         [SerializeField] private ConsumableProperties _properties;
 
         [SerializeField] private GameObject _animationGameObject;
-        [SerializeField] private GameObject _worldGameObject;
 
         [Tooltip("The name that is going to appear in the menu to use")]
         [SerializeField] private string _consumeActionName;
 
         public bool CanConsumeWithMask;
+        public bool CanConsumeDog;
         public string ConsumeText { get => _consumeActionName; }
         public ConsumableProperties Properties { get => _properties; }
         public GameObject AnimationGameObject { get => _animationGameObject; }
-        public GameObject WorldGameObject { get => _worldGameObject; }
     }
 
     [Serializable]
     public class ConsumableProperties
     {
         public float ConsumeTimeInSeconds;
+
         [Header("Properties")]
         public float HealthRecoverAmount;
+
         public float DurationInMinutes;
         public float DamageResistanceAmount;
         public float StaminaResistanceAmount;

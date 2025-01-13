@@ -69,7 +69,6 @@ namespace Game.Player.Controllers
         private bool _lastCheckForwardObstruction;
         private bool _isChangingSlot;
         private bool _isThrowingGranade;
-
         private bool _canUseWeapon => !_isChangingSlot && _weaponEngine != null && !_isThrowingGranade && AllowInput;
         private bool _canAim => !_playerMovementController.IsSprinting && !_playerMovementController.IsFalling && !_weaponEngine.BoltOpen && !_weaponEngine.IsReloading && !_isThrowingGranade;
         private bool _isAiming => _aimInput && _canAim;
@@ -98,7 +97,7 @@ namespace Game.Player.Controllers
                 observer.Initalize(this);
             }
 
-            _inventory = Bootstrap.Resolve<InventoryService>().Instance;
+            _inventory = InventoryService.Instance;
         }
 
         private void Update()
@@ -107,6 +106,9 @@ namespace Game.Player.Controllers
 
             ManageObstruction();
             ManageAim();
+
+            if (_playerMovementController.IsSprinting) { _weaponEngine.ReleaseFire(); }
+            if (_isObstructed) { _weaponEngine.ReleaseFire(); }
 
             if (!_canUseWeapon)
             {
@@ -172,6 +174,8 @@ namespace Game.Player.Controllers
 
         private void OnGUI()
         {
+            return;
+
             GUILayout.Label($"Mouse: {_mouseRayDirection}");
 
             using (new GUILayout.HorizontalScope(GUI.skin.box))
@@ -256,27 +260,24 @@ namespace Game.Player.Controllers
                 {
                     if (_weaponEngine.WeaponSettings.Reload.FastReloadOnEmpty && _weaponEngine.CurrentAmmo == 0)
                     {
-                        if (Bootstrap.Resolve<InventoryService>().Instance.Ammunitions[_weaponEngine.WeaponSettings.Ammo.Type] > _weaponEngine.WeaponSettings.Ammo.Size)
+                        if (InventoryService.Instance.Ammunitions[_weaponEngine.WeaponSettings.Ammo.Type] > _weaponEngine.WeaponSettings.Ammo.Size)
                         {
-                            if (_weaponEngine.Insert()) { Bootstrap.Resolve<InventoryService>().Instance.Ammunitions[_weaponEngine.WeaponSettings.Ammo.Type] -= _weaponEngine.WeaponSettings.Ammo.Size; }
+                            if (_weaponEngine.Insert()) { InventoryService.Instance.Ammunitions[_weaponEngine.WeaponSettings.Ammo.Type] -= _weaponEngine.WeaponSettings.Ammo.Size; }
                             return;
                         }
                     }
 
-                    if (Bootstrap.Resolve<InventoryService>().Instance.Ammunitions[_weaponEngine.WeaponSettings.Ammo.Type] > 0)
+                    if (InventoryService.Instance.Ammunitions[_weaponEngine.WeaponSettings.Ammo.Type] > 0)
                     {
                         if (_weaponEngine.CurrentAmmo >= _weaponEngine.MaxAmmo) { UIService.CreateMessage("Weapon is full", 2f); }
-                        if (_weaponEngine.Insert()) { Bootstrap.Resolve<InventoryService>().Instance.Ammunitions[_weaponEngine.WeaponSettings.Ammo.Type] -= 1; }
+                        if (_weaponEngine.Insert()) { InventoryService.Instance.Ammunitions[_weaponEngine.WeaponSettings.Ammo.Type] -= 1; }
                     }
                     else { UIService.CreateMessage("No ammo", 2f); }
 
                     return;
                 }
 
-                if (_playerMovementController.IsSprinting) {_weaponEngine.ReleaseFire(); return; }
-                if (_isObstructed) { _weaponEngine.ReleaseFire(); return; }
-
-                _weaponEngine.Fire();
+                if (_weaponEngine.CurrentAmmo > 0) _weaponEngine.Fire();
             }
 
             if (!value.isPressed)
@@ -299,7 +300,7 @@ namespace Game.Player.Controllers
                 return;
             }
 
-            if (_weaponEngine.WeaponSettings.FireModes == WeaponFireModes.BOLT && _weaponEngine.CurrentAmmo > 0)
+            if (_weaponEngine.WeaponSettings.FireModes == WeaponFireModes.BOLT && _weaponEngine.CurrentAmmo >= 0)
             {
                 _weaponEngine.Reload(0);
                 return;
@@ -310,11 +311,12 @@ namespace Game.Player.Controllers
             StartCoroutine(ManageReload());
         }
 
-        private void OnMeeleeSlot(InputValue value) => ChangeWeaponBySlot(WeaponSlotType.MEELEE);
-
-        private void OnPrimaryWeaponSlot(InputValue value) => ChangeWeaponBySlot(WeaponSlotType.MAIN);
-
-        private void OnSecondaryWeaponSlot(InputValue value) => ChangeWeaponBySlot(WeaponSlotType.SECONDARY);
+        private void OnWeaponSlot(InputValue value)
+        {
+            int slot = (int)value.Get<float>();
+            if (slot == 0) return;
+            ChangeWeaponBySlot((WeaponSlotType)(slot - 1));
+        }
 
         private void OnGrenadeSlot(InputValue value)
         {
@@ -349,7 +351,7 @@ namespace Game.Player.Controllers
 
         [SerializeField] private GameObject _HEGrenade;
         [SerializeField] private GameObject _GasGrenade;
-        private bool _hasGrenadeInInventory => Bootstrap.Resolve<InventoryService>().Instance.Grenades[_currentType] > 0;
+        private bool _hasGrenadeInInventory => InventoryService.Instance.Grenades[_currentType] > 0;
 
         private GrenadeType _currentType = GrenadeType.HE;
 
@@ -362,7 +364,7 @@ namespace Game.Player.Controllers
             yield return new WaitForSeconds(.5f);
             WeaponGrenadeStateEvent?.Invoke(cachedType, GrenadeState.CHARGE);
             yield return new WaitForSeconds(1f);
-            Bootstrap.Resolve<InventoryService>().Instance.Grenades[cachedType] -= 1;
+            InventoryService.Instance.Grenades[cachedType] -= 1;
             InstanceGrenade();
 
             WeaponGrenadeStateEvent?.Invoke(cachedType, GrenadeState.THROW);
@@ -431,16 +433,7 @@ namespace Game.Player.Controllers
         //TODO:  You should be left behind with you backwards ideas
         private IWeapon GetEngineFromSlotType(WeaponSlotType slotType)
         {
-            switch (slotType)
-            {
-                case WeaponSlotType.MAIN:
-                case WeaponSlotType.SECONDARY:
-                    return _gunWeaponEngine;
-
-                case WeaponSlotType.MEELEE:
-                default:
-                    return null;
-            }
+            return _gunWeaponEngine;
         }
 
         private void ChangeWeaponBySlot(WeaponSlotType type)
@@ -469,7 +462,6 @@ namespace Game.Player.Controllers
                 }
             }
             WeaponSwapEvent?.Invoke(type);
-
             if (_weaponSlots[type].WeaponInstances.Count > 0)
             {
                 StartCoroutine(IChangeWeaponToInstance(_weaponSlots[type].WeaponInstances[0]));
@@ -486,7 +478,6 @@ namespace Game.Player.Controllers
                     return false;
                 }
             }
-
             PlayerWeaponInstance instance = new
            (
 

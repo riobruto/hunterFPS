@@ -9,10 +9,15 @@ namespace Game.Entities
 {
     public delegate void BreakDelegate(BreakableEntity entity);
 
-    public class BreakableEntity : MonoBehaviour, IHittableFromWeapon, IDamageableFromExplosive
+    public class BreakableEntity : MonoBehaviour, IHittableFromWeapon, IDamageableFromExplosive, IDamagableFromHurtbox
     {
         [SerializeField] private Transform[] _brokenMeshes;
         [SerializeField] private Transform _healthyMesh;
+
+        [SerializeField] private bool _breakByShot;
+        [SerializeField] private bool _breakByExplosion;
+        [SerializeField] private bool _breakByDrop;
+        [SerializeField] private bool _breakByKick;
 
         [Tooltip("This allows the entity to create the components of the broken pieces in runtime")]
         [SerializeField] private bool _generateGibs;
@@ -21,7 +26,7 @@ namespace Game.Entities
         private bool _broken;
         private Rigidbody _rigidbody;
         [SerializeField] private int _piecesDuration = 60;
-        [SerializeField] private AudioClipCompendium _breakAudio;
+        [SerializeField] private AudioClipGroup _breakAudio;
 
         public event BreakDelegate BreakEvent;
 
@@ -43,9 +48,9 @@ namespace Game.Entities
             }
         }
 
-        void IHittableFromWeapon.OnHit(HitWeaponEventPayload payload)
+        void IHittableFromWeapon.Hit(HitWeaponEventPayload payload)
         {
-            Bootstrap.Resolve<ImpactService>().System.ImpactAtPosition(payload.RaycastHit.point, payload.RaycastHit.normal);
+            //Bootstrap.Resolve<ImpactService>().System.ImpactAtPosition(payload.RaycastHit.point, payload.RaycastHit.normal);
 
             Hurt(payload.Damage);
         }
@@ -76,6 +81,13 @@ namespace Game.Entities
                 t.gameObject.SetActive(false);
             }
             _rigidbody = GetComponent<Rigidbody>();
+        }
+
+        void IDamagableFromHurtbox.NotifyDamage(float damage, Vector3 position, Vector3 direction)
+        {
+            if (!_breakByKick) return;
+            _rigidbody.AddForceAtPosition(direction, position);
+            Hurt(damage);
         }
     }
 }

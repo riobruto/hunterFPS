@@ -42,16 +42,19 @@ namespace Game.Player.Controllers
         private PlayerRigidbodyMovement _movement;
 
         public event UnityAction<ConsumableItem> ItemBeginConsumingEvent;
-
         public event UnityAction<ConsumableItem> ItemFinishConsumeEvent;
 
         public bool AllowInput;
         public bool IsConsumingItem { get => _isConsumingItem; }
         private List<PlayerModifier> _activeModifiers = new List<PlayerModifier>();
 
+
+
+
+
         private void Start()
         {
-            _system = Bootstrap.Resolve<InventoryService>().Instance;
+            _system = InventoryService.Instance;
             _system.UseConsumableEvent += OnConsumeItem;
             _health = GetComponent<PlayerHealth>();
             _movement = GetComponent<PlayerRigidbodyMovement>();
@@ -112,6 +115,7 @@ namespace Game.Player.Controllers
                 damageResistance += Mathf.Clamp01(modifier.DamageResistance);
             }
             Debug.Log($"SR:{staminaResistance}; DR:{damageResistance}");
+
             _movement.StaminaResistance = staminaResistance;
             _health.SetDamageResistanceModifier(damageResistance);
         }
@@ -128,12 +132,12 @@ namespace Game.Player.Controllers
             {
                 if (GetComponent<PlayerWeapons>().WeaponEngine.BoltOpen)
                 {
-                    Debug.Log("Can Show UI, Bolt is Open");
+                    UIService.CreateMessage("Can't open inventory, Bolt is Open!");
                     return;
                 }
                 if (GetComponent<PlayerWeapons>().WeaponEngine.IsReloading)
                 {
-                    Debug.Log("Can Show UI, Weapon Is Reloading");
+                    UIService.CreateMessage("Can't open inventory, Weapon Is Reloading");
                     return;
                 }
             }

@@ -7,7 +7,6 @@ using UnityEngine.UI;
 namespace MyEditor.Life
 {
     [CustomEditor(typeof(AgentController), true)]
-
     [CanEditMultipleObjects]
     public class AgentControllerDrawer : Editor
     {
@@ -20,22 +19,22 @@ namespace MyEditor.Life
 
             controller = target as AgentController;
 
-            if(targets.Length > 1)
+            if (targets.Length > 1)
             {
-                DisplayMultiEditionWarning();                
+                DisplayMultiEditionWarning();
                 return;
             }
 
             using (new EditorGUILayout.VerticalScope())
             {
                 //Setting dirty to reflect changes every draw call
-                EditorUtility.SetDirty(target);
+                //EditorUtility.SetDirty(target);
 
                 DisplayPlayerDetection();
                 DisplayAgentState();
                 DisplayHealthBar();
 
-                if(GUILayout.Button("Restore") && controller.IsDead)
+                if (GUILayout.Button("Restore") && controller.IsDead)
                 {
                     controller.Restore();
                 }
@@ -46,7 +45,7 @@ namespace MyEditor.Life
         {
             EditorGUILayout.Separator();
             Rect r = EditorGUILayout.BeginVertical();
-            EditorGUI.DrawRect(r, Color.blue / 4 );
+            EditorGUI.DrawRect(r, Color.blue / 4);
             EditorGUILayout.LabelField("Agent Info not allowed in multiple selection", EditorStyles.centeredGreyMiniLabel);
             GUILayout.Space(3);
             EditorGUILayout.EndVertical();
@@ -73,18 +72,17 @@ namespace MyEditor.Life
             EditorGUILayout.Separator();
             EditorGUILayout.LabelField("Agent Basic Info", EditorStyles.boldLabel);
             EditorGUILayout.Separator();
-
         }
 
         private void DisplayAgentState()
         {
             EditorGUILayout.LabelField("Agent Status", EditorStyles.boldLabel);
-                        
+
             if (controller.GetHealth() <= 0)
             {
                 Rect deadr = EditorGUILayout.BeginVertical();
                 EditorGUI.DrawRect(deadr, Color.red / 4);
-                EditorGUILayout.LabelField("Agent is Dead",  EditorStyles.centeredGreyMiniLabel);
+                EditorGUILayout.LabelField("Agent is Dead", EditorStyles.centeredGreyMiniLabel);
                 GUILayout.Space(10);
                 EditorGUILayout.EndVertical();
                 return;
@@ -93,7 +91,7 @@ namespace MyEditor.Life
             if (!controller.Initialized)
             {
                 Rect empty = EditorGUILayout.BeginVertical();
-                EditorGUI.DrawRect(empty, Color.grey/4);
+                EditorGUI.DrawRect(empty, Color.grey / 4);
                 EditorGUILayout.LabelField("Machine has no state", EditorStyles.centeredGreyMiniLabel);
                 GUILayout.Space(10);
                 EditorGUILayout.EndVertical();
@@ -109,7 +107,6 @@ namespace MyEditor.Life
 
         private void DisplayHealthBar()
         {
-           
             EditorGUILayout.Separator();
             float progress = controller.GetHealth() / controller.GetMaxHealth();
             Rect r = EditorGUILayout.BeginVertical();
@@ -126,7 +123,7 @@ namespace MyEditor.Life
             if (!controller.Initialized)
             {
                 Rect empty = EditorGUILayout.BeginVertical();
-                EditorGUI.DrawRect(empty, Color.grey/4);
+                EditorGUI.DrawRect(empty, Color.grey / 4);
                 EditorGUI.LabelField(empty, "Player Inactive", EditorStyles.centeredGreyMiniLabel);
                 GUILayout.Space(10);
                 EditorGUILayout.EndVertical();
@@ -135,8 +132,8 @@ namespace MyEditor.Life
             }
 
             Rect playerinforect = EditorGUILayout.BeginVertical();
-            EditorGUI.DrawRect(playerinforect, controller.PlayerVisualDetected ? Color.red / 2 : Color.green / 2);
-            EditorGUI.LabelField(playerinforect, controller.PlayerVisualDetected ? "Player Detected" : "Player Undetected", EditorStyles.centeredGreyMiniLabel);
+            EditorGUI.DrawRect(playerinforect, controller.HasPlayerVisual ? Color.red / 2 : Color.green / 2);
+            EditorGUI.LabelField(playerinforect, controller.HasPlayerVisual ? "Player Detected" : "Player Undetected", EditorStyles.centeredGreyMiniLabel);
             GUILayout.Space(18);
             EditorGUILayout.EndVertical();
 

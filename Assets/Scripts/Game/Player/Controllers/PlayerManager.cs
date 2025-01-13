@@ -17,6 +17,7 @@ namespace Game.Player.Controllers
         private PlayerInteractionController _interactionController;
         private PlayerConfiguration.PlayerControlSettings _settings;
         private PlayerLeanMovement _lean;
+        private PlayerKick _kick;
 
         private PlayerTrainController _train;
         private PlayerHealth _health;
@@ -36,13 +37,17 @@ namespace Game.Player.Controllers
             _health = GetComponent<PlayerHealth>();
             _settings = Bootstrap.Resolve<GameSettings>().PlayerConfiguration.Settings;
             _train = GetComponent<PlayerTrainController>();
+            _kick = GetComponent<PlayerKick>();
+            _kick.KickStartEvent += OnKickStart;
+            _kick.KickFinishEvent += OnKickEnd;
+            _kick.AllowKick = true;
 
             _weaponController.AllowInput = true;
             _inventoryController.AllowInput = true;
 
-            Bootstrap.Resolve<InventoryService>().Instance.ToggleInventoryEvent += OnInventoryOpen;
+            InventoryService.Instance.ToggleInventoryEvent += OnInventoryOpen;
             _weaponController.WeaponAimEvent += OnAimWeapon;
-            _weaponController.WeaponInstanceChangeEvent += InstanceChanged;
+            _weaponController.WeaponInstanceChangeEvent += OnWeaponInstanceChanged;
             _inventoryController.ItemBeginConsumingEvent += OnItemBeginConsume;
             _inventoryController.ItemFinishConsumeEvent += OnItemFinishConsume;
             _movementController.PlayerFallEvent += OnFall;
@@ -60,6 +65,16 @@ namespace Game.Player.Controllers
             yield return null;
         }
 
+        private void OnKickEnd()
+        {
+            _movementController.AllowSprint = true;
+        }
+
+        private void OnKickStart()
+        {
+            _movementController.AllowSprint = false;
+        }
+
         private void OnFall(Vector3 start, Vector3 end)
         {
             float distance = Mathf.Abs(end.y - start.y);
@@ -74,20 +89,21 @@ namespace Game.Player.Controllers
             _interactionController.AllowInteraction = true;
             _weaponController.AllowInput = true;
             _weaponController.Draw();
+            _kick.AllowKick = true;
         }
 
         private void OnEnterTrain()
         {
-          
             _inTrain = true;
             _movementController.AllowMovement = false;
             _inventoryController.SetUIActive(false);
             _interactionController.AllowInteraction = false;
             _weaponController.AllowInput = false;
             _weaponController.Seathe();
+            _kick.AllowKick = false;
         }
 
-        private void InstanceChanged(PlayerWeaponInstance instance)
+        private void OnWeaponInstanceChanged(PlayerWeaponInstance instance)
         {
             if (!_subscribedtoWeaponState)
             {
@@ -118,6 +134,7 @@ namespace Game.Player.Controllers
         private void OnAimWeapon(bool state)
         {
             _movementController.Sensitivity = state ? _settings.AimSensitivity : _settings.NormalSensitivity;
+            _kick.AllowKick = !state;
         }
 
         private void OnDie()
@@ -132,7 +149,7 @@ namespace Game.Player.Controllers
             _interactionController.AllowInteraction = false;
             _inventoryController.AllowInput = false;
             _lean.AllowLean = false;
-
+            _kick.AllowKick = false;
             _movementController.Die();
 
             if (!_inventoryOpen)
@@ -158,6 +175,7 @@ namespace Game.Player.Controllers
                     _interactionController.AllowInteraction = false;
                     _weaponController.Seathe();
                 }
+                _kick.AllowKick = false;
                 return;
             }
 
@@ -165,6 +183,7 @@ namespace Game.Player.Controllers
             {
                 _weaponController.Draw();
             }
+            _kick.AllowKick = true;
 
             _movementController.AllowMovement = true;
             _movementController.AllowLookMovement = true;

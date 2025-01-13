@@ -10,7 +10,7 @@ namespace Game.Life
         private float _health = 100;
         private LimbHitbox[] _limbs;
 
-        [SerializeField] private AudioClipCompendium _hurtSounds;
+        [SerializeField] private AudioClipGroup _hurtSounds;
         private bool _dead => _health < 0;
         public float Health { get => _health; }
 

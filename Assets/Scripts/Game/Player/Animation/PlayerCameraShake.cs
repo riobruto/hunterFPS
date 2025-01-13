@@ -24,7 +24,13 @@ namespace Game.Player.Animation
 
         public void Shake()
         {
-            _shakeVector = Random.insideUnitSphere - (Vector3.one * .5f) * 2 * _randomIntensity;
+            _shakeVector = Random.insideUnitSphere * _randomIntensity * 2f;
+            _currentTime = 1;
+        }
+
+        public void Shake(Vector3 direction)
+        {
+            _shakeVector = direction * _randomIntensity;
             _currentTime = 1;
         }
 

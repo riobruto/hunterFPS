@@ -31,7 +31,7 @@ namespace Game.Entities
             _hitPoints.Add(new DummyHit(transform.position, transform.forward, Time.time));
         }
 
-        public void OnHit(HitWeaponEventPayload payload)
+        public void Hit(HitWeaponEventPayload payload)
         {
             _time = 1;
             _hitPoints.Add(new DummyHit(payload.RaycastHit.point, payload.RaycastHit.normal, Time.time));

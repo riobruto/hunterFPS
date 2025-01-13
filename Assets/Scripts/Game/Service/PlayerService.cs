@@ -7,14 +7,14 @@ namespace Game.Service
     public class PlayerService : SceneService
     {
         private GameObject _player;
-        private SpawnController _controller;
+        private PlayerSpawnEntity _controller;
         private Camera _playerCamera;
         public GameObject Player => _player;
         public Camera PlayerCamera => _playerCamera;
 
         internal override void Initialize()
         {//Deativate.
-            _controller = GameObject.FindObjectOfType<SpawnController>();
+            _controller = GameObject.FindObjectOfType<PlayerSpawnEntity>();
             if (_controller == null)
             {
                 Debug.LogError("Theres no Spawn Controller in the currentScene");

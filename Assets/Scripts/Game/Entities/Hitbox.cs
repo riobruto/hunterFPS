@@ -16,12 +16,12 @@ namespace Game.Entities
 
         void IDamageableFromExplosive.NotifyDamage(float damage)
         {
-            _ownerAgent.NotifyHurt(damage);
+            _ownerAgent.Damage(damage);
         }
 
-        void IHittableFromWeapon.OnHit(HitWeaponEventPayload payload)
+        void IHittableFromWeapon.Hit(HitWeaponEventPayload payload)
         {
-            _ownerAgent.NotifyHurt(payload.Damage);
+            _ownerAgent.Damage(payload.Damage);
         }
     }
 }

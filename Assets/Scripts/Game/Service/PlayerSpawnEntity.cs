@@ -2,7 +2,7 @@
 
 namespace Game.Service
 {
-    internal class SpawnController : MonoBehaviour
+    internal class PlayerSpawnEntity : MonoBehaviour
     {
         [SerializeField] private Transform[] _spawnPoints;
 
@@ -14,8 +14,7 @@ namespace Game.Service
             {
                 DrawSpawnGizmo(t);
             }
-        }
-
+        }        
         private void DrawSpawnGizmo(Transform transform)
         {
             Gizmos.matrix = transform.localToWorldMatrix;

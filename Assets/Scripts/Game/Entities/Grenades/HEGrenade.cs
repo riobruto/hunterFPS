@@ -1,4 +1,5 @@
 ﻿using Core.Engine;
+using Game.Audio;
 using Game.Hit;
 using Game.Player.Sound;
 using Game.Service;
@@ -9,17 +10,22 @@ using UnityEngine;
 
 namespace Game.Entities.Grenades
 {
-    public class HEGrenade : MonoBehaviour, IGrenade
+    public class HEGrenade : MonoBehaviour, IGrenade, IDamagableFromHurtbox
     {
         [SerializeField] private ParticleSystem _particleSystem;
         [SerializeField] private MeshRenderer _mesh;
 
-        [SerializeField] private AudioClipCompendium _explosion;
-        [SerializeField] private AudioClipCompendium _explosionFar;
-        [SerializeField] private AudioClipCompendium _bounce;
+        [SerializeField] private AudioClipGroup _explosion;
+        [SerializeField] private AudioClipGroup _explosionFar;
+        [SerializeField] private AudioClipGroup _bounce;
+        private Rigidbody _rigidbody;
+
+        Rigidbody IGrenade.Rigidbody => _rigidbody;
 
         void IGrenade.Trigger(int secondsRemaining)
         {
+            _rigidbody = GetComponent<Rigidbody>();
+
             Debug.Log("Started HE nade with: " + secondsRemaining);
             StartCoroutine(Explode(secondsRemaining));
         }
@@ -61,7 +67,7 @@ namespace Game.Entities.Grenades
         {
             if (collision.relativeVelocity.sqrMagnitude > 5)
             {
-                AudioSource.PlayClipAtPoint(_bounce.GetRandom(), transform.position);
+                AudioToolService.PlayClipAtPoint(_bounce.GetRandom(), transform.position, 1, AudioChannels.ENVIRONMENT, 8);
             }
         }
 
@@ -71,6 +77,13 @@ namespace Game.Entities.Grenades
             _mesh.enabled = false;
             Bootstrap.Resolve<ImpactService>().System.ExplosionAtPosition(transform.position);
             //FindObjectOfType<CameraShakeController>().TriggerShake();
+        }
+
+        void IDamagableFromHurtbox.NotifyDamage(float damage, Vector3 position, Vector3 direction)
+        {
+            if(_rigidbody == null) _rigidbody = GetComponent<Rigidbody>();
+            _rigidbody.AddForce(direction.normalized * 10f, ForceMode.VelocityChange);
+
         }
     }
 }

@@ -9,8 +9,6 @@ namespace Game.Entities
         [SerializeField] private Vector3 _center = Vector3.zero;   
         public BoxCollider Collider => colliderVolume;
 
-
-
         private void Start()
         {
             GameObject go = new GameObject("Cover Volume");

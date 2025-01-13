@@ -1,5 +1,6 @@
 ﻿using Core.Engine;
 using Game.Hit;
+using Game.Player.Weapon;
 using Game.Service;
 using UnityEngine;
 
@@ -30,21 +31,22 @@ namespace Game.Service
 
     public class HitWeaponEventPayload
     {
-        // public WeaponEngine Sender { get; }
         public float Time { get; }
-
         public RaycastHit RaycastHit { get; }
         public Ray Ray { get; }
         public float Distance { get; }
         public float Damage { get; }
 
-        public HitWeaponEventPayload(RaycastHit raycastHit, Ray ray, float damage)
+        public bool IsSenderPlayer { get; }
+
+        public HitWeaponEventPayload(RaycastHit raycastHit, Ray ray, float damage, bool isSenderPlayer)
         {
             Time = UnityEngine.Time.time;
             RaycastHit = raycastHit;
             Distance = Vector3.Distance(ray.GetPoint(0), raycastHit.point);
             Damage = damage;
             Ray = ray;
+            IsSenderPlayer = isSenderPlayer;
         }
     }
 }
@@ -55,22 +57,25 @@ namespace Game.Hit
     {
         private void OnEnable()
         {
-            Bootstrap.Resolve<HitScanService>().HitEvent += OnHit;
+            Bootstrap.Resolve<HitScanService>().HitEvent += OnHitNotified;
         }
 
-        private void OnHit(HitWeaponEventPayload payload)
+        private void OnHitNotified(HitWeaponEventPayload payload)
         {
             if (payload.RaycastHit.transform == null) return;
 
-            foreach (IHittableFromWeapon hittable in payload.RaycastHit.transform.GetComponents<IHittableFromWeapon>())
+            //TODO: decidir si queremos emitir el hit solo al elemento colisionado, ergo, los hittables que sean componenets de ese transform solamente, o que pueda buscar verticalmente.
+            //IMPÓRTANTE: seteando q busque en el collider previsionalmente, puede introducir ghosting de hits.
+            //13-1
+            foreach (IHittableFromWeapon hittable in payload.RaycastHit.collider.transform.GetComponents<IHittableFromWeapon>())
             {
-                hittable.OnHit(payload);
+                hittable.Hit(payload);
             }
         }
 
         private void OnDisable()
         {
-            Bootstrap.Resolve<HitScanService>().HitEvent -= OnHit;
+            Bootstrap.Resolve<HitScanService>().HitEvent -= OnHitNotified;
         }
     }
 }

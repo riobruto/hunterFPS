@@ -42,6 +42,7 @@ namespace Core.Configuration
 
             [Header("Camera")]
             [SerializeField] private float _FOVGround;
+            [SerializeField] private float _FOVGroundViewCamera;
             [SerializeField] private float _FOVFlying;
             
 
@@ -61,6 +62,7 @@ namespace Core.Configuration
             public float HealthIncreaseRate { get => _healthIncreaseRate; }
 
             public float FOVGround { get => _FOVGround; }
+            public float FOVGroundViewCamera { get => _FOVGroundViewCamera; }
             public float FOVFlying { get => _FOVFlying; }
         }
     }

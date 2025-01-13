@@ -1,6 +1,10 @@
 ﻿using Core.Engine;
+using Game.Life;
+using Game.Life.Entities;
 using Life.Controllers;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace Game.Service
@@ -29,38 +33,16 @@ namespace Game.Service
 
     public class AgentGlobalSystem : MonoBehaviour
     {
+        public List<AgentController> ActiveAgents { get => _activeAgents; }
+        public List<CoverSpotEntity> CoverEntities { get => _coverEntities; }
+
+        private List<SoldierSquad> _activeSquads = new List<SoldierSquad>();
         private List<AgentController> _activeAgents = new List<AgentController>();
-
-        //GroupStealthData
-        private float _elapsedSincePlayerFound = 0;
-
-        private float _elapsedSinceAlerted = 0;
-        private float _timeToCalm = 13f;
-        private bool _playerRevealed;
+        private List<CoverSpotEntity> _coverEntities = new List<CoverSpotEntity>();
+        private Vector3 _pToSort;
 
         internal void Initialize()
         {
-        }
-
-        public int _attackSlots = 2;
-        public List<AgentController> _attackingAgents = new List<AgentController>();
-
-        public bool TryTakeAttackSlot(AgentController controller)
-        {
-            if (_attackingAgents.Count == _attackSlots) return false;
-            else _attackingAgents.Add(controller);
-            return true;
-        }
-
-        public void TakeAttackSlotForce(AgentController controller)
-        {
-            _attackingAgents.Remove(_attackingAgents[0]);
-            _attackingAgents.Add(controller);
-        }
-
-        public void ReleaseAttackSlot(AgentController controller)
-        {
-            if (_attackingAgents.Contains(controller)) _attackingAgents.Remove(controller);
         }
 
         public void RegisterAgent(AgentController controller)
@@ -69,26 +51,53 @@ namespace Game.Service
             controller.PlayerPerceptionEvent += OnPlayerDetectedByAgent;
         }
 
-        private void Update()
+        public void RegisterCoverSpot(CoverSpotEntity entity) => _coverEntities.Add(entity);
+
+        public void UnregisterCoverSpot(CoverSpotEntity entity)
         {
+            if (_coverEntities.Contains(entity))
+                _coverEntities.Remove(entity);
         }
 
-        private void OnPlayerDetectedByAgent(bool found)
+        public SoldierSquad CreateSquad(SoldierAgentController[] soldier)
         {
-            if (!found) return;
-            ResetStealthStatus();
-
-            foreach (AgentController controller in _activeAgents)
+            if (_activeSquads.Count == 0)
             {
-                if (controller.AgentGroup != Life.AgentGroup.AGGRO) return;
-                controller.ForcePlayerPerception();
+                SoldierSquad sq = new SoldierSquad(soldier);
+                _activeSquads.Add(sq);
+                return sq;
+            }
+            foreach (SoldierSquad soldierSquad in _activeSquads)
+            {
+                if (soldierSquad.MemberAmount + soldier.Length < SoldierSquad.MemberAmountLimit)
+                {
+                    soldierSquad.AddMembers(soldier);
+                    return soldierSquad;
+                }
+            }
+
+            SoldierSquad squad = new SoldierSquad(soldier);
+            _activeSquads.Add(squad);
+
+            return squad;
+        }
+
+        private void Update()
+        {
+            for (int i = 0; i < _activeSquads.Count; i++)
+            {
+                if (_activeSquads[i].MemberAmount == 0) _activeSquads.Remove(_activeSquads[i]);
             }
         }
 
-        private void ResetStealthStatus()
+        private void OnPlayerDetectedByAgent(AgentController controller, bool found)
         {
-            _elapsedSincePlayerFound = 0;
-            _elapsedSinceAlerted = 0;
+            if (!found) return;
+            foreach (AgentController cntroller in _activeAgents)
+            {
+                if (cntroller.AgentGroup != Life.AgentGroup.AGGRO) return;
+                cntroller.ForcePlayerPerception();
+            }
         }
 
         public void DiscardAgent(AgentController controller)
@@ -98,18 +107,23 @@ namespace Game.Service
 
         private void OnGUI()
         {
-            return;
-            using (new GUILayout.VerticalScope())
+            foreach (SoldierSquad squad in _activeSquads)
             {
-                GUILayout.Space(180);
-
-                foreach (AgentController controller in _activeAgents)
+                using (new GUILayout.VerticalScope(GUI.skin.box))
                 {
-                    GUILayout.BeginHorizontal();
-                    GUILayout.Label(controller.name);
-                    GUILayout.Label(controller.CurrentState.ToString());
-                    GUILayout.EndHorizontal();
+                    GUILayout.Label($"Is Engaged: {!squad.HasEngageTimeout}");
+                    GUILayout.Label($"Members: {squad.MemberAmount}");
+                    GUILayout.Label($"Att Slot: {squad.AttackingAgents.Count}");
+                    GUILayout.Label($"Can Grenade Slot: {squad.CanThrowGrenade}");
                 }
+            }
+        }
+
+        private void OnDrawGizmos()
+        {
+            foreach (SoldierSquad squad in _activeSquads)
+            {
+                squad.DrawGizmos();
             }
         }
     }

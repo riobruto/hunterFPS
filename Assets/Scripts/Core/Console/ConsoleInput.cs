@@ -44,6 +44,8 @@ namespace Core.Console
 
         private bool _giveItemMenu;
         private bool _giveWeaponMenu;
+        private bool _giveAttachmentMenu;
+        private List<AttachmentSettings> _catchedAttachmentSettings;
         private List<InventoryItem> _cachedSearch;
         private List<WeaponSettings> _cachedWeaponSearch;
         private bool _inmune;
@@ -72,7 +74,13 @@ namespace Core.Console
                     if (GUILayout.Button("Give Weapon"))
                     {
                         _giveWeaponMenu = !_giveWeaponMenu;
-                        _cachedWeaponSearch = FindAll<WeaponSettings>("Assets/Resources");
+                        _cachedWeaponSearch = FindAll<WeaponSettings>("Assets/Resources/WeaponSettings/Player");
+                    }
+                    if (GUILayout.Button("Give Attachment"))
+                    {
+                        //TODO: VER PORQUE NO FUNCIONA ESTA GAROMPA
+                        _giveAttachmentMenu = !_giveAttachmentMenu;
+                        _catchedAttachmentSettings = FindAll<AttachmentSettings>("Assets/Resources/WeaponSettings");
                     }
 
                     if (GUILayout.Button("Restore Player"))
@@ -82,7 +90,7 @@ namespace Core.Console
                     }
                     if (GUILayout.Button("Give Current Ammo"))
                     {
-                        Bootstrap.Resolve<InventoryService>().Instance.Ammunitions[FindObjectOfType<PlayerWeapons>().WeaponEngine.WeaponSettings.Ammo.Type] = 9999;
+                        InventoryService.Instance.Ammunitions[FindObjectOfType<PlayerWeapons>().WeaponEngine.WeaponSettings.Ammo.Type] = 9999;
                     }
 
                     if (GUILayout.Button("Toggle Player Inmunnity"))
@@ -113,8 +121,22 @@ namespace Core.Console
                             {
                                 if (GUILayout.Button(weapon.name))
                                 {
-                                    Bootstrap.Resolve<InventoryService>().Instance.TryGiveAmmo(weapon.Ammo.Type, weapon.Ammo.Type.PlayerLimit);
+                                    InventoryService.Instance.TryGiveAmmo(weapon.Ammo.Type, weapon.Ammo.Type.PlayerLimit);
                                     FindObjectOfType<PlayerWeapons>().TryGiveWeapon(weapon, weapon.Ammo.Size);
+                                }
+                            }
+                        }
+                    }
+
+                    if (_giveAttachmentMenu)
+                    {
+                        using (new GUILayout.VerticalScope())
+                        {
+                            foreach (AttachmentSettings attachment in _catchedAttachmentSettings)
+                            {
+                                if (GUILayout.Button(attachment.name))
+                                {                                  
+                                   InventoryService.Instance.TryGiveAttachment(attachment);
                                 }
                             }
                         }
@@ -127,7 +149,7 @@ namespace Core.Console
                             {
                                 if (GUILayout.Button(item.name))
                                 {
-                                    Bootstrap.Resolve<InventoryService>().Instance.TryAddItem(item);
+                                    InventoryService.Instance.TryAddItem(item);
                                 }
                             }
                         }

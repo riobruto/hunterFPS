@@ -19,7 +19,7 @@ namespace Game.Player.Weapon.Engines
         private bool _isInserting;
         private bool _isManipulatingBolt;
         private bool _isReloading;
-        private int _maxAmmo => _weaponSettings.Ammo.Size;
+        private int _maxAmmo;
         private bool _pinDeactivated;
         private bool _wantShooting;
         private float _timeOfSpray;
@@ -37,7 +37,7 @@ namespace Game.Player.Weapon.Engines
         bool IWeapon.Cocked => _weaponSettings.FireModes == WeaponFireModes.BOLT ? !_pinDeactivated : true;
 
         int IWeapon.CurrentAmmo => _currentAmmo;
-        int IWeapon.MaxAmmo => _isInitialized ? _weaponSettings.Ammo.Size : 0;
+        int IWeapon.MaxAmmo => _isInitialized ? _maxAmmo : 0;
 
         bool IWeapon.Empty => _currentAmmo == 0;
 
@@ -80,12 +80,55 @@ namespace Game.Player.Weapon.Engines
 
         private bool _playerIsOwner = false;
 
+        private InventorySystem _inventory;
+
         void IWeapon.Initialize(WeaponSettings settings, int currentAmmo, bool cocked, bool isPlayerOwner)
         {
             _weaponSettings = settings;
-            _currentAmmo = currentAmmo;
             _pinDeactivated = !cocked;
             _isInitialized = true;
+            _playerIsOwner = isPlayerOwner;
+
+            _currentAmmo = currentAmmo;
+            _maxAmmo = settings.Ammo.Size;
+            _firePPM = settings.FireRatioPPM;
+            _damage = settings.Damage;
+            _swayMagnitude = settings.Sway.Magnitude;
+
+            if (_playerIsOwner)
+            {
+                _inventory = InventoryService.Instance;
+                _inventory.AttachmentAddedEvent += OnAddedAttachment;
+                CheckForAttachmentOverrides();
+            }
+        }
+
+        private void OnAddedAttachment(AttachmentSettings item)
+        {
+            CheckForAttachmentOverrides();
+        }
+
+        private void CheckForAttachmentOverrides()
+        {
+            foreach (AttachmentSettings attachment in _weaponSettings.Attachments.AllowedAttachments)
+            {
+                if (_inventory.HasAttachment(attachment))
+                {
+                    if (attachment is MagazineAttachmentSetting)
+                    {
+                        _maxAmmo = (attachment as MagazineAttachmentSetting).CapacityOverride;
+                    }
+                    if (attachment is ActionAttachmentSetting)
+                    {
+                        _damage = (attachment as ActionAttachmentSetting).DamageOverride;
+                        _firePPM = (attachment as ActionAttachmentSetting).FireRatePPMOverride;
+                    }
+                    if (attachment is GripAttachmentSetting)
+                    {
+                        _swayMagnitude = (attachment as GripAttachmentSetting).Sway;
+                    }
+                }
+            }
         }
 
         void IWeapon.Activate()
@@ -272,13 +315,13 @@ namespace Game.Player.Weapon.Engines
                     return;
                 }
 
-                NotifyState(WeaponState.BEGIN_SHOOTING);
                 CreateHitScan();
                 _pinDeactivated = _weaponSettings.FireModes == WeaponFireModes.BOLT;
-                _fireRatio = 60 / _weaponSettings.FireRatioPPM;
+                _fireRatio = 60 / (float)_firePPM;
                 _hasReleasedTrigger = false;
                 _currentAmmo -= 1;
-                _timeOfSpray = Mathf.Clamp(_timeOfSpray + _fireRatio, 0, 1);
+                _timeOfSpray = Mathf.Clamp(_timeOfSpray + _fireRatio, 0, float.MaxValue);
+                NotifyState(WeaponState.BEGIN_SHOOTING);
             }
 
             if (!_isShooting)
@@ -287,23 +330,50 @@ namespace Game.Player.Weapon.Engines
             }
         }
 
+
+
         private void CreateHitScan()
         {
-            //TODO: Crear logica de escopeta. (para q se pueda noma)
-
-            Ray ray = new Ray(GetRay().origin, GetRay().direction);
+           
 
             Vector3 offset = _playerIsOwner ? transform.right * .25f + transform.up * -.25f : Vector3.zero;
-            
-            if (VisualPhysics.Raycast(ray, out RaycastHit hit, 1000, _currentLayerMask))
-            {
-                Bootstrap.Resolve<HitScanService>().Dispatch(new HitWeaponEventPayload(hit, new Ray(ray.origin, ray.direction), _weaponSettings.Damage));
 
-                Bootstrap.Resolve<ImpactService>().System.TraceAtPosition(ray.origin + offset, hit.point);
+            if (_weaponSettings.Shot.Mode == WeaponShotType.SHOTGUN)
+            {
+                Vector2 spread = _weaponSettings.Shot.Spread;
+
+                for (int i = 0; i < _weaponSettings.Shot.Amount; i++)
+                {
+                    Vector3 spreadVector = new Vector3(UnityEngine.Random.Range(-spread.x, spread.x), UnityEngine.Random.Range(-spread.y, spread.y), UnityEngine.Random.Range(-spread.y, spread.y));
+                    Ray ray = new Ray(GetRay().origin, GetRay().direction + spreadVector);
+
+
+                    if (VisualPhysics.Raycast(ray, out RaycastHit hit, 1000, _currentLayerMask))
+                    {
+                        Bootstrap.Resolve<HitScanService>().Dispatch(new HitWeaponEventPayload(hit, new Ray(ray.origin, ray.direction), _damage / _weaponSettings.Shot.Amount, _playerIsOwner));
+
+                        Bootstrap.Resolve<ImpactService>().System.TraceAtPosition(ray.origin + offset, hit.point);
+                    }
+
+                    else
+                    {
+                        Bootstrap.Resolve<ImpactService>().System.TraceAtPosition(ray.origin + offset, ray.origin + ray.direction * 100);
+                    }
+                }
             }
             else
             {
-                Bootstrap.Resolve<ImpactService>().System.TraceAtPosition(ray.origin + offset, ray.origin + ray.direction * 100);
+                Ray ray = new Ray(GetRay().origin, GetRay().direction);
+
+                if (VisualPhysics.Raycast(ray, out RaycastHit hit, 1000, _currentLayerMask))
+                {
+                    Bootstrap.Resolve<HitScanService>().Dispatch(new HitWeaponEventPayload(hit, new Ray(ray.origin, ray.direction), _damage, _playerIsOwner));
+                    Bootstrap.Resolve<ImpactService>().System.TraceAtPosition(ray.origin + offset, hit.point);
+                }
+                else
+                {
+                    Bootstrap.Resolve<ImpactService>().System.TraceAtPosition(ray.origin + offset, ray.origin + ray.direction * 100);
+                }
             }
         }
 
@@ -319,7 +389,7 @@ namespace Game.Player.Weapon.Engines
             Vector3 pointB = pointA + transform.forward * 100;
 
             pointB += transform.right * (spray.x + _noise.x) + transform.up * (spray.y + _noise.y);
-            pointB += (transform.right * _movementDelta.x + transform.up * _movementDelta.y) * _weaponSettings.Sway.Magnitude;
+            pointB += (transform.right * _movementDelta.x + transform.up * _movementDelta.y) * _swayMagnitude;
 
             return new Ray(pointA, pointB - pointA);
         }
@@ -335,6 +405,9 @@ namespace Game.Player.Weapon.Engines
         private Vector2 _movementDelta;
         private Vector2 _noise;
         private LayerMask _currentLayerMask;
+        private float _damage;
+        private int _firePPM;
+        private float _swayMagnitude;
 
         void IWeapon.SetMovementDelta(Vector2 value)
         {

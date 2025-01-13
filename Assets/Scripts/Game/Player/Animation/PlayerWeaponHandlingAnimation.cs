@@ -1,7 +1,9 @@
-﻿using Game.Animation;
+﻿using Core.Weapon;
+using Game.Animation;
 using Game.Player.Controllers;
 using Game.Player.Movement;
 using Game.Player.Weapon;
+using Game.Service;
 using System.Collections;
 using UnityEngine;
 
@@ -20,8 +22,10 @@ namespace Game.Player.Animation
         private Vector3 _crouchRotation;
         private Vector3 _currentPosition;
         private Vector3 _currentRotation;
-
         private Quaternion _finalRotation;
+
+        //creando otro transform soluciono lo de q rote fuera del angulo de la mira ! too bad!
+        [SerializeField] private Transform _swayRotationTransform;
 
         [Header("Loop Animations")]
         [SerializeField] private AnimationTransformCurve _flyAnimation;
@@ -41,7 +45,14 @@ namespace Game.Player.Animation
         private Vector3 _runPosition;
         private Vector3 _runRotation;
         [SerializeField] private float _smoothFactor;
-        [SerializeField] private float _swayIntensity;
+        [SerializeField] private float _swayMovementIntensity;
+
+        [Header("Sway")]
+        [SerializeField] private float _swayRotationOnAim, _swayRotationOffAim;
+
+        [SerializeField] private float _swayPositionOnAim, _swayPositionOffAim;
+
+        private float _swayRotationIntensity;
         private Transform _transform;
         private Vector3 _triggerPosition;
         private Vector3 _triggerRotation;
@@ -121,10 +132,22 @@ namespace Game.Player.Animation
 
             rayDirection = _wController.WeaponEngine.Initialized ? Quaternion.LookRotation(transform.InverseTransformDirection(_wController.WeaponEngine.Ray.direction), Vector3.up) : Quaternion.identity;
 
-            _transform.localPosition = Vector3.SmoothDamp(_transform.localPosition, _currentPosition + _triggerPosition + _obstructedPosition + _aimPosition, ref _refSmoothVelocity, _smoothFactor);
-            Vector3 swayRotation = new Vector3(_wController.MouseDelta.y, 0, -_wController.MouseDelta.x) * _aimIntensityMultiplier;
-            _finalRotation = rayDirection * Quaternion.Euler(_currentRotation + _triggerRotation + _obstructedRotation + speedRotation + _aimRotation + swayRotation);
-            _transform.localRotation = Quaternion.Slerp(_transform.localRotation, _finalRotation, Time.deltaTime / _smoothFactor);
+            _transform.localPosition = 
+                Vector3.SmoothDamp(_transform.localPosition, _currentPosition +
+                _triggerPosition +
+                _obstructedPosition +
+                _aimPosition +
+                (-_mController.RelativeVelocity * _swayMovementIntensity)
+                , ref _refSmoothVelocity, _smoothFactor);
+
+            Vector3 swayRotation = Vector3.ClampMagnitude(new Vector3(_wController.MouseDelta.y, 0, -_wController.MouseDelta.x) * _swayRotationIntensity, 5f);
+            _finalRotation = rayDirection * Quaternion.Euler(_currentRotation + _triggerRotation + _obstructedRotation + speedRotation + swayRotation);
+            _swayRotationTransform.localRotation = Quaternion.Slerp(_swayRotationTransform.localRotation, _finalRotation, Time.deltaTime / _smoothFactor);
+
+            _transform.localRotation = Quaternion.Slerp(_transform.localRotation, Quaternion.Euler(_aimRotation), Time.deltaTime / _smoothFactor);
+
+            //_swayRotationTransform.localRotation = Quaternion.Slerp(_swayRotationTransform.localRotation, Quaternion.Euler(swayRotation), Time.deltaTime / _smoothFactor);
+
             //transform.localScale = _wController.WeaponEngine.WeaponSettings.Aim.ScaleOffset;
         }
 
@@ -162,9 +185,24 @@ namespace Game.Player.Animation
 
         private void OnAim(bool state)
         {
-            _aimPosition = state ? _wController.WeaponEngine.WeaponSettings.Aim.Position : _wController.WeaponEngine.WeaponSettings.Aim.RestPosition;
-            _aimRotation = state ? _wController.WeaponEngine.WeaponSettings.Aim.Rotation : _wController.WeaponEngine.WeaponSettings.Aim.RestRotation;
-            _aimIntensityMultiplier = state ? 0.0125f : 1f;
+            _aimIntensityMultiplier = state ? 0f : 1f;
+            _swayMovementIntensity = state ? _swayPositionOnAim : _swayPositionOffAim;
+            _swayRotationIntensity = state ? _swayRotationOnAim : _swayRotationOffAim;
+
+            Vector3 aimPos = _wController.WeaponEngine.WeaponSettings.Aim.Position;
+            Vector3 aimRot = _wController.WeaponEngine.WeaponSettings.Aim.Rotation;
+
+            foreach (AttachmentSettings attachment in _wController.WeaponEngine.WeaponSettings.Attachments.AllowedAttachments)
+            {
+                if (attachment is OpticAttachmentSetting && InventoryService.Instance.HasAttachment(attachment))
+                {
+                    aimPos = (attachment as OpticAttachmentSetting).AimPositionOverride;
+                    aimRot = (attachment as OpticAttachmentSetting).AimRotationOverride;
+                }
+            }
+
+            _aimPosition = state ? aimPos : _wController.WeaponEngine.WeaponSettings.Aim.RestPosition;
+            _aimRotation = state ? aimRot : _wController.WeaponEngine.WeaponSettings.Aim.RestRotation;
         }
 
         private IEnumerator TriggerClip(AnimationTransformCurve clip, bool flipped)

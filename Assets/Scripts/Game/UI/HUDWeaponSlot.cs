@@ -1,4 +1,5 @@
 ﻿using Core.Engine;
+using Core.Weapon;
 using Game.Player.Controllers;
 using Game.Service;
 using System.Collections;
@@ -25,14 +26,15 @@ namespace UI
         private float _time;
 
         [SerializeField] private AnimationCurve _curves;
+        [SerializeField] private WeaponSlotType _slotType;
+
+        public WeaponSlotType Type => _slotType;
 
         private void Start()
         {
             _transform = GetComponent<RectTransform>();
-
-            _hiddenPosition = _transform.anchoredPosition;
-            _hiddenPosition.y = -100;
             _selectedPosition = _transform.anchoredPosition;
+            _hiddenPosition = _selectedPosition + Vector2.right * 150;
 
             Hide();
         }
@@ -49,6 +51,7 @@ namespace UI
         {
             _from = _hiddenPosition;
             _to = _selectedPosition;
+
             StartCoroutine(Move());
             Invoke("Hide", duration);
         }
@@ -56,8 +59,8 @@ namespace UI
         [ContextMenu("Hide")]
         public void Hide()
         {
-            _to = _hiddenPosition;
             _from = _transform.anchoredPosition;
+            _to = _hiddenPosition; 
 
             StartCoroutine(Move());
         }
@@ -78,9 +81,9 @@ namespace UI
 
         internal void Set(PlayerWeaponSlot playerWeaponSlot)
         {
+            _slotType = playerWeaponSlot.SlotType;
             _name.text = playerWeaponSlot.WeaponInstances[0].Settings.name;
             Sprite sprite = playerWeaponSlot.WeaponInstances[0].Settings.HUDSprite;
-            
             if (sprite)
             {
                 _image.sprite = sprite;

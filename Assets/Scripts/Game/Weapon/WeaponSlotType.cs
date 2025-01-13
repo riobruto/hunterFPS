@@ -2,8 +2,12 @@
 {
     public enum WeaponSlotType
     {
-        MAIN,
-        SECONDARY,
+        PISTOL,
+        SMG,
+        DMR,
+        SNIPER,
+        SHOTGUN,
+
         MEELEE,
         GRENADE
     }

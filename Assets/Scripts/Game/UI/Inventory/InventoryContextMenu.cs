@@ -14,7 +14,6 @@ namespace UI.Inventory
         [SerializeField] private Button _drop;
 
         public event UnityAction Use;
-
         public event UnityAction Drop;
 
         private void OnEnable()

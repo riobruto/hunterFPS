@@ -1,51 +1,34 @@
 ﻿using Game.Entities;
-using Game.Service;
-using System.Linq;
+using UnityEngine;
 
 namespace Game.Objectives
 {
     public class PickUpObjective : Objective
     {
-        private SimpleInteractable[] _targets;
-        private string _name;
-        private string _description;
+        [SerializeField] private SimpleInteractable[] _targets;
 
-        public override bool IsCompleted => _targets.All(x => x.Taken);
+        private Vector3 _centroid;
 
-        public override string TaskName => _name;
-        public override string TaskDescription => _description;
+        public override Vector3 TargetPosition => _centroid;
 
-        public override event ObjectiveCompleted CompletedEvent;
-
-        public override event ObjectiveFailed FailedEvent;
-
-        public override void OnCompleted()
-        {
-          
-            CompletedEvent?.Invoke(this);
-        }
-
-        public override void OnFailed()
+        private void Evaluate()
         {
         }
 
         public override void Run()
         {
+            Status = ObjectiveStatus.ACTIVE;
             foreach (var target in _targets)
             {
+                _centroid += target.transform.position;
+                _centroid /= _targets.Length;
                 target.InteractEvent += Evaluate;
             }
         }
 
-        private void Evaluate()
-        {
-            if (IsCompleted) { OnCompleted(); }
-        }
-
         public override void Create<T>(string name, T target, string description)
         {
-            _name = name;
-            _description = description;
+           
             _targets = target as SimpleInteractable[];
         }
     }

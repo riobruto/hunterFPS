@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using Game.Player.Sound;
+using System.Collections;
 using UnityEngine;
 
 namespace Game.Inventory
@@ -17,6 +18,9 @@ namespace Game.Inventory
         [SerializeField] private int _playerLimit;
         [SerializeField] private int _dropAmount;
 
+        [SerializeField] private AudioClipGroup _shellImpact;
+
+
         public string Name { get => _name; }
         public string Description { get => _description; }
         public Sprite Image { get => _image; }
@@ -25,6 +29,7 @@ namespace Game.Inventory
         public float DamageToWood { get => _damageToWood; }
         public int PlayerLimit { get => _playerLimit; }
         public int PickUpAmount { get => _dropAmount; }
+        public AudioClipGroup ShellImpact { get => _shellImpact;  }
 
         //penetration and reflexion
     }

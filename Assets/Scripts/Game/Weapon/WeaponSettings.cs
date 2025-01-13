@@ -1,5 +1,5 @@
-﻿using Game.Animation;
-using Game.Inventory;
+﻿using Game.Inventory;
+using Game.Player.Sound;
 using System;
 using UnityEngine;
 
@@ -16,7 +16,8 @@ namespace Core.Weapon
         [SerializeField] private GameObject _weaponViewModel;
         [SerializeField] private GameObject _weaponWorldModel;
         [SerializeField, Range(0, 1000)] private float _damage;
-        [SerializeField, Range(1, 1500)] private float _fireRatioPPM;
+        [SerializeField, Range(1, 1500)] private int _fireRatioPPM;
+
         [SerializeField] private int _bulletSpeed;
         [SerializeField] private WeaponFireModes _fireMode;
 
@@ -53,11 +54,11 @@ namespace Core.Weapon
         [SerializeField] private WeaponAudio _weaponAudio;
 
         [Header("")]
-        [SerializeField] private WeaponAnimation _weaponAnimation;
+        [SerializeField] private WeaponAttachments _weaponAttachments;
 
         public string Name => _name;
         public float Damage => _damage;
-        public float FireRatioPPM => _fireRatioPPM;
+        public int FireRatioPPM => _fireRatioPPM;
         public float BulletSpeed => GetRandomBulletVelocity(_bulletSpeed);
         public float SprayMultiplier => _sprayMultiplier;
         public WeaponSlotType SlotType => _slotType;
@@ -65,9 +66,11 @@ namespace Core.Weapon
         public WeaponSway Sway => _weaponSway;
         public WeaponShot Shot => _weaponShot;
         public WeaponAudio Audio => _weaponAudio;
-        public WeaponAnimation Animation => _weaponAnimation;
+
         public WeaponAim Aim => _weaponAim;
         public WeaponReload Reload => _weaponReload;
+        public WeaponAttachments Attachments => _weaponAttachments;
+
         public GameObject ViewWeaponPrefab => _weaponViewModel;
         public GameObject WorldWeaponPrefab => _weaponWorldModel;
         public WeaponFireModes FireModes => _fireMode;
@@ -77,33 +80,7 @@ namespace Core.Weapon
 
         public Vector2 GetSprayPatternValue(float time) => new Vector2(_sprayPatternAxisX.Evaluate(time), _sprayPatternAxisY.Evaluate(time));
 
-        public GameObject ViewPrefab => _weaponViewModel;
-        private Texture2D _uiTexture;
-        private Sprite _hudSprite;
-
-        public Texture2D UITexture
-        {
-            get
-            {
-                if (_uiTexture == null)
-                {
-                    _uiTexture = CreateTextureFromSlicedSprite(_weaponSprite);
-                }
-                return _uiTexture;
-            }
-        }
-
         public Sprite HUDSprite { get => _weaponSprite; }
-
-        private Texture2D CreateTextureFromSlicedSprite(Sprite sprite)
-        {
-            Debug.Log("Image done!");
-            Texture2D cropped = new Texture2D((int)sprite.rect.width, (int)sprite.rect.height);
-            Color[] pixels = sprite.texture.GetPixels((int)sprite.textureRect.x, (int)sprite.textureRect.y, (int)sprite.textureRect.width, (int)sprite.textureRect.height);
-            cropped.SetPixels(pixels);
-            cropped.Apply();
-            return cropped;
-        }
 
         private int GetRandomBulletVelocity(int bulletSpeed)
         {
@@ -123,58 +100,13 @@ namespace Core.Weapon
         [Serializable]
         public class WeaponAudio
         {
-            [SerializeField] private AudioClip[] _shootClips;
-            [SerializeField] private AudioClip[] _reloadEnterClip;
-            [SerializeField] private AudioClip[] _reloadInsertClips;
-            [SerializeField] private AudioClip[] _reloadExitClip;
-            [SerializeField] private AudioClip[] _failClips;
+            [SerializeField] private AudioClipGroup _shootClips;
 
-            [Header("Delay")]
-            [SerializeField] private float _enterClipDelay;
+            [SerializeField] private float _hearingRange;
 
-            [SerializeField] private float _exitClipDelay;
+            public float HearingRange => _hearingRange;
 
-            private AudioClip _lastClip { get; set; }
-
-            private AudioClip GetRandomClip(AudioClip[] clips)
-            {
-                if (clips.Length == 0) return default;
-
-                AudioClip result = _lastClip;
-                int attemp = 30;
-                while (result == _lastClip)
-                {
-                    attemp--;
-                    result = clips[UnityEngine.Random.Range(0, clips.Length)];
-                    if (attemp == 0 || clips.Length < 2) break;
-                }
-                _lastClip = result;
-                return result;
-            }
-
-            private AudioClip GetClip(AudioClip[] clips, int index)
-            {
-                return clips[index];
-            }
-
-            public AudioClip ShootClip => GetRandomClip(_shootClips);
-            public AudioClip FailClip => GetRandomClip(_failClips);
-
-            public AudioClip EnterClip => GetRandomClip(_reloadEnterClip);
-            public AudioClip InsertClips => GetRandomClip(_reloadInsertClips);
-            public AudioClip ExitClip => GetRandomClip(_reloadExitClip);
-
-            public float EnterClipDelay => _enterClipDelay;
-            public float ExitClipDelay => _exitClipDelay;
-        }
-
-        [Serializable]
-        public class WeaponAnimation
-        {
-            [SerializeField] private AnimationTransformCurve _firingCurves;
-            [SerializeField] private AnimationTransformCurve _reloadCurves;
-            public AnimationTransformCurve FiringCurves { get => _firingCurves; }
-            public AnimationTransformCurve ReloadCurves { get => _reloadCurves; }
+            public AudioClipGroup ShootClips { get => _shootClips;  }
         }
 
         [Serializable]
@@ -184,7 +116,6 @@ namespace Core.Weapon
             [SerializeField] private Vector3 _positionOffset;
 
             [SerializeField] private Vector3 _rotationOffset;
-
             [SerializeField] private Vector3 _scaleOffset;
 
             [Header("Camera")]
@@ -234,6 +165,7 @@ namespace Core.Weapon
 
             [Header("Only For Bolt Actions")]
             [SerializeField] private float _boltOpenTime;
+
             [SerializeField] private float _boltCloseTime;
             [SerializeField] private bool _grantFastReloadAtEmpty;
             public WeaponReloadMode Mode => _reloadMode;
@@ -285,6 +217,13 @@ namespace Core.Weapon
                 _randomResult = (int)result;
                 return _randomResult;
             }
+        }
+
+        [Serializable]
+        public class WeaponAttachments
+        {
+            [SerializeField] private AttachmentSettings[] _allowedAttachmentForWeapon;
+            public AttachmentSettings[] AllowedAttachments { get => _allowedAttachmentForWeapon; }
         }
     }
 }

@@ -35,9 +35,9 @@ namespace Game.Life.Controllers
         public void PlayClip(AudioClip clip)
         { AudioToolService.PlayClipAtPoint(clip, _pitch.position, 1, AudioChannels.AGENT); }
 
-        public override void OnHurt(float value)
+        public override void OnHurt(AgentHurtPayload value)
         {
-            SetHealth(GetHealth() - value);
+            SetHealth(GetHealth() - value.Amount);
             if (Machine.CurrentState == _attack) return;
 
             Machine.ForceChangeToState(_attack);
@@ -51,7 +51,7 @@ namespace Game.Life.Controllers
 
         public override void OnStart()
         {
-            NavMesh.enabled = false;
+            NavMeshAgent.enabled = false;
             Animator.enabled = false;
             CreateStates();
             CreateTransitions();
@@ -67,8 +67,8 @@ namespace Game.Life.Controllers
             Machine.AddTransition(_standby, _dead, new FuncPredicate(() => IsDead));
             Machine.AddTransition(_attack, _dead, new FuncPredicate(() => IsDead));
 
-            Machine.AddTransition(_standby, _attack, new FuncPredicate(() => PlayerVisualDetected));
-            Machine.AddTransition(_attack, _standby, new FuncPredicate(() => !(PlayerVisualDetected)));
+            Machine.AddTransition(_standby, _attack, new FuncPredicate(() => HasPlayerVisual));
+            Machine.AddTransition(_attack, _standby, new FuncPredicate(() => !(HasPlayerVisual)));
 
             Machine.SetState(_standby);
         }
@@ -92,7 +92,7 @@ namespace Game.Life.Controllers
         {
             if (IsDead) return;
 
-            if (_weapon.HasNoAmmo)
+            if (_weapon.Empty)
             {
                 _weapon.WeaponEngine.ReleaseFire();
                 _shooting = false;

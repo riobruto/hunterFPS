@@ -70,7 +70,7 @@ namespace Game.Entities.Grenades
 
         private void GiveItem()
         {
-            Bootstrap.Resolve<InventoryService>().Instance.GiveGrenades(_amount, _type);
+            InventoryService.Instance.GiveGrenades(_amount, _type);
         }
 
         bool IInteractable.CanInteract() => _canBeTaken;

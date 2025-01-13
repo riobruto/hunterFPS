@@ -1,8 +1,9 @@
 ﻿using Core.Engine;
+using Core.Weapon;
 using Game.Player.Controllers;
 using Game.Player.Movement;
 using Game.Player.Weapon;
-using System;
+using Game.Service;
 using System.Collections;
 using UnityEngine;
 
@@ -14,6 +15,7 @@ namespace Game.Player.Animation
         private PlayerRigidbodyMovement _mController;
         private GameSettings _settings;
         private Camera _camera;
+        [SerializeField] private Camera _viewcamera;
         private PlayerHealth _health;
 
         void IObserverFromPlayerWeapon.Initalize(PlayerWeapons controller)
@@ -68,18 +70,36 @@ namespace Game.Player.Animation
         private float _desiredFov = 60;
         private bool _isAimig;
         private float _refFOVVelocity;
+        private float _refFOVViewVelocity;
 
         private void LateUpdate()
         {
             _camera.fieldOfView = Mathf.SmoothDamp(_camera.fieldOfView, _desiredFov, ref _refFOVVelocity, 0.15f);
+            _viewcamera.fieldOfView = Mathf.SmoothDamp(_viewcamera.fieldOfView, _isAimig ? _camera.fieldOfView : _settings.PlayerConfiguration.Settings.FOVGroundViewCamera, ref _refFOVViewVelocity, 0.15f); ;
 
             if (_isAimig)
             {
+                foreach (AttachmentSettings attachment in _wController.WeaponEngine.WeaponSettings.Attachments.AllowedAttachments)
+                {
+                    if (!(attachment is OpticAttachmentSetting)) continue;
+
+                    if (InventoryService.Instance.HasAttachment(attachment))
+                    {
+                        _desiredFov = (attachment as OpticAttachmentSetting).FovOverride;
+                        return;
+                    }
+                }
+
                 _desiredFov = _wController.WeaponEngine.WeaponSettings.Aim.FieldOfView;
+
                 return;
             }
 
             _desiredFov = _settings.PlayerConfiguration.Settings.FOVGround;
+
+
+            
+
         }
 
         void IObserverFromPlayerWeapon.Detach(PlayerWeapons controller)

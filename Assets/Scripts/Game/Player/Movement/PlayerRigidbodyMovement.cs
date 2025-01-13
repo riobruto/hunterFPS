@@ -67,6 +67,7 @@ namespace Game.Player
         private Vector3 _jumpboost;
         private float _verticalLookAngle;
         private bool _wantCrouching;
+        private bool _jumpCrouch;
         private float _crouchRefVelocity;
 
         public bool IsSprinting => CurrentState == PlayerMovementState.SPRINT;
@@ -75,6 +76,9 @@ namespace Game.Player
 
         private bool CastRay() => VisualPhysics.SphereCast(transform.position + transform.up,
             _collider.radius - 0.05f, -transform.up, out _hit, _rideHeight, _layer, QueryTriggerInteraction.Ignore);
+
+        private bool CastRayBox() => VisualPhysics.BoxCast(transform.position + transform.up,
+            Vector3.one * (_collider.radius - 0.1f), -transform.up, out _hit, transform.rotation, _rideHeight, _layer, QueryTriggerInteraction.Ignore);
 
         //Public fields
 
@@ -96,9 +100,10 @@ namespace Game.Player
 
         private void Start()
         {
+            _stamina = _maxStamina;
             _collider = GetComponent<CapsuleCollider>();
             _rigidBody = GetComponent<Rigidbody>();
-            _layer = Bootstrap.Resolve<GameSettings>().RaycastConfiguration.IgnoreLayers;
+            _layer = Bootstrap.Resolve<GameSettings>().RaycastConfiguration.PlayerSpringLayers;
             _rigidBody.freezeRotation = true;
             foreach (IObserverFromPlayerMovement movement in GetComponentsInChildren<IObserverFromPlayerMovement>()) { movement.Initalize(this); }
         }
@@ -142,6 +147,9 @@ namespace Game.Player
         public float VerticalLookAngle { get => _verticalLookAngle; }
         public float WalkSpeed { get => _walkSpeed; }
         public float SprintSpeed { get => _sprintSpeed; }
+        public RaycastHit Hit { get => _hit; }
+        public Vector3 VelocityDelta { get => _velocityDelta; }
+        public Rigidbody Rigidbody { get => _rigidBody; }
 
         private void ManageStamina()
         {
@@ -179,9 +187,14 @@ namespace Game.Player
         private void OnCrouch(InputValue value)
         {
             if (!AllowCrouch) { _wantCrouching = false; return; }
-
             if (CheckHeadObstruction() && _wantCrouching) return;
-            else _wantCrouching = !_wantCrouching;
+            if (!IsGrounded) { _wantCrouching = false; return; }
+            else
+            {
+                if (_jumpCrouch == true) { _jumpCrouch = _wantCrouching = false; }
+                else _wantCrouching = !_wantCrouching;
+            }
+
             if (_wantSprinting) _wantSprinting = false;
         }
 
@@ -197,14 +210,24 @@ namespace Game.Player
         {
             if (_pauseMovement) return;
             if (!AllowJump) { _wantJump = false; return; }
+            if (_stamina < 10) { _wantJump = false; return; }
             _wantJump = value.isPressed && !_wantCrouching;
         }
 
         private void ManageCrouchRezise()
         {
+
+            //TODO: AVOID UNCROUCHING IF OBSTRUCTED AFTER JUMPING
+            if (_currentState == PlayerMovementState.LANDING && _jumpCrouch == true)
+            {
+                if (!CheckHeadObstruction() && !_wantCrouching) _jumpCrouch = false;
+            }
+
             if (_pauseMovement) { _crouchAmount = 0; return; }
 
-            _crouchAmount = Mathf.SmoothDamp(_crouchAmount, _wantCrouching && AllowCrouch || !_grounded ? 1 : 0, ref _crouchRefVelocity, _crouchChangeSpeed);
+            _crouchAmount = Mathf.SmoothDamp(_crouchAmount, _wantCrouching && AllowCrouch || _jumpCrouch ? 1 : 0, ref _crouchRefVelocity, _crouchChangeSpeed);
+
+            
             _collider.center = Vector3.up * Mathf.Lerp(1.25f, .75f, _crouchAmount);
             _collider.height = Mathf.Lerp(1.75f, 1f, _crouchAmount);
             _head.localPosition = Vector3.up * Mathf.Lerp(1.75f, 1f, _crouchAmount);
@@ -224,10 +247,10 @@ namespace Game.Player
 
                 if (_pauseMovement)
                 {
-                    transform.rotation = transform.rotation * Quaternion.Euler(Vector3.up * _inputHead.x * _sensitivity * Time.fixedDeltaTime);
+                    transform.rotation = transform.rotation * Quaternion.Euler(Vector3.up * _inputHead.x * _sensitivity * Time.deltaTime);
                 }
                 else
-                    _rigidBody.MoveRotation(_rigidBody.rotation * Quaternion.Euler(Vector3.up * _inputHead.x * _sensitivity * Time.fixedDeltaTime));
+                    _rigidBody.MoveRotation(_rigidBody.rotation * Quaternion.Euler(Vector3.up * _inputHead.x * _sensitivity * Time.deltaTime));
             }
         }
 
@@ -236,12 +259,16 @@ namespace Game.Player
             _verticalLookAngle += target.x;
         }
 
+        private Vector3 _currentVelocity;
+
         private void FixedUpdate()
         {
+            _velocityDelta = RelativeVelocity - _currentVelocity;
+
             _jumpCool = Mathf.Clamp(_jumpCool - Time.fixedDeltaTime, 0f, 1f);
 
             if (_pauseMovement) return;
-            if (_grounded = CastRay())
+            if (_grounded = _useBoxcast ? CastRayBox() : CastRay())
             {
                 _otherRigidBody = null;
                 Vector3 otherVelocity = Vector3.zero;
@@ -256,13 +283,15 @@ namespace Game.Player
                 //We create jump forces
                 Vector3 jumpImpulse = Vector3.zero;
                 //todo: manage stamina
-                if (_wantJump && _grounded && _jumpCool == 0 && AllowJump && Stamina > 10)
+                if (_wantJump && _grounded && _jumpCool == 0 && AllowJump)
                 {
+                    _jumpCrouch = true; 
                     _jumpCool = 1;
                     _currentState = PlayerMovementState.JUMP;
                     jumpImpulse = (Vector3.up) * _jumpForce;
                     _wantJump = false;
-                    Stamina -= 10 - (10*_staminaResistance);
+                    Stamina -= 10 - (10 * _staminaResistance);
+
                 }
 
                 //Spring and Slipping forces
@@ -291,6 +320,8 @@ namespace Game.Player
             }
             else ManageAirControl();
             ManageFall();
+
+            _currentVelocity = RelativeVelocity;
         }
 
         private void ManageFall()
@@ -352,13 +383,13 @@ namespace Game.Player
             else _move = Vector3.zero;
 
             Vector3.ClampMagnitude(_move, 1);
-            _move *= _walkSpeed; 
+            _move *= _walkSpeed;
             bool canSprint = _move.z > 0 && _grounded && AllowSprint && Stamina > 5;
             if (canSprint && _wantSprinting)
             {
                 _move.z += (_sprintSpeed - _walkSpeed);
 
-                Debug.Log(_staminaDecrement * _staminaResistance);
+                //Debug.Log(_staminaDecrement * _staminaResistance);
                 Stamina -= (Time.fixedDeltaTime * (_staminaDecrement - (_staminaDecrement * _staminaResistance)));
             }
             if (_wantCrouching) { _move = Vector3.ClampMagnitude(_move, _crouchSpeed); }
@@ -394,6 +425,7 @@ namespace Game.Player
 
         private void OnGUI()
         {
+            return;
             GUILayout.Space(100);
             GUILayout.Label($"Velocity: {Velocity}");
             GUILayout.Label($"Relative Velocity: {RelativeVelocity}");
@@ -415,7 +447,7 @@ namespace Game.Player
 
         public void Push(Vector3 worldDirection)
         {
-            _rigidBody.AddForce(worldDirection);
+            _rigidBody.AddForce(worldDirection, ForceMode.Acceleration);
         }
 
         internal void Teletransport(Vector3 position)
@@ -424,7 +456,8 @@ namespace Game.Player
         }
 
         private bool _pauseMovement;
-       
+        [SerializeField] private bool _useBoxcast;
+        private Vector3 _velocityDelta;
 
         internal void Simulate(bool value)
         {

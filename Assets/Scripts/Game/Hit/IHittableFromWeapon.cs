@@ -4,6 +4,9 @@ namespace Game.Hit
 {
     internal interface IHittableFromWeapon
     {
-        void OnHit(HitWeaponEventPayload payload);
+
+
+
+        void Hit(HitWeaponEventPayload payload);
     }
 }

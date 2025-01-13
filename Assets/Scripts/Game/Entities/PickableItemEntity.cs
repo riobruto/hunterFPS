@@ -73,7 +73,7 @@ namespace Game.Entities
         {
             foreach (InventoryItem item in _inventoryItem)
             {
-                bool canGiveItem = Bootstrap.Resolve<InventoryService>().Instance.TryAddItem(item);
+                bool canGiveItem = InventoryService.Instance.TryAddItem(item);
                 if (canGiveItem) { Destroy(gameObject); }
             }
             return true;

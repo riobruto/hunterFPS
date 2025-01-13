@@ -29,7 +29,7 @@ namespace Life.Controllers
         private void Animate()
         {
             _body.localPosition = Vector3.SmoothDamp(_body.localPosition, Random.insideUnitSphere * _bodyMovement + Vector3.up * 1.5f, ref _bodyRefVelocity, 1);
-            _shell.localPosition = new Vector3(0, MathF.Sin(Time.time) * _hoverIntensity * NavMesh.velocity.magnitude, 0);
+            _shell.localPosition = new Vector3(0, MathF.Sin(Time.time) * _hoverIntensity * NavMeshAgent.velocity.magnitude, 0);
             _core.position = Vector3.SmoothDamp(_core.position, _shell.position, ref _coreRefVelocity, .4f);
 
             foreach (Light light in _lights)
@@ -104,7 +104,7 @@ namespace Life.Controllers
 
         bool IInteractable.CanInteract() => _canInteract;
 
-        void IHittableFromWeapon.OnHit(HitWeaponEventPayload payload)
+        void IHittableFromWeapon.Hit(HitWeaponEventPayload payload)
         {
             Debug.Log("Soul Hit");
         }

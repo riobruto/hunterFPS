@@ -1,34 +1,24 @@
 ﻿using Game.Entities;
-using Game.Service;
+
 using UnityEngine;
 
 namespace Game.Objectives
 {
     public class BreakableObjective : Objective
     {
-        [SerializeField] private BreakableEntity[] _entitiesToBreak;
-        private bool _completed;
-        private string _name;
-        private string _description;
-
-        public override event ObjectiveCompleted CompletedEvent;
-
-        public override event ObjectiveFailed FailedEvent;
-
-        public override bool IsCompleted { get => _completed; }
-
-        public override string TaskName => _name;
-
-        public override string TaskDescription => _description;
+        [SerializeField] private BreakableEntity[] _entitiesToBreak;  
+        private Vector3 _centroid;
+        public override Vector3 TargetPosition { get => _centroid; }
 
         public override void Run()
         {
+            Status = ObjectiveStatus.ACTIVE;
             foreach (BreakableEntity entity in _entitiesToBreak)
             {
+                _centroid += entity.transform.position;
+                _centroid = _centroid / _entitiesToBreak.Length;
                 entity.BreakEvent += Evaluate;
             }
-
-            _completed = false;
         }
 
         private void Evaluate(BreakableEntity entity)
@@ -37,31 +27,16 @@ namespace Game.Objectives
             {
                 if (!(breakable as BreakableEntity).Broken)
                 {
-                    _completed = false;
+                    Status = ObjectiveStatus.ACTIVE;
                     return;
                 }
             }
-            OnCompleted();
-            _completed = true;
+            Status = ObjectiveStatus.COMPLETED;
         }
-
-        public override void OnCompleted()
-        {
-            CompletedEvent?.Invoke(this);
-
-            
-        }
-
-        public override void OnFailed()
-        {
-            
-        }
-
 
         public override void Create<T>(string name, T target, string description)
         {
-            _name = name;
-            _description = description;
+         
             _entitiesToBreak = target as BreakableEntity[];
         }
     }

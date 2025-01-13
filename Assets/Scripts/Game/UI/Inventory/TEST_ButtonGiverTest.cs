@@ -20,7 +20,7 @@ namespace UI.Inventory
 
         private void OnClick()
         {
-            if (Bootstrap.Resolve<InventoryService>().Instance.TryAddItem(_item[Random.Range(0, _item.Length)]))
+            if (InventoryService.Instance.TryAddItem(_item[Random.Range(0, _item.Length)]))
             {
                 Debug.Log("Item Given");
                 return;

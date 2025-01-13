@@ -84,7 +84,6 @@ namespace Game.Player.Controllers
                 }
             }
 
-
             if (_currentWeapon != null)
             {
                 if (e.State == WeaponState.FAIL_SHOOTING)
@@ -96,15 +95,11 @@ namespace Game.Player.Controllers
                     _firedDryFire = false;
                 }
 
-                _animator.SetBool("EMPTY", _weapons.WeaponEngine.CurrentAmmo == 0);
-                _animator.SetBool("COCKED", _weapons.WeaponEngine.Cocked);
-                _animator.SetBool("DRY", _firedDryFire);
-
+                _animator.SetBool("EMPTY", e.Sender.CurrentAmmo == 0);
                 _animator.SetTrigger(e.State.ToString());
+                _animator.SetBool("COCKED", e.Sender.Cocked);
+                _animator.SetBool("DRY", _firedDryFire);
             }
-
-
-           
         }
 
         //Called when the weapon instance change in PlayerWeapons

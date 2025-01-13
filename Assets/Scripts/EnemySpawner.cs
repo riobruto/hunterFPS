@@ -1,6 +1,7 @@
 using Life.Controllers;
 using System.Collections;
 using UnityEngine;
+using UnityEngine.AI;
 
 public class EnemySpawner : MonoBehaviour
 {
@@ -17,8 +18,8 @@ public class EnemySpawner : MonoBehaviour
         int index = 0;
         foreach (GameObject enemy in _prefabs)
         {
-            GameObject go = Instantiate(enemy);
-            go.transform.position = transform.position;
+            NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 1, NavMesh.AllAreas);
+            GameObject go = Instantiate(enemy, hit.position, Quaternion.identity);
             go.GetComponent<SoldierAgentController>().ForceGoToPoint(_targets[index].position);
             index++;
             yield return new WaitForSeconds(1);

@@ -1,4 +1,6 @@
 ﻿using Core.Engine;
+using Game.Entities;
+using Game.Inventory;
 using Game.Life;
 using Game.Player.Controllers;
 using Game.Service;
@@ -11,14 +13,32 @@ using UnityEngine.Events;
 
 namespace Life.Controllers
 {
+    public delegate void AgentPerceptionDelegate(AgentController controller);
+
+    public delegate void AgentHurtDelegate(AgentHurtPayload payload, AgentController controller);
+
+    public class AgentHurtPayload
+    {
+        public bool HurtByPlayer = false;
+        public float Amount = 0;
+        public Vector3 Source = Vector3.zero;
+        public LimbHitbox Hitbox = null;
+
+        public AgentHurtPayload(bool hurtByPlayer, float amount, Vector3 source, LimbHitbox hitbox)
+        {
+            HurtByPlayer = hurtByPlayer;
+            Amount = amount;
+            Source = source;
+            Hitbox = hitbox;
+        }
+    }
+
     [RequireComponent(typeof(NavMeshAgent), typeof(Animator))]
     public class AgentController : MonoBehaviour
     {
         private StateMachine _machine;
-
         private Animator _animator;
         private NavMeshAgent _navMeshAgent;
-
         private float _health;
         private float _maxHealth;
         private bool _isDead => !_alive;
@@ -40,9 +60,15 @@ namespace Life.Controllers
             _alive = true;
         }
 
-        public UnityAction<float> HealthChangedEvent;
-        public UnityAction DeadEvent;
-        public UnityAction<bool> PlayerPerceptionEvent;
+        public UnityAction<AgentController, bool> PlayerPerceptionEvent;
+
+        public event AgentHurtDelegate HurtEvent;
+
+        public event AgentPerceptionDelegate DeadEvent;
+
+        public event AgentPerceptionDelegate HeardStepsEvent;
+
+        public event AgentPerceptionDelegate HeardGunshotsEvent;
 
         public StateMachine Machine
         {
@@ -54,7 +80,7 @@ namespace Life.Controllers
             get => _animator;
         }
 
-        public NavMeshAgent NavMesh
+        public NavMeshAgent NavMeshAgent
         {
             get => _navMeshAgent;
         }
@@ -62,25 +88,29 @@ namespace Life.Controllers
         public bool IsDead => _isDead;
 
         [Header("Player Perception")]
-        [SerializeField] private LayerMask _ignoreMask;
+        [SerializeField] private float _thinkingInterval = .1f;
 
         [SerializeField] private AgentGroup _group;
-        [SerializeField] private Transform _head;
         [SerializeField] private float _rangeDistance = 20;
+        [SerializeField] private Transform _head;
+        private LayerMask _ignoreMask;
         private GameObject _player;
         private Camera _playerCamera;
         private AgentGlobalSystem _agentGlobalsystem;
         private PlayerSoundController _playerSound;
+        private InventorySystem _playerInventory;
         private bool _playerDetected => GetPlayerDetection();
 
         public virtual bool GetPlayerDetection()
         {
-            return IsPlayerInRange(_rangeDistance) && IsPlayerInViewAngle(0.3f) && IsPlayerVisible();
+            if (IsPlayerInRange(2)) return true;
+
+            return IsPlayerInRange(_rangeDistance) && IsPlayerInViewAngle(_currentViewAngle) && IsPlayerVisible();
         }
 
         public Vector3 PlayerPosition => _player.transform.position;
         public Vector3 PlayerHeadPosition => _playerCamera.transform.position;
-        public bool PlayerVisualDetected => _playerDetected;
+        public bool HasPlayerVisual => _playerDetected;
         public GameObject PlayerGameObject { get => _player; }
         public Vector3 LastPlayerKnownPosition => _lastKnownPosition;
         public Transform Head => _head;
@@ -95,8 +125,16 @@ namespace Life.Controllers
             SetHealth(_maxHealth);
         }
 
+        internal void AllowThinking(bool value)
+        {
+            _isStopped = !value;
+        }
+
         private void Start()
         {
+            _agentGlobalsystem = AgentGlobalService.Instance;
+            _agentGlobalsystem.RegisterAgent(this);
+
             _machine = new StateMachine();
 
             _navMeshAgent = GetComponent<NavMeshAgent>();
@@ -109,13 +147,13 @@ namespace Life.Controllers
             _player = Bootstrap.Resolve<PlayerService>().Player;
             _playerCamera = Bootstrap.Resolve<PlayerService>().PlayerCamera;
             _ignoreMask = Bootstrap.Resolve<GameSettings>().RaycastConfiguration.IgnoreLayers;
-
             _playerSound = _player.GetComponentInChildren<PlayerSoundController>();
+            _playerInventory = InventoryService.Instance;
+
             _playerSound.StepSound += OnPlayerStep;
             _playerSound.GunSound += OnPlayerGun;
+            _playerInventory.DropItem += OnPlayerDropped;
 
-            _agentGlobalsystem = AgentGlobalService.Instance;
-            _agentGlobalsystem.RegisterAgent(this);
             Initialized = true;
             OnStart();
         }
@@ -124,38 +162,79 @@ namespace Life.Controllers
         {
             if (!Initialized) return;
 
-            if (!AgentGlobalService.AIDisabled)
-            {
-                _machine?.Update();
-            }
-
+            ManagePerception();
+            ManageDeath();
             UpdateMovement();
 
-            if (_lastPlayerDetected != _playerDetected)
-            {
-                _lastKnownPosition = _player.transform.position;
-                PlayerPerceptionEvent?.Invoke(_playerDetected);
-                _lastPlayerDetected = _playerDetected;
-            }
+            if (_isStopped) return;
 
+            if (Time.time - _lastThinkMoment > _thinkingInterval)
+            {
+                Think();
+                _lastThinkMoment = Time.time;
+            }
+            OnUpdate();
+        }
+
+        private void ManageDeath()
+        {
             if (_alive && _health <= 0)
             {
                 _alive = false;
                 _playerSound.StepSound -= OnPlayerStep;
                 _playerSound.GunSound -= OnPlayerGun;
                 _agentGlobalsystem.DiscardAgent(this);
-                DeadEvent?.Invoke();
+                DeadEvent?.Invoke(this);
                 OnDeath();
             }
+        }
 
-            OnUpdate();
+        private void ManagePerception()
+        {
+            if (IsDead) return;
+            if (_lastPlayerDetected != _playerDetected)
+            {
+                _lastKnownPosition = _player.transform.position;
+                PlayerPerceptionEvent?.Invoke(this, _playerDetected);
+                _lastPlayerDetected = _playerDetected;
+            }
+        }
+
+        public void Think()
+        {
+            if (!Initialized) return;
+
+            if (!AgentGlobalService.AIDisabled)
+            {
+                _machine?.Update();
+            }
+        }
+
+        private void OnPlayerDropped(InventoryItem item, GameObject gameObject)
+        {
+            OnPlayerItemDropped(item, gameObject);
+        }
+
+        internal void HurtAgent(AgentHurtPayload payload)
+        {
+            HurtEvent?.Invoke(payload, this);
+            OnHurt(payload);
+        }
+
+        internal void Damage(float amount)
+        {
+            AgentHurtPayload payload = new AgentHurtPayload(false, amount, Vector3.zero, null);
+            HurtEvent?.Invoke(payload, this);
+            OnHurt(payload);
         }
 
         private void OnPlayerGun(Vector3 position, float radius)
         {
             if (AgentGlobalService.IgnorePlayer) return;
+
             if (Vector3.Distance(position, transform.position) <= radius)
             {
+                HeardGunshotsEvent?.Invoke(this);
                 OnHeardCombat();
             }
         }
@@ -165,6 +244,7 @@ namespace Life.Controllers
             if (AgentGlobalService.IgnorePlayer) return;
             if (Vector3.Distance(position, transform.position) <= radius)
             {
+                HeardStepsEvent?.Invoke(this);
                 OnHeardSteps();
             }
         }
@@ -172,25 +252,41 @@ namespace Life.Controllers
         public bool IsPlayerInRange(float distance)
         {
             if (AgentGlobalService.IgnorePlayer) return false;
-            return Vector3.Distance(_head.position, _playerCamera.transform.position) < distance;
+            return Vector3.Distance(transform.position + transform.up * 2f, _playerCamera.transform.position) < distance;
         }
 
         public bool IsPlayerInViewAngle(float dotAngle)
         {
             if (AgentGlobalService.IgnorePlayer) return false;
-            return Vector3.Dot(_head.transform.forward, _playerCamera.transform.position - transform.position) > dotAngle;
+            return Vector3.Dot(transform.forward, _playerCamera.transform.position - transform.position) > dotAngle;
         }
+
+        public Vector3 PlayerOccluderPosition;
+        public GameObject PlayerOccluderGameObject;
 
         public bool IsPlayerVisible()
         {
             if (AgentGlobalService.IgnorePlayer) return false;
             //Debug.DrawLine(_playerCamera.transform.position, transform.position);
 
-            if (VisualPhysics.Linecast(_playerCamera.transform.position, _head.position, out RaycastHit hit, _ignoreMask))
+            if (VisualPhysics.Linecast(_playerCamera.transform.position, _head.position, out RaycastHit hit, _ignoreMask, QueryTriggerInteraction.Ignore))
             {
-                return hit.collider.gameObject.transform.root == transform;
-            }
+                if (hit.collider.gameObject.transform.root == transform)
+                {
+                    PlayerOccluderPosition = Vector3.zero;
+                    PlayerOccluderGameObject = null;
+                    return true;
+                }
+                else
+                {
+                    PlayerOccluderPosition = hit.point;
+                    PlayerOccluderGameObject = hit.transform.gameObject;
 
+                    return false;
+                }
+            }
+            PlayerOccluderPosition = Vector3.zero;
+            PlayerOccluderGameObject = null;
             return false;
         }
 
@@ -201,13 +297,14 @@ namespace Life.Controllers
         [Header("Movement")]
         [SerializeField] private float _minMoveDistance = 1f;
 
+        public float MinMoveDistance { get => _minMoveDistance; set => _minMoveDistance = value; }
+
         [SerializeField] private Transform _aimTransform;
 
         public void SetLookTarget(Vector3 target) => _aimTarget = target;
 
         public void SetTarget(Vector3 position)
         {
-            _navMeshAgent.isStopped = false;
             _navMeshAgent.SetDestination(position);
         }
 
@@ -222,10 +319,20 @@ namespace Life.Controllers
             }
         }
 
+        public float Height { get => _height; }
+        public float CrouchHeight { get => _crouchHeight; }
+        public Vector3 Destination { get => _navMeshAgent.destination; }
+
         private Vector3 _lastKnownPosition;
         private bool _lastPlayerDetected;
+        [SerializeField] private float _crouchHeight = 1.75f;
+        [SerializeField] private float _height = 1f;
+        [SerializeField] private float _currentViewAngle = .3f;
+        private float _lastThinkMoment;
+        private bool _isStopped;
+        public float ViewAngle { get => _currentViewAngle; set => _currentViewAngle = value; }
 
-        private void UpdateMovement()
+        public virtual void UpdateMovement()
         {
             if (!_alive) return;
             _navMeshAgent.updateRotation = !_faceTarget;
@@ -268,26 +375,41 @@ namespace Life.Controllers
 
         #region Virtual Methods
 
-        public virtual void DrawGizmos() { }
-        public virtual void OnUpdate() { }
+        public virtual void DrawGizmos()
+        { }
+
+        public virtual void OnUpdate()
+        { }
+
         public virtual void OnStart()
         {
         }
+
         public virtual void OnDeath()
         {
         }
-        public virtual void OnHurt(float value)
+
+        public virtual void OnHurt(AgentHurtPayload payload)
         { }
+
         public virtual void OnHeardCombat()
         { }
+
         public virtual void OnHeardSteps()
         { }
-        public virtual void RunOver(Vector3 velocity)   { }
-        public virtual void ForcePlayerPerception()  { }
 
-        internal void NotifyHurt(float value)
+        public virtual void RunOver(Vector3 velocity)
+        { }
+
+        public virtual void ForcePlayerPerception()
+        { }
+
+        public virtual void OnPlayerItemDropped(InventoryItem item, GameObject gameObject)
         {
-            OnHurt(value);
+        }
+
+        public virtual void Kick(Vector3 position, Vector3 direction)
+        {
         }
 
         #endregion Virtual Methods

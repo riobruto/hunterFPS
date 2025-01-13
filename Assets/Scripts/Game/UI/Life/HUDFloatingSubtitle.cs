@@ -24,7 +24,8 @@ namespace Game.UI.Life
         {
             _name.text = parameters.Name + ":";
             _text.text = parameters.Content;
-            _vectorSource = parameters.Location;
+            _source = parameters.Transform;
+            _vectorSource = parameters.Transform.position;
             _canvas = canvas;
             _camera = Bootstrap.Resolve<PlayerService>().PlayerCamera;
             _rectTransform = GetComponent<RectTransform>();
@@ -34,7 +35,7 @@ namespace Game.UI.Life
 
         private void LateUpdate()
         {
-            Vector3 screenPos = RectTransformUtility.WorldToScreenPoint(_camera, _vectorSource);
+            Vector3 screenPos = RectTransformUtility.WorldToScreenPoint(_camera, _source.position);
 
             //DONDE QUIERO IR MENOS DONDE ESTOY
             //DONDE QUIERO IR MENOS DONDE ESTOY
@@ -56,7 +57,7 @@ namespace Game.UI.Life
             float dot = Vector3.Dot(_camera.transform.forward, _vectorSource - _camera.transform.position);
             float distance = Vector3.Distance(_camera.transform.position, _vectorSource);
 
-            if (dot < 0 || distance > 8) SetVisibility(0);
+            if (dot < 0 || distance > 15f) SetVisibility(0);
             else SetVisibility(1);
 
             _rectTransform.anchoredPosition = screenPos / _canvas.scaleFactor;

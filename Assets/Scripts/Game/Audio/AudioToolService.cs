@@ -29,7 +29,7 @@ namespace Game.Audio
 
         private void CreateOneshotBuffer()
         {
-            AudioBlendOneShot[] oneShots = new AudioBlendOneShot[32 / 2];
+            AudioBlendOneShot[] oneShots = new AudioBlendOneShot[32];
             OneShots = new RingBuffer<AudioBlendOneShot>(oneShots);
             for (int i = 0; i < oneShots.Length; i++)
             {
@@ -106,9 +106,9 @@ namespace Game.Audio
 
         internal static void PlayUISound(AudioClip clip, float volume = 1)
         {
+            if (clip == null) return;
             AudioBlendOneShot shot = OneShots.GetNext();
-
-            //todo: pool o ring buffer, tamaño al limite de voces
+        
 
             shot.transform.position = Vector3.zero;
             AudioSource audioSource = shot.Near;
@@ -116,6 +116,21 @@ namespace Game.Audio
             audioSource.spatialBlend = 0;
             audioSource.volume = volume;
             audioSource.outputAudioMixerGroup = ResolveGroup(AudioChannels.UI);
+            audioSource.Play();
+        }
+
+        internal static void PlayPlayerSound(AudioClip clip, float volume = 1, float pitchFluctuation = 0)
+        {
+            if (clip == null) return;
+            AudioBlendOneShot shot = OneShots.GetNext();
+
+            shot.transform.position = Vector3.zero;
+            AudioSource audioSource = shot.Near;
+            audioSource.clip = clip;
+            audioSource.spatialBlend = 0;
+            audioSource.volume = volume;
+            audioSource.outputAudioMixerGroup = ResolveGroup(AudioChannels.PLAYER);
+            audioSource.pitch = Random.Range(1f - pitchFluctuation, 1f + pitchFluctuation);
             audioSource.Play();
         }
     }

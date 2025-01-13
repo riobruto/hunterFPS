@@ -1,4 +1,5 @@
 ﻿using Core.Engine;
+using Core.Weapon;
 using Game.Inventory;
 using Game.Weapon;
 using System;
@@ -10,7 +11,7 @@ namespace Game.Service
 {
     public class InventoryService : SceneService
     {
-        public InventorySystem Instance;
+        public static InventorySystem Instance;
 
         internal override void Initialize()
         {
@@ -36,6 +37,10 @@ namespace Game.Service
 
     public delegate void InventoryEquippableDelegate(EquipableItem item);
 
+    public delegate void InventoryDropDelegate(InventoryItem item, GameObject gameObject);
+
+    public delegate void InventoryAttachmentDelegate(AttachmentSettings item);
+
     public class InventorySystem : MonoBehaviour
 
     {
@@ -45,8 +50,16 @@ namespace Game.Service
         public EquipableItem[] Equipables = new EquipableItem[8];
         public EquipableItem[] Equipped = new EquipableItem[3];
         public Dictionary<AmmunitionItem, int> Ammunitions;
-
         public Dictionary<GrenadeType, int> Grenades;
+        public List<AttachmentSettings> CurrentAttachments => _attachments;
+
+        [SerializeField] private AttachmentSettings _testAttach;
+
+        [ContextMenu("ItemTest")]
+        public void GiveItem()
+        {
+            TryGiveAttachment(_testAttach);
+        }
 
         public int GrenadeLimitPerType = 3;
 
@@ -60,6 +73,12 @@ namespace Game.Service
 
         public event UnityAction<AmmunitionItem> GiveAmmoEvent;
 
+        public event InventoryDropDelegate DropItem;
+
+        public event InventoryAttachmentDelegate AttachmentAddedEvent;
+
+        private List<AttachmentSettings> _attachments = new List<AttachmentSettings>();
+
         public bool TryAddItem(InventoryItem item)
         {
             if (item is ConsumableItem)
@@ -70,10 +89,12 @@ namespace Game.Service
                     {
                         Consumables[i] = item as ConsumableItem;
                         InventoryItemGiven?.Invoke(item);
+                        UIService.CreateMessage($"Picked up {item.Name}");
                         return true;
                     }
                     continue;
                 }
+                UIService.CreateMessage("Your inventory is full");
                 return false;
             }
 
@@ -85,10 +106,12 @@ namespace Game.Service
                     {
                         Equipables[i] = item as EquipableItem;
                         InventoryItemGiven?.Invoke(item);
+                        UIService.CreateMessage($"Picked up {item.Name}");
                         return true;
                     }
                     continue;
                 }
+                UIService.CreateMessage("Your inventory is full");
                 return false;
             }
             return false;
@@ -168,7 +191,19 @@ namespace Game.Service
         }
 
         internal void DropItemFromUI(InventoryItem item)
-        {//todo: add drop logic
+        {
+            Debug.Log("Tried Removed item");
+            if (TryRemoveItem(item))
+            {
+                Debug.Log("Removed Item");
+
+                Transform instancePoint = Bootstrap.Resolve<PlayerService>().PlayerCamera.transform;
+                Ray ray = new(instancePoint.transform.position, instancePoint.forward);
+                Physics.Raycast(ray, out RaycastHit hit, 2, 1, QueryTriggerInteraction.Ignore);
+                GameObject droppedItem = Instantiate(item.Prefab, hit.point != Vector3.zero ? hit.point + hit.normal : instancePoint.position + instancePoint.forward, Quaternion.identity);
+                DropItem?.Invoke(item, droppedItem);
+            }
+            //todo: add drop logic
         }
 
         internal void GiveGrenades(int amount, GrenadeType type)
@@ -208,5 +243,14 @@ namespace Game.Service
             Ammunitions[type] -= resultant;
             return resultant;
         }
+
+        public bool TryGiveAttachment(AttachmentSettings attachment)
+        {
+            if (_attachments.Contains(attachment)) return false;
+            _attachments.Add(attachment);
+            AttachmentAddedEvent?.Invoke(attachment);
+            return true;
+        }
+        public bool HasAttachment(AttachmentSettings attachment) => _attachments.Contains(attachment);
     }
 }

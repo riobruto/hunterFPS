@@ -1,6 +1,7 @@
 ﻿using Core.Engine;
 using Game.Audio;
 using Game.Impact;
+using Game.Player.Sound;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
@@ -30,11 +31,17 @@ namespace Game.Service
         private ImpactsDictionary _dictionary;
 
         private RingBuffer<GameObject> ExplosionBuffer;
-        private RingBuffer<GameObject> Tracers;
-        private RingBuffer<GameObject> ImpactBuffer;
-        private RingBuffer<GameObject> BloodBuffer;
-        private RingBuffer<GameObject> BloodDecalBuffer;
         private RingBuffer<GameObject> LimbMutilatedBuffer;
+        private RingBuffer<GameObject> Tracers;
+        private RingBuffer<GameObject> BloodDecalBuffer;
+
+        private RingBuffer<GameObject> ConcreteBuffer;
+        private RingBuffer<GameObject> MetalBuffer;
+        private RingBuffer<GameObject> WoodBuffer;
+        private RingBuffer<GameObject> DefaultBuffer;
+        private RingBuffer<GameObject> BloodBuffer;
+
+        //TODO add support for multiple impacts!
 
         private void Start()
         {
@@ -95,22 +102,56 @@ namespace Game.Service
 
         private void CreateImpacts()
         {
-            GameObject[] concreteHits = new GameObject[_dictionary.ConcreteHit.AmountPerScene];
-            for (int i = 0; i < concreteHits.Length; i++)
-            {
-                concreteHits[i] = Instantiate(_dictionary.ConcreteHit.ImpactPrefab);
-                concreteHits[i].SetActive(false);
-            }
-            ImpactBuffer = new RingBuffer<GameObject>(concreteHits);
+            ConcreteBuffer = GenerateBufferForImpact(_dictionary.ConcreteHit);
+            MetalBuffer = GenerateBufferForImpact(_dictionary.MetalHit);
+            WoodBuffer = GenerateBufferForImpact(_dictionary.WoodHit);
+            DefaultBuffer = GenerateBufferForImpact(_dictionary.GenericHit);
+            BloodBuffer = GenerateBufferForImpact(_dictionary.BloodHit);
+        }
 
-            GameObject[] bloodHits = new GameObject[_dictionary.BloodHit.AmountPerScene];
-            for (int i = 0; i < bloodHits.Length; i++)
+        public RingBuffer<GameObject> GenerateBufferForImpact(ImpactObject impact)
+        {
+            GameObject[] bufferImpact = new GameObject[impact.AmountPerScene];
+            for (int i = 0; i < bufferImpact.Length; i++)
             {
-                bloodHits[i] = Instantiate(_dictionary.BloodHit.ImpactPrefab);
-                bloodHits[i].SetActive(false);
+                bufferImpact[i] = Instantiate(impact.ImpactPrefab);
+                bufferImpact[i].SetActive(false);
             }
+            return new RingBuffer<GameObject>(bufferImpact);
+        }
 
-            BloodBuffer = new RingBuffer<GameObject>(bloodHits);
+        public RingBuffer<GameObject> GetImpactsFromSurfaceType(SurfaceType type)
+        {
+            switch (type)
+            {
+                case SurfaceType.ROCK:
+                case SurfaceType.CERAMIC:
+                case SurfaceType.BRICK:
+                case SurfaceType.CONCRETE:
+                    return ConcreteBuffer;
+
+                case SurfaceType.WOOD:
+                case SurfaceType.WOOD_HARD:
+                case SurfaceType.CARTBOARD:
+                case SurfaceType.PAPER:
+                    return WoodBuffer;
+
+                case SurfaceType.METAL_SOFT:
+                case SurfaceType.METAL:
+                case SurfaceType.METAL_HARD:
+                    return MetalBuffer;
+
+                case SurfaceType.GLASS:
+                case SurfaceType.RUBBER:
+                case SurfaceType.NYLON:
+                    return DefaultBuffer;
+
+                case SurfaceType.FLESH:
+                    return BloodBuffer;
+
+                default:
+                    return DefaultBuffer;
+            }
         }
 
         private void CreateBloodDecals()
@@ -134,13 +175,15 @@ namespace Game.Service
 
         public void ImpactAtPosition(Vector3 position, Vector3 direction)
         {
-            GameObject explosion = ImpactBuffer.GetNext();
+            GameObject explosion = ConcreteBuffer.GetNext();
             explosion.transform.position = position;
             explosion.transform.forward = direction;
             explosion.SetActive(true);
+            /*
+             *
             explosion.GetComponent<VisualEffect>().Play();
-
             AudioSource.PlayClipAtPoint(_dictionary.ConcreteHit.Sound.GetRandom(), position, 1);
+            */
         }
 
         internal void TraceAtPosition(Vector3 from, Vector3 to)
@@ -172,43 +215,30 @@ namespace Game.Service
             yield break;
         }
 
-        internal void ImpactAtPosition(Vector3 point, Vector3 normal, Transform transform, SurfaceType type = SurfaceType.DARK)
+        internal void ImpactAtPosition(Vector3 point, Vector3 normal, Transform transform, SurfaceType type = SurfaceType.CONCRETE)
         {
-            GameObject impact = ImpactBuffer.GetNext();
+            GameObject impact = GetImpactsFromSurfaceType(type).GetNext();
+
+
+
             impact.transform.position = point;
             impact.transform.forward = normal;
             impact.transform.SetParent(transform, true);
-            //impact.transform.localScale = Vector3.one - impact.transform.parent.lossyScale;
+            impact.transform.localScale = impact.transform.parent.localScale;
 
             impact.SetActive(true);
-            impact.GetComponent<VisualEffect>().Play();
+            if (impact.TryGetComponent(out VisualEffect fx)) fx.Play();
+            if (impact.TryGetComponent(out ParticleSystem ps)) ps.Play();
 
             Vector2Int coord = _dictionary.GetBulletHoleFromType(type);
             DecalProjector proyector = impact.GetComponentInChildren<DecalProjector>();
             //TOO BAD!
-
             Material mat = new(proyector.material);
             mat.SetVector("_coordinates", new Vector4(coord.x, coord.y) + new Vector4(Random.Range(0, 2), Random.Range(0, 2), 0, 0));
             proyector.material = mat;
-            // impact.transform.Rotate(0, 0, Random.Range(0, 360), Space.Self);
-            AudioToolService.PlayClipAtPoint(_dictionary.ConcreteHit.Sound.GetRandom(), point, 1, AudioChannels.ENVIRONMENT);
-        }
 
-        internal void BloodImpactAtPosition(Vector3 point, Vector3 normal, Transform transform)
-        {
-            GameObject blood = BloodBuffer.GetNext();
-            blood.transform.position = point;
-            blood.transform.forward = normal;
-            blood.transform.parent = transform;
-            blood.SetActive(true);
-            blood.GetComponent<ParticleSystem>().Play();
-
-            Vector2Int coord = _dictionary.GetBulletHoleFromType(SurfaceType.FLESH);
-            DecalProjector proyector = blood.GetComponentInChildren<DecalProjector>();
-            Material mat = new(proyector.material);
-            mat.SetVector("_coordinates", new Vector4(coord.x, coord.y) + new Vector4(Random.Range(0, 2), Random.Range(0, 2), 0, 0));
-            proyector.material = mat;
-            AudioToolService.PlayClipAtPoint(_dictionary.BloodHit.Sound.GetRandom(), point, 1, AudioChannels.ENVIRONMENT);
+            AudioClipGroup c = _dictionary.GetImpactObjectFromType(type).Sound;
+            if (c != null) AudioToolService.PlayClipAtPoint(c.GetRandom(), point, 1, AudioChannels.ENVIRONMENT, 5f);
         }
 
         internal void BloodDecalAtPosition(Vector3 point, Vector3 normal, Transform parent = null)

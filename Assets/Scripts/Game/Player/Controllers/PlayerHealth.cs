@@ -7,7 +7,7 @@ using UnityEngine.Events;
 
 namespace Game.Player.Controllers
 {
-    public class PlayerHealth : MonoBehaviour, IDamageableFromExplosive, IHittableFromWeapon, IDamagableForHurtbox
+    public class PlayerHealth : MonoBehaviour, IDamageableFromExplosive, IHittableFromWeapon, IDamagableFromHurtbox
     {
         private float _maxHealth = 100f;
         private float _lastTimeHurt;
@@ -31,7 +31,7 @@ namespace Game.Player.Controllers
         public event UnityAction DeadEvent;
 
         private AudioSource _source;
-        [SerializeField] private AudioClipCompendium _bodyHit;
+        [SerializeField] private AudioClipGroup _bodyHit;
         private Vector3 _lastDirection;
         private bool _inmune;
 
@@ -91,13 +91,13 @@ namespace Game.Player.Controllers
             _lastDirection = Vector3.one;
         }
 
-        void IHittableFromWeapon.OnHit(HitWeaponEventPayload payload)
+        void IHittableFromWeapon.Hit(HitWeaponEventPayload payload)
         {
             Hurt(payload.Damage);
             _lastDirection = (payload.Ray.origin - transform.position).normalized;
         }
 
-        void IDamagableForHurtbox.NotifyDamage(int damage)
+        void IDamagableFromHurtbox.NotifyDamage(float damage, Vector3 position, Vector3 direction)
         {
             Hurt(damage);
         }

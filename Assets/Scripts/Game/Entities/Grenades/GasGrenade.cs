@@ -25,6 +25,14 @@ namespace Game.Entities.Grenades
         private float _timeBtwTicks = 0.1f;
 
         private IDamageableFromGas[] _gasDamageables;
+        private Rigidbody _rigidbody;
+
+        Rigidbody IGrenade.Rigidbody => _rigidbody;
+
+        private void Start()
+        {
+            _rigidbody = GetComponent<Rigidbody>();
+        }
 
         void IGrenade.Trigger(int secondsRemaining)
         {

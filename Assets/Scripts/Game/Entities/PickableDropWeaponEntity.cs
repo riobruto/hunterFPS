@@ -1,5 +1,7 @@
 ﻿using Core.Engine;
 using Core.Weapon;
+using Game.Audio;
+using Game.Player.Sound;
 using Game.Service;
 using UnityEngine;
 
@@ -8,7 +10,7 @@ namespace Game.Entities
     public class PickableDropWeaponEntity : SimpleInteractable
     {
         [SerializeField] private WeaponSettings _weapon;
-
+        [SerializeField] private AudioClipGroup _drop;
         private bool _taken = false;
 
         public override bool CanInteract => !Taken;
@@ -39,7 +41,7 @@ namespace Game.Entities
 
         public override bool Interact()
         {
-            if (Bootstrap.Resolve<InventoryService>().Instance.TryGiveAmmo(_weapon.Ammo.Type, _weapon.Ammo.Type.PickUpAmount))
+            if (InventoryService.Instance.TryGiveAmmo(_weapon.Ammo.Type, _weapon.Ammo.Type.PickUpAmount))
             {
                 _taken = true;
                 InteractEvent?.Invoke();
@@ -47,6 +49,14 @@ namespace Game.Entities
                 return true;
             }
             else return false;
+        }
+
+        private void OnCollisionEnter(Collision collision)
+        {
+            if(collision.relativeVelocity.sqrMagnitude > 1)
+            {
+                AudioToolService.PlayClipAtPoint(_drop.GetRandom(), transform.position, 1, AudioChannels.ENVIRONMENT, 5);
+            }
         }
     }
 }

@@ -1,10 +1,13 @@
 ﻿using Core.Engine;
+using Game.Player.Controllers;
 using Game.Player.Movement;
+using Game.Player.Weapon;
+using System;
 using UnityEngine;
 
 namespace Game.Player.Animation
 {
-    public class CameraBobbingAnimator : MonoBehaviour, IObserverFromPlayerMovement
+    public class CameraBobbingAnimator : MonoBehaviour, IObserverFromPlayerMovement, IObserverFromPlayerWeapon
     {
         private PlayerRigidbodyMovement _controller;
         private GameSettings settings;
@@ -21,8 +24,10 @@ namespace Game.Player.Animation
         }
 
         private Vector3 _heading;
+
         [Header("Run and Walk Bobbing")]
         [SerializeField] private float _headingIntensity;
+
         [SerializeField] private float _intensity;
         [SerializeField] private float _frequency;
         [SerializeField] private float _amplitude;
@@ -35,21 +40,21 @@ namespace Game.Player.Animation
         private void LateUpdate()
         {
             Vector3 dir = _controller.RelativeVelocity;
-         
+
             dir.y = 0;
             _rateOfWaveTime = dir.magnitude;
 
-            Vector3 bob = BobbingWave() * _intensity;            
+            Vector3 bob = BobbingWave() * _intensity;
             if (_controller.CurrentState == PlayerMovementState.FALLING) bob = Vector3.zero;
 
-            _heading = new Vector3(dir.z, 0, (dir.x * -1f));
+            _heading = new Vector3(dir.z, 0, (dir.x * -1f)) * (_aiming ? 0 : _headingIntensity);
 
             Vector3 rotationBob;
             rotationBob.x = bob.x * _rotationMultiplier.x;
             rotationBob.y = bob.y * _rotationMultiplier.y;
             rotationBob.z = bob.z * _rotationMultiplier.z;
 
-            transform.localRotation = Quaternion.Euler((_heading * _headingIntensity) + rotationBob + new Vector3(Noise().x, Noise().y));
+            transform.localRotation = Quaternion.Euler((_heading ) + rotationBob + new Vector3(Noise().x, Noise().y));
             //Moviendo el x a y para un movimiento mas natural
 
             Vector3 positionBob;
@@ -86,6 +91,26 @@ namespace Game.Player.Animation
         {
             float t = Mathf.InverseLerp(minIn, maxIn, v);
             return Mathf.Lerp(minOut, maxOut, t);
+        }
+
+        private PlayerWeapons weapons;
+        private bool _aiming;
+
+        public void Initalize(PlayerWeapons controller)
+        {
+            weapons = controller;
+            weapons.WeaponAimEvent += OnAim;
+        }
+
+        private void OnAim(bool state)
+        {
+            _aiming = state;
+        }
+
+        public void Detach(PlayerWeapons controller)
+        {
+            weapons.WeaponAimEvent -= OnAim;
+            weapons = null;
         }
     }
 }

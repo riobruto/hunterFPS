@@ -1,50 +1,51 @@
-﻿using Game.Service;
-using Life.Controllers;
-using System.Linq;
+﻿using Life.Controllers;
+using System;
+using UnityEngine;
+using UnityEngine.Events;
 
 namespace Game.Objectives
 {
     public class MurderObjective : Objective
     {
-        public AgentController[] _targets;
-        private string _description;
-        private string _name;
+        [SerializeField]
+        private AgentController[] _targets;
 
-        public override bool IsCompleted => _targets.All(x => x.IsDead);
-        public override string TaskName => _name;
-        public override string TaskDescription => _description;
 
-        public override event ObjectiveCompleted CompletedEvent;
+        private Vector3 _centroid;
 
-        public override event ObjectiveFailed FailedEvent;
+
+        public override Vector3 TargetPosition => _centroid;
 
         public override void OnCompleted()
-        {           
-            CompletedEvent?.Invoke(this);
+        {
         }
 
         public override void OnFailed()
         {
-
         }
 
-
-        private void OnDie()
-        {
-            if (IsCompleted) { OnCompleted(); }
-        }
-
-        public override void Create<T>(string name,T target, string description)
-        {
-            _name = name;
-            _description = description;
+        public override void Create<T>(string name, T target, string description)
+        {           
             _targets = target as AgentController[];
         }
 
         public override void Run()
         {
-            foreach (AgentController controller in _targets) { controller.DeadEvent += OnDie; }
+            foreach (AgentController controller in _targets)
+            {
+                controller.DeadEvent += OnDead; 
+                _centroid += controller.transform.position;
+                _centroid /= _targets.Length;
+            }
         }
 
+        private void OnDead(AgentController arg0)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override void OnUpdated()
+        {
+        }
     }
 }

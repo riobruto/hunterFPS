@@ -20,7 +20,7 @@ namespace UI.Inventory
             _equippableGrid.GridSlotClicked += (x) => OnGridClicked(x);
             _consumableGrid.GridSlotClicked += (x) => OnGridClicked(x);
 
-            _inventorySystem = Bootstrap.Resolve<InventoryService>().Instance;
+            _inventorySystem = InventoryService.Instance;
 
             _inventorySystem.InventoryItemGiven += OnItemGiven;
             _inventorySystem.InventoryItemRemoved += OnItemRemoved;
@@ -93,9 +93,7 @@ namespace UI.Inventory
         private void Drop()
         {
             _contextMenu.Hide();
-            _inventorySystem.DropItemFromUI(_lastSlotPressed.Item);
-            
-
+            _inventorySystem.DropItemFromUI(_lastSlotPressed.Item);     
             Debug.Log("Drop");
         }
 

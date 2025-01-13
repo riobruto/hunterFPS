@@ -82,7 +82,7 @@ namespace Game.UI
         public void Set(GrenadeType type)
         {
             _name.text = type.ToString();
-            _amount.text = Bootstrap.Resolve<InventoryService>().Instance.Grenades[type].ToString();
+            _amount.text = InventoryService.Instance.Grenades[type].ToString();
         }
     }
 }
