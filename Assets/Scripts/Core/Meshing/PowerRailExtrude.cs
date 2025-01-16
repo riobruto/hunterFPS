@@ -4,10 +4,10 @@ using System.Collections.Generic;
 
 using UnityEngine;
 using UnityEngine.Splines;
-
+#if UNITY_EDITOR
 namespace Rail.Visual
 {
-#if UNITY_EDITOR
+
 	[RequireComponent(typeof(MeshFilter))]
 	[RequireComponent(typeof(MeshRenderer))]
 	[ExecuteInEditMode]
@@ -142,7 +142,7 @@ namespace Rail.Visual
 	
 		#endregion Generate Methods
 
-#endif
+
 		private void OnDrawGizmos()
 		{
 			//Get Vector Data from time
@@ -159,4 +159,6 @@ namespace Rail.Visual
             }*/
 		}
 	}
+
 }
+#endif

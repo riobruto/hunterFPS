@@ -234,8 +234,13 @@ namespace Game.Service
             GiveAmmoEvent?.Invoke(type);
             return true;
         }
-
-        internal int TryTakeAmmo(AmmunitionItem type, int desiredAmount)
+        /// <summary>
+        /// Takes a given amount of ammunition type, and returns the maximun amount possible clamped to the desired amount
+        /// </summary>
+        /// <param name="type">the type of ammunition</param>
+        /// <param name="desiredAmount">The max amount desired</param>
+        /// <returns></returns>
+        internal int TakeAvaliableAmmo(AmmunitionItem type, int desiredAmount)
         {
             if (desiredAmount <= 0) return 0;
             if (!Ammunitions.ContainsKey(type)) { return 0; }
@@ -243,7 +248,8 @@ namespace Game.Service
             Ammunitions[type] -= resultant;
             return resultant;
         }
-
+        public bool HasAmmoOfType(AmmunitionItem type) => Ammunitions.ContainsKey(type) && Ammunitions[type] > 0;
+       
         public bool TryGiveAttachment(AttachmentSettings attachment)
         {
             if (_attachments.Contains(attachment)) return false;

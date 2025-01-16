@@ -114,8 +114,6 @@ namespace Game.Entities
         internal void RunOver(Vector3 velocity, float damage)
         {
             _ownerAgent.RunOver(velocity);
-
-            Debug.Log("Atropellado putooo");
         }
 
         internal void Impulse(Vector3 velocity)
@@ -137,9 +135,7 @@ namespace Game.Entities
 
         void IDamagableFromHurtbox.NotifyDamage(float damage, Vector3 position, Vector3 direction)
         {
-            LimbHitEvent?.Invoke(CalculateDamage(damage, 1), this);
-            _ownerAgent.Damage(CalculateDamage(damage, 1));
-            _ownerAgent.Kick(position, direction);
+            _ownerAgent.Kick(position, direction, damage);
             Impulse(direction);
         }
     }

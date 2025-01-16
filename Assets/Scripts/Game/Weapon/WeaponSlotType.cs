@@ -7,7 +7,6 @@
         DMR,
         SNIPER,
         SHOTGUN,
-
         MEELEE,
         GRENADE
     }

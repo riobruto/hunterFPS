@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Game.Player.Attachment
 {
-    public class ScopeAttachment : MonoBehaviour
+    public class ScopeAttachmentComponent : MonoBehaviour
     {
         [SerializeField] float _smoothVelocity = .125f;
 

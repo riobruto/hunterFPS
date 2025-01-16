@@ -224,7 +224,7 @@ namespace Game.Service
             impact.transform.position = point;
             impact.transform.forward = normal;
             impact.transform.SetParent(transform, true);
-            impact.transform.localScale = impact.transform.parent.localScale;
+            //impact.transform.localScale = impact.transform.parent.localScale;
 
             impact.SetActive(true);
             if (impact.TryGetComponent(out VisualEffect fx)) fx.Play();

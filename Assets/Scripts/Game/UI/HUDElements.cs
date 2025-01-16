@@ -125,14 +125,36 @@ namespace UI
 
             if (hasWeapon)
             {
-                _currentAmmo.text = $"{_weapon.WeaponEngine.CurrentAmmo}";
-                //Extraer del inventario;
-                _inventoryAmmo.text = $"{InventoryService.Instance.Ammunitions[_weapon.WeaponEngine.WeaponSettings.Ammo.Type]}";
-
-                _ammoType.text = $"{_weapon.WeaponEngine.WeaponSettings.Ammo.Type.Name}";
+                DoWeaponAmmo();
+                DoAvaliableAmmo();
             }
 
             _staminaBar.value = _movement.Stamina / _movement.MaxStamina;
+        }
+
+        private void DoWeaponAmmo()
+        {
+            string weaponAmmo = _weapon.WeaponEngine.CurrentAmmo > _weapon.WeaponEngine.MaxAmmo ? $"{_weapon.WeaponEngine.CurrentAmmo - 1}+1 " : $"{_weapon.WeaponEngine.CurrentAmmo}";
+            //red effect when low ammo
+            if (_weapon.WeaponEngine.CurrentAmmo < _weapon.WeaponEngine.MaxAmmo / 3)
+            {
+                weaponAmmo = $"<color=red>{weaponAmmo}</color>";
+            }
+            _currentAmmo.text = weaponAmmo;
+        }
+
+        private void DoAvaliableAmmo()
+        {
+            int avaliabeAmmo = InventoryService.Instance.Ammunitions[_weapon.WeaponEngine.WeaponSettings.Ammo.Type];
+            string avaliableAmmoString = $"{avaliabeAmmo}";
+
+            if (avaliabeAmmo <= _weapon.WeaponEngine.MaxAmmo)
+            {
+                avaliableAmmoString = $"<color=red>{avaliableAmmoString}</color>";
+            }
+            //Extraer del inventario;
+            _inventoryAmmo.text = avaliableAmmoString;
+            _ammoType.text = $"{_weapon.WeaponEngine.WeaponSettings.Ammo.Type.Name}";
         }
     }
 }

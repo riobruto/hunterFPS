@@ -34,6 +34,7 @@ namespace Core.Console
             Debug.Log("HI, CONSOLE STARTED!");
         }
 
+
         private void Update()
         {
             if (Keyboard.current.f10Key.wasPressedThisFrame)

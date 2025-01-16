@@ -80,6 +80,8 @@ namespace Rail
             return data;
         }
 
+#if UNITY_EDITOR
+
         private void OnDrawGizmos()
         {
             DrawArrows();
@@ -98,7 +100,7 @@ namespace Rail
                 }
                 else
                 {
-                    Handles.DrawLine(nextData.NearestPosition, nextData.NearestPosition + nextData.Up * 1.5f );
+                    Handles.DrawLine(nextData.NearestPosition, nextData.NearestPosition + nextData.Up * 1.5f);
                     Handles.Label(nextData.NearestPosition + nextData.Up * 2f + nextData.Tangent.normalized * .5f, $"A");
                 }
             }
@@ -134,11 +136,9 @@ namespace Rail
 
             DrawGizmos();
         }
-
         internal virtual void DrawGizmos()
         {
-        }
-
+        }        
         internal void DrawArrows()
         {
             RailData AArrow = GetRailDataFromTime(0);
@@ -154,7 +154,6 @@ namespace Rail
             Handles.color = BConnected ? Color.green : Color.red;
             DrawArrowFromData(BArrow);
         }
-
         internal static void DrawArrowFromData(RailData data)
         {
             Vector3 tip = data.NearestPosition;
@@ -162,7 +161,7 @@ namespace Rail
             Vector3 rbase = data.NearestPosition - data.Tangent.normalized + Vector3.Cross(data.Tangent.normalized, data.Up.normalized);
             Handles.DrawAAConvexPolygon(tip, lbase, rbase);
         }
-
+#endif
         public void FlipSpline(int spline)
         {
             ActiveSplineContainer.ReverseFlow(spline);

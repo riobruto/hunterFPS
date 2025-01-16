@@ -15,116 +15,198 @@ using UnityEngine.InputSystem;
 
 namespace Game.Player.Controllers
 {
+    //delegates
     public delegate void PlayerWeaponAimDelegate(bool state);
-
-    public delegate void PlayerWeaponObstructedDelegate(bool state);
 
     public delegate void PlayerWeaponDrawDelegate(bool state);
 
-    public delegate void PlayerWeaponSwapDelegate(WeaponSlotType type);
+    public delegate void PlayerWeaponGrenadeState(GrenadeType type, GrenadeState state);
 
     public delegate void PlayerWeaponInstanceDelegate(PlayerWeaponInstance instance);
 
-    public delegate void PlayerWeaponGrenadeState(GrenadeType type, GrenadeState state);
+    public delegate void PlayerWeaponObstructedDelegate(bool state);
+
+    public delegate void PlayerWeaponSwapDelegate(WeaponSlotType type);
+
+    public delegate void WeaponSlotDelegate(PlayerWeaponSlot slot);
+
+    [Serializable]
+    public class PlayerWeaponInstance
+    {
+        public bool Cocked;
+        public int CurrentAmmo;
+        public WeaponSettings Settings;
+
+        public PlayerWeaponInstance(int currentAmmo, bool isChambered, WeaponSettings settings)
+        {
+            CurrentAmmo = currentAmmo;
+            Cocked = isChambered;
+            Settings = settings;
+        }
+    }
 
     public class PlayerWeapons : MonoBehaviour
     {
-        #region PublicFields
+        //todo:
+        //esta clase debera manejar los distintos tipos de armas del player, ya sea PLAYERWEAPONENGINE
+        //GRENADES, ESPECIALES QUE TODAVIA NO IMPLIMENTE.
+        //ASI COMO GENERAR LOS SLOTS LOGICOS Y MANAGEARLOS xd
 
-        public event PlayerWeaponObstructedDelegate WeaponObstructedEvent;
+        #region PublicFields
 
         public event PlayerWeaponAimDelegate WeaponAimEvent;
 
         public event PlayerWeaponDrawDelegate WeaponDrawEvent;
 
-        public event PlayerWeaponSwapDelegate WeaponSwapEvent;
-
-        public event PlayerWeaponInstanceDelegate WeaponInstanceChangeEvent;
-
         public event PlayerWeaponGrenadeState WeaponGrenadeStateEvent;
 
         public event UnityAction<GrenadeType> WeaponGrenadeTypeChanged;
 
-        public Vector2 MouseDelta => Mouse.current.delta.value * Time.deltaTime * 10f;
-        public Vector2 MouseDirection => _mouseRayDirection;
-        public Transform WeaponVisualElementHolder { get => _weaponVisualTransform; }
-        public IWeapon WeaponEngine { get => _weaponEngine; }
-        public Dictionary<WeaponSlotType, PlayerWeaponSlot> WeaponSlots => _weaponSlots;
+        public event PlayerWeaponInstanceDelegate WeaponInstanceChangeEvent;
+
+        public event PlayerWeaponObstructedDelegate WeaponObstructedEvent;
+
+        public event PlayerWeaponSwapDelegate WeaponSwapEvent;
 
         public bool AllowInput { get; set; }
+        public Vector2 MouseDelta => Mouse.current.delta.value * Time.deltaTime * 10f;
+        public Vector2 MouseDirection => _mouseRayDirection;
+        public IWeapon WeaponEngine { get => _weaponEngine; }
+        public Dictionary<WeaponSlotType, PlayerWeaponSlot> WeaponSlots => _weaponSlots;
+        public Transform WeaponVisualElementHolder { get => _weaponVisualTransform; }
 
         #endregion PublicFields
+
+        private bool _aimInput;
+
+        [SerializeField] private bool _areWeaponSlotsAcummulative;
+
+        private GrenadeType _currentType = GrenadeType.HE;
+
+        private PlayerWeaponInstance _currentWeaponInstance;
+
+        [SerializeField] private GameObject _GasGrenade;
+
+        private IWeapon _gunWeaponEngine;
 
         [Header("Editor References")]
         [SerializeField] private Transform _head;
 
-        [SerializeField] private Transform _weaponVisualTransform;
-        [SerializeField] private bool _areWeaponSlotsAcummulative;
-
-        private bool _aimInput;
-
-        private Vector2 _mouseRayDirection;
-
-        private bool _isObstructed;
-        private bool _lastCheckForwardObstruction;
+        [SerializeField] private GameObject _HEGrenade;
+        //private InventorySystem _inventory;
         private bool _isChangingSlot;
+        private bool _isObstructed;
         private bool _isThrowingGranade;
-        private bool _canUseWeapon => !_isChangingSlot && _weaponEngine != null && !_isThrowingGranade && AllowInput;
-        private bool _canAim => !_playerMovementController.IsSprinting && !_playerMovementController.IsFalling && !_weaponEngine.BoltOpen && !_weaponEngine.IsReloading && !_isThrowingGranade;
-        private bool _isAiming => _aimInput && _canAim;
+        private bool _lastCheckForwardObstruction;
         private bool _lastIsAiming;
-
+        private Vector2 _mouseRayDirection;
         private PlayerRigidbodyMovement _playerMovementController;
+        private IWeapon _weaponEngine;
+        private Dictionary<WeaponSlotType, PlayerWeaponSlot> _weaponSlots;
+        [SerializeField] private Transform _weaponVisualTransform;
+        private bool _canAim => !_playerMovementController.IsSprinting && !_playerMovementController.IsFalling && !_weaponEngine.BoltOpen && !_weaponEngine.IsReloading && !_isThrowingGranade;
         private bool _canChangeWeapons => !_weaponEngine.IsReloading && !_weaponEngine.IsShooting && !_isChangingSlot && !_weaponEngine.BoltOpen && !_isThrowingGranade;
         private bool _canThrowGrenade => !_weaponEngine.IsReloading && !_weaponEngine.IsShooting && !_isChangingSlot && !_weaponEngine.BoltOpen && !_isThrowingGranade;
+        private bool _canUseWeapon => !_isChangingSlot && _weaponEngine != null && !_isThrowingGranade && AllowInput;
+        private bool _hasGrenadeInInventory => InventoryService.Instance.Grenades[_currentType] > 0;
+        private bool _isAiming => _aimInput && _canAim;
 
-        private IWeapon _weaponEngine;
-        private IWeapon _gunWeaponEngine;
-        private PlayerWeaponInstance _currentWeaponInstance;
-        private Dictionary<WeaponSlotType, PlayerWeaponSlot> _weaponSlots;
-        private InventorySystem _inventory;
-
-        private void Start()
+        public void Draw()
         {
-            _playerMovementController = GetComponent<PlayerRigidbodyMovement>();
-            if (_weaponVisualTransform == null) { Debug.LogException(new UnityException("There is no weapon holder transform attached")); return; }
-
-            CreateWeaponEngines();
-            CreateWeaponSlots();
-
-            foreach (IObserverFromPlayerWeapon observer in gameObject.GetComponentsInChildren<IObserverFromPlayerWeapon>())
-            {
-                observer.Initalize(this);
-            }
-
-            _inventory = InventoryService.Instance;
+            if (_currentWeaponInstance == null) return;
+            _aimInput = false;
+            _weaponEngine.ReleaseFire();
+            _weaponEngine.Activate();
+            WeaponDrawEvent?.Invoke(true);
         }
 
-        private void Update()
+        public void Seathe()
         {
-            if (!_weaponEngine.Initialized) return;
+            if (_currentWeaponInstance == null) return;
+            _aimInput = false;
+            _weaponEngine.ReleaseFire();
+            _weaponEngine.Deactivate();
+            WeaponDrawEvent?.Invoke(false);
+        }
 
-            ManageObstruction();
-            ManageAim();
-
-            if (_playerMovementController.IsSprinting) { _weaponEngine.ReleaseFire(); }
-            if (_isObstructed) { _weaponEngine.ReleaseFire(); }
-
-            if (!_canUseWeapon)
+        public bool TryGiveWeapon(WeaponSettings weapon, int currentAmmo)
+        {
+            foreach (PlayerWeaponInstance wInstance in _weaponSlots[weapon.SlotType].WeaponInstances)
             {
-                _weaponEngine.SetMovementDelta(Vector2.zero);
-                return;
+                if (wInstance.Settings == weapon)
+                {
+                    UIService.CreateMessage("You already have this weapon");
+                    return false;
+                }
             }
+            PlayerWeaponInstance instance = new
+           (
 
-            if (AllowInput)
+                 weapon.Ammo.Size,
+                 true,
+                 weapon
+           );
+
+            if (_weaponSlots[weapon.SlotType].TryAddWeapon(instance))
             {
-                _mouseRayDirection += Mouse.current.delta.value * Time.deltaTime * 10f;
-                _mouseRayDirection = Vector2.ClampMagnitude(_mouseRayDirection, _isAiming ? .1f : 10f);
+                if (_currentWeaponInstance != null)
+                {
+                    if (!_weaponSlots[weapon.SlotType].HasMultipleWeapons && _currentWeaponInstance.Settings.SlotType == weapon.SlotType)
+                    {
+                        StartCoroutine(IReplaceWeaponToInstance(instance));
+                    }
+                }
+                UIService.CreateMessage($"Picked up {weapon.name} ");
+                Debug.Log($"Player got {weapon.name} with {currentAmmo} rounds remaining");
+                StartCoroutine(IChangeWeaponToInstance(instance));
+                return true;
             }
-            else _mouseRayDirection = Vector2.zero;
+            return false;
+        }
 
-            _weaponEngine.SetMovementDelta(_mouseRayDirection);
-            _weaponEngine.RayNoise = Noise() * (_isAiming ? .05f : 1);
+        private void ChangeWeaponBySlot(WeaponSlotType type)
+        {
+            if (!AllowInput) return;
+
+            if (_currentWeaponInstance != null)
+            {
+                if (_isChangingSlot) return;
+                if (!_canChangeWeapons) return;
+                if (_weaponSlots[type].WeaponInstances.Count == 0) return;
+
+                if (_currentWeaponInstance.Settings.SlotType == type)
+                {
+                    int index = (int)Mathf.Repeat(_weaponSlots[type].WeaponInstances.IndexOf(_currentWeaponInstance) + 1, _weaponSlots[type].WeaponInstances.Count);
+
+                    if (_currentWeaponInstance == _weaponSlots[type].WeaponInstances[index])
+                    {
+                        return;
+                    }
+
+                    WeaponSwapEvent?.Invoke(type);
+
+                    StartCoroutine(IChangeWeaponToInstance(_weaponSlots[type].WeaponInstances[index]));
+                    return;
+                }
+            }
+            WeaponSwapEvent?.Invoke(type);
+            if (_weaponSlots[type].WeaponInstances.Count > 0)
+            {
+                StartCoroutine(IChangeWeaponToInstance(_weaponSlots[type].WeaponInstances[0]));
+            }
+        }
+
+        private bool CheckForwardObstruction()
+        {
+            return VisualPhysics.Raycast(_head.position, _head.forward, 1f, gameObject.layer);
+        }
+
+        private void CreateWeaponEngines()
+
+        {
+            _gunWeaponEngine = _head.gameObject.AddComponent<PlayerWeaponEngine>();
+            _weaponEngine = _gunWeaponEngine;
+            _weaponEngine.IsOwnedByPlayer = true;
         }
 
         private void CreateWeaponSlots()
@@ -137,12 +219,79 @@ namespace Game.Player.Controllers
             }
         }
 
-        private void CreateWeaponEngines()
-
+        private void DestroyWeaponInstance(PlayerWeaponInstance instance)
         {
-            _gunWeaponEngine = _head.gameObject.AddComponent<WeaponEngine>();
-            _weaponEngine = _gunWeaponEngine;
-            _weaponEngine.IsOwnedByPlayer = true;
+        }
+
+        //TODO:  You should be left behind with you backwards ideas
+        private IWeapon GetEngineFromSlotType(WeaponSlotType slotType)
+        {
+            return _gunWeaponEngine;
+        }
+
+        private GameObject GetGranadeGOFromType(GrenadeType type)
+        {
+            switch (type)
+            {
+                case GrenadeType.HE: return _HEGrenade;
+                case GrenadeType.GAS: return _GasGrenade;
+            }
+            return null;
+        }
+
+        private IEnumerator IChangeWeaponToInstance(PlayerWeaponInstance instance)
+        {
+            _isChangingSlot = true;
+
+            if (_currentWeaponInstance != null)
+            {
+                Seathe();
+            }
+            yield return new WaitForSeconds(1);
+            SetCurrentWeaponInstance(instance);
+            Draw();
+            _isChangingSlot = false;
+            yield return null;
+        }
+
+        private void InstanceGrenade()
+        {
+            GameObject nade = Instantiate(GetGranadeGOFromType(_currentType));
+            nade.transform.position = _head.position - _head.up * 0.08f + _head.forward * .5f;
+            IGrenade granadeBehaviour = nade.GetComponent<IGrenade>();
+            //HACK: Q CARAJO ES ESTO
+            int seconds = UnityEngine.Random.Range(3, 5);
+
+            Rigidbody rb = nade.GetComponent<Rigidbody>();
+
+            if (granadeBehaviour != null) granadeBehaviour.Trigger(seconds);
+
+            if (rb != null)
+            {
+                float force = 500;
+                rb.AddForce((_head.forward.normalized * force));
+                rb.AddTorque(UnityEngine.Random.insideUnitSphere * 5);
+                //Todo: Conservar velocidad de movimiento
+                //rb.AddForce(transform.TransformVector(GetComponent<PlayerMovementController>().RelativeVelocity), ForceMode.Impulse);
+            }
+        }
+
+        private IEnumerator IReplaceWeaponToInstance(PlayerWeaponInstance instance)
+        {
+            if (_currentWeaponInstance != null)
+            {
+                _isChangingSlot = true;
+                Seathe();
+                DestroyWeaponInstance(_currentWeaponInstance);
+                yield return new WaitForSeconds(.5f);
+            }
+
+            SetCurrentWeaponInstance(instance);
+
+            Draw();
+            yield return new WaitForSeconds(.5f);
+            _isChangingSlot = false;
+            yield return null;
         }
 
         private void ManageAim()
@@ -169,6 +318,30 @@ namespace Game.Player.Controllers
 
                 WeaponObstructedEvent?.Invoke(false);
                 _isObstructed = false;
+            }
+        }
+
+        private IEnumerator ManageReload()
+        {
+            _weaponEngine.Reload();
+
+            yield return null;
+        }
+
+        private Vector2 Noise()
+        {
+            Vector2 v = new Vector2(Mathf.PerlinNoise(Time.time * _weaponEngine.WeaponSettings.Sway.NoiseTime, 0f), Mathf.PerlinNoise(0f, Time.time * _weaponEngine.WeaponSettings.Sway.NoiseTime));
+            v.x -= .5f;
+            v.y -= .5f;
+            v *= 2f;
+            return v * _weaponEngine.WeaponSettings.Sway.NoiseMagnitude;
+        }
+
+        private void OnDestroy()
+        {
+            foreach (IObserverFromPlayerWeapon observer in GetComponentsInChildren<IObserverFromPlayerWeapon>())
+            {
+                observer.Detach(this);
             }
         }
 
@@ -215,22 +388,84 @@ namespace Game.Player.Controllers
             }
         }
 
-        #region Input
-
-        private void OnGrenade(InputValue value)
+        private void SetCurrentWeaponInstance(PlayerWeaponInstance instance)
         {
-            if (!AllowInput) return;
-
-            if (value.isPressed)
+            if (_currentWeaponInstance != null)
             {
-                if (_weaponEngine != null)
-                {
-                    if (!_canThrowGrenade) return;
-                }
-
-                if (!_isThrowingGranade) StartCoroutine(ThrowGrenade());
+                _currentWeaponInstance.CurrentAmmo = _weaponEngine.CurrentAmmo;
+                _currentWeaponInstance.Cocked = _weaponEngine.Cocked;
             }
+
+            _weaponEngine = GetEngineFromSlotType(instance.Settings.SlotType);
+            _weaponEngine.Initialize(instance.Settings, instance.CurrentAmmo, instance.Cocked, true);
+            _weaponEngine.SetHitScanMask(Bootstrap.Resolve<GameSettings>().RaycastConfiguration.PlayerGunLayers);
+            _currentWeaponInstance = instance;
+            WeaponInstanceChangeEvent?.Invoke(_currentWeaponInstance);
         }
+
+        private void Start()
+        {
+            _playerMovementController = GetComponent<PlayerRigidbodyMovement>();
+            if (_weaponVisualTransform == null) { Debug.LogException(new UnityException("There is no weapon holder transform attached")); return; }
+
+            CreateWeaponEngines();
+            CreateWeaponSlots();
+
+            foreach (IObserverFromPlayerWeapon observer in gameObject.GetComponentsInChildren<IObserverFromPlayerWeapon>())
+            {
+                observer.Initalize(this);
+            }
+
+            //_inventory = InventoryService.Instance;
+        }
+
+        private IEnumerator ThrowGrenade()
+        {
+            GrenadeType cachedType = _currentType;
+            if (!_hasGrenadeInInventory) yield break;
+            _isThrowingGranade = true;
+            Seathe();
+            yield return new WaitForSeconds(.5f);
+            WeaponGrenadeStateEvent?.Invoke(cachedType, GrenadeState.CHARGE);
+            yield return new WaitForSeconds(1f);
+            InventoryService.Instance.Grenades[cachedType] -= 1;
+            InstanceGrenade();
+
+            WeaponGrenadeStateEvent?.Invoke(cachedType, GrenadeState.THROW);
+            yield return new WaitForSeconds(.5f);
+            Draw();
+            _isThrowingGranade = false;
+            yield return null;
+        }
+
+        private void Update()
+        {
+            if (!_weaponEngine.Initialized) return;
+
+            ManageObstruction();
+            ManageAim();
+
+            if (_playerMovementController.IsSprinting) { _weaponEngine.ReleaseFire(); }
+            if (_isObstructed) { _weaponEngine.ReleaseFire(); }
+
+            if (!_canUseWeapon)
+            {
+                _weaponEngine.SetMovementDelta(Vector2.zero);
+                return;
+            }
+
+            if (AllowInput)
+            {
+                _mouseRayDirection += Mouse.current.delta.value * Time.deltaTime * 10f;
+                _mouseRayDirection = Vector2.ClampMagnitude(_mouseRayDirection, _isAiming ? .1f : 10f);
+            }
+            else _mouseRayDirection = Vector2.zero;
+
+            _weaponEngine.SetMovementDelta(_mouseRayDirection);
+            _weaponEngine.RayNoise = Noise() * (_isAiming ? .05f : 1);
+        }
+
+        #region Input
 
         private void OnAim(InputValue value)
         {
@@ -288,6 +523,32 @@ namespace Game.Player.Controllers
             //else the fire was released
         }
 
+        private void OnGrenade(InputValue value)
+        {
+            if (!AllowInput) return;
+
+            if (value.isPressed)
+            {
+                if (_weaponEngine != null)
+                {
+                    if (!_canThrowGrenade) return;
+                }
+
+                if (!_isThrowingGranade) StartCoroutine(ThrowGrenade());
+            }
+        }
+
+        private void OnGrenadeSlot(InputValue value)
+        {
+            if ((int)_currentType + 1 > Enum.GetValues(typeof(GrenadeType)).Length - 1)
+            {
+                _currentType = 0;
+            }
+            else _currentType++;
+
+            WeaponGrenadeTypeChanged?.Invoke(_currentType);
+        }
+
         private void OnReload()
         {
             if (!AllowInput) return;
@@ -302,7 +563,7 @@ namespace Game.Player.Controllers
 
             if (_weaponEngine.WeaponSettings.FireModes == WeaponFireModes.BOLT && _weaponEngine.CurrentAmmo >= 0)
             {
-                _weaponEngine.Reload(0);
+                _weaponEngine.Reload();
                 return;
             }
 
@@ -318,252 +579,8 @@ namespace Game.Player.Controllers
             ChangeWeaponBySlot((WeaponSlotType)(slot - 1));
         }
 
-        private void OnGrenadeSlot(InputValue value)
-        {
-            if ((int)_currentType + 1 > Enum.GetValues(typeof(GrenadeType)).Length - 1)
-            {
-                _currentType = 0;
-            }
-            else _currentType++;
-
-            WeaponGrenadeTypeChanged?.Invoke(_currentType);
-        }
-
         #endregion Input
-
-        public void Seathe()
-        {
-            if (_currentWeaponInstance == null) return;
-            _aimInput = false;
-            _weaponEngine.ReleaseFire();
-            _weaponEngine.Deactivate();
-            WeaponDrawEvent?.Invoke(false);
-        }
-
-        public void Draw()
-        {
-            if (_currentWeaponInstance == null) return;
-            _aimInput = false;
-            _weaponEngine.ReleaseFire();
-            _weaponEngine.Activate();
-            WeaponDrawEvent?.Invoke(true);
-        }
-
-        [SerializeField] private GameObject _HEGrenade;
-        [SerializeField] private GameObject _GasGrenade;
-        private bool _hasGrenadeInInventory => InventoryService.Instance.Grenades[_currentType] > 0;
-
-        private GrenadeType _currentType = GrenadeType.HE;
-
-        private IEnumerator ThrowGrenade()
-        {
-            GrenadeType cachedType = _currentType;
-            if (!_hasGrenadeInInventory) yield break;
-            _isThrowingGranade = true;
-            Seathe();
-            yield return new WaitForSeconds(.5f);
-            WeaponGrenadeStateEvent?.Invoke(cachedType, GrenadeState.CHARGE);
-            yield return new WaitForSeconds(1f);
-            InventoryService.Instance.Grenades[cachedType] -= 1;
-            InstanceGrenade();
-
-            WeaponGrenadeStateEvent?.Invoke(cachedType, GrenadeState.THROW);
-            yield return new WaitForSeconds(.5f);
-            Draw();
-            _isThrowingGranade = false;
-            yield return null;
-        }
-
-        private IEnumerator ManageReload()
-        {
-            int ammo = _inventory.TryTakeAmmo(_weaponEngine.WeaponSettings.Ammo.Type, _weaponEngine.MaxAmmo - _weaponEngine.CurrentAmmo);
-            if (ammo == 0) { UIService.CreateMessage("No ammo", 2f); yield break; };
-            _weaponEngine.Reload(_weaponEngine.CurrentAmmo + ammo);
-
-            yield return null;
-        }
-
-        private GameObject GetGranadeGOFromType(GrenadeType type)
-        {
-            switch (type)
-            {
-                case GrenadeType.HE: return _HEGrenade;
-                case GrenadeType.GAS: return _GasGrenade;
-            }
-            return null;
-        }
-
-        private void InstanceGrenade()
-        {
-            GameObject nade = Instantiate(GetGranadeGOFromType(_currentType));
-            nade.transform.position = _head.position - _head.up * 0.08f + _head.forward * .5f;
-            IGrenade granadeBehaviour = nade.GetComponent<IGrenade>();
-            //HACK: Q CARAJO ES ESTO
-            int seconds = UnityEngine.Random.Range(3, 5);
-
-            Rigidbody rb = nade.GetComponent<Rigidbody>();
-
-            if (granadeBehaviour != null) granadeBehaviour.Trigger(seconds);
-
-            if (rb != null)
-            {
-                float force = 500;
-                rb.AddForce((_head.forward.normalized * force));
-                rb.AddTorque(UnityEngine.Random.insideUnitSphere * 5);
-                //Todo: Conservar velocidad de movimiento
-                //rb.AddForce(transform.TransformVector(GetComponent<PlayerMovementController>().RelativeVelocity), ForceMode.Impulse);
-            }
-        }
-
-        private void SetCurrentWeaponInstance(PlayerWeaponInstance instance)
-        {
-            if (_currentWeaponInstance != null)
-            {
-                _currentWeaponInstance.CurrentAmmo = _weaponEngine.CurrentAmmo;
-                _currentWeaponInstance.Cocked = _weaponEngine.Cocked;
-            }
-
-            _weaponEngine = GetEngineFromSlotType(instance.Settings.SlotType);
-            _weaponEngine.Initialize(instance.Settings, instance.CurrentAmmo, instance.Cocked, true);
-            _weaponEngine.SetHitScanMask(Bootstrap.Resolve<GameSettings>().RaycastConfiguration.PlayerGunLayers);
-            _currentWeaponInstance = instance;
-            WeaponInstanceChangeEvent?.Invoke(_currentWeaponInstance);
-        }
-
-        //TODO:  You should be left behind with you backwards ideas
-        private IWeapon GetEngineFromSlotType(WeaponSlotType slotType)
-        {
-            return _gunWeaponEngine;
-        }
-
-        private void ChangeWeaponBySlot(WeaponSlotType type)
-        {
-            if (!AllowInput) return;
-
-            if (_currentWeaponInstance != null)
-            {
-                if (_isChangingSlot) return;
-                if (!_canChangeWeapons) return;
-                if (_weaponSlots[type].WeaponInstances.Count == 0) return;
-
-                if (_currentWeaponInstance.Settings.SlotType == type)
-                {
-                    int index = (int)Mathf.Repeat(_weaponSlots[type].WeaponInstances.IndexOf(_currentWeaponInstance) + 1, _weaponSlots[type].WeaponInstances.Count);
-
-                    if (_currentWeaponInstance == _weaponSlots[type].WeaponInstances[index])
-                    {
-                        return;
-                    }
-
-                    WeaponSwapEvent?.Invoke(type);
-
-                    StartCoroutine(IChangeWeaponToInstance(_weaponSlots[type].WeaponInstances[index]));
-                    return;
-                }
-            }
-            WeaponSwapEvent?.Invoke(type);
-            if (_weaponSlots[type].WeaponInstances.Count > 0)
-            {
-                StartCoroutine(IChangeWeaponToInstance(_weaponSlots[type].WeaponInstances[0]));
-            }
-        }
-
-        public bool TryGiveWeapon(WeaponSettings weapon, int currentAmmo)
-        {
-            foreach (PlayerWeaponInstance wInstance in _weaponSlots[weapon.SlotType].WeaponInstances)
-            {
-                if (wInstance.Settings == weapon)
-                {
-                    UIService.CreateMessage("You already have this weapon");
-                    return false;
-                }
-            }
-            PlayerWeaponInstance instance = new
-           (
-
-                 weapon.Ammo.Size,
-                 true,
-                 weapon
-           );
-
-            if (_weaponSlots[weapon.SlotType].TryAddWeapon(instance))
-            {
-                if (_currentWeaponInstance != null)
-                {
-                    if (!_weaponSlots[weapon.SlotType].HasMultipleWeapons && _currentWeaponInstance.Settings.SlotType == weapon.SlotType)
-                    {
-                        StartCoroutine(IReplaceWeaponToInstance(instance));
-                    }
-                }
-                UIService.CreateMessage($"Picked up {weapon.name} ");
-                Debug.Log($"Player got {weapon.name} with {currentAmmo} rounds remaining");
-                StartCoroutine(IChangeWeaponToInstance(instance));
-                return true;
-            }
-            return false;
-        }
-
-        private IEnumerator IChangeWeaponToInstance(PlayerWeaponInstance instance)
-        {
-            _isChangingSlot = true;
-
-            if (_currentWeaponInstance != null)
-            {
-                Seathe();
-            }
-            yield return new WaitForSeconds(1);
-            SetCurrentWeaponInstance(instance);
-            Draw();
-            _isChangingSlot = false;
-            yield return null;
-        }
-
-        private IEnumerator IReplaceWeaponToInstance(PlayerWeaponInstance instance)
-        {
-            if (_currentWeaponInstance != null)
-            {
-                _isChangingSlot = true;
-                Seathe();
-                DestroyWeaponInstance(_currentWeaponInstance);
-                yield return new WaitForSeconds(.5f);
-            }
-
-            SetCurrentWeaponInstance(instance);
-
-            Draw();
-            yield return new WaitForSeconds(.5f);
-            _isChangingSlot = false;
-            yield return null;
-        }
-
-        private void DestroyWeaponInstance(PlayerWeaponInstance instance)
-        {
-        }
-
-        private bool CheckForwardObstruction()
-        {
-            return VisualPhysics.Raycast(_head.position, _head.forward, 1f, gameObject.layer);
-        }
-
-        private Vector2 Noise()
-        {
-            Vector2 v = new Vector2(Mathf.PerlinNoise(Time.time * _weaponEngine.WeaponSettings.Sway.NoiseTime, 0f), Mathf.PerlinNoise(0f, Time.time * _weaponEngine.WeaponSettings.Sway.NoiseTime));
-            v.x -= .5f;
-            v.y -= .5f;
-            v *= 2f;
-            return v * _weaponEngine.WeaponSettings.Sway.NoiseMagnitude;
-        }
-
-        private void OnDestroy()
-        {
-            foreach (IObserverFromPlayerWeapon observer in GetComponentsInChildren<IObserverFromPlayerWeapon>())
-            {
-                observer.Detach(this);
-            }
-        }
     }
-
-    public delegate void WeaponSlotDelegate(PlayerWeaponSlot slot);
 
     [Serializable]
     public class PlayerWeaponSlot
@@ -578,11 +595,11 @@ namespace Game.Player.Controllers
             HasMultipleWeapons = multipleWeapons;
         }
 
-        public List<PlayerWeaponInstance> WeaponInstances { get => _weapons; }
-        public WeaponSlotType SlotType { get => _slotType; }
-        public bool HasMultipleWeapons { get; private set; }
-
         public event WeaponSlotDelegate SlotWeaponAddedEvent;
+
+        public bool HasMultipleWeapons { get; private set; }
+        public WeaponSlotType SlotType { get => _slotType; }
+        public List<PlayerWeaponInstance> WeaponInstances { get => _weapons; }
 
         public bool TryAddWeapon(PlayerWeaponInstance weapon)
         {
@@ -609,21 +626,6 @@ namespace Game.Player.Controllers
             }
 
             return false;
-        }
-    }
-
-    [Serializable]
-    public class PlayerWeaponInstance
-    {
-        public WeaponSettings Settings;
-        public int CurrentAmmo;
-        public bool Cocked;
-
-        public PlayerWeaponInstance(int currentAmmo, bool isChambered, WeaponSettings settings)
-        {
-            CurrentAmmo = currentAmmo;
-            Cocked = isChambered;
-            Settings = settings;
         }
     }
 }

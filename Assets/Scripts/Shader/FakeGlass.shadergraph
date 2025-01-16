@@ -1308,7 +1308,7 @@
     "m_StageCapability": 3,
     "m_BareResource": false,
     "m_Cubemap": {
-        "m_SerializedCubemap": "{\"cubemap\":{\"fileID\":8900000,\"guid\":\"2928c9bc0d6ef1c45aee03f3ac9f41f4\",\"type\":3}}",
+        "m_SerializedCubemap": "{\"cubemap\":{\"fileID\":8900000,\"guid\":\"9461cb863f742094d990631c85b57c18\",\"type\":3}}",
         "m_Guid": ""
     }
 }

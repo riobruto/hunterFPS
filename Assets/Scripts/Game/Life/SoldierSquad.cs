@@ -1,5 +1,4 @@
 ﻿using Life.Controllers;
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -58,11 +57,13 @@ namespace Game.Life
 
         private bool _canLoosePlayer = true;
         public bool ShouldHoldPlayer { get; private set; } = false;
+
         public void SetGoalHold(Transform transform)
         {
             _goalHoldTransform = transform;
             ShouldHoldPlayer = true;
         }
+
         public void SetGoalChase()
         {
             ShouldHoldPlayer = false;
@@ -131,9 +132,6 @@ namespace Game.Life
         {
             _timeSincePlayerFound = Time.time;
 
-
-
-
             CreateTimedGizmo(Shape.SQUARE, controller.transform.position + Vector3.up * 1.5f, 3, Color.green + Color.blue);
         }
 
@@ -163,6 +161,7 @@ namespace Game.Life
                 CreateTimedGizmo(Shape.SQUARE, sender.transform.position + Vector3.up * 2, 3, Color.green);
                 return;
             }
+            //hack: gives the ability to shoot reactively
 
             _timeSincePlayerFound = Time.time;
             CreateTimedGizmo(Shape.SQUARE, sender.transform.position + Vector3.up * 2, 3, Color.red);

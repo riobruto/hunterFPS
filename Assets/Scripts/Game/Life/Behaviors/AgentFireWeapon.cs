@@ -50,7 +50,7 @@ namespace Game.Life
 
         private void Start()
         {
-            _weaponEngine = _weaponTransform.gameObject.AddComponent<WeaponEngine>();
+            _weaponEngine = _weaponTransform.gameObject.AddComponent<AgentWeaponEngine>();
             _weaponEngine.Initialize(_weapon, _weapon.Ammo.Size, true, false);
             _weaponEngine.Activate();
             _weaponEngine.WeaponChangedState += OnWeaponChangeState;
@@ -109,7 +109,7 @@ namespace Game.Life
                 if (Empty)
                 {
                     WeaponEngine.ReleaseFire();
-                    WeaponEngine.Reload(WeaponEngine.MaxAmmo);
+                    WeaponEngine.Reload();
                     _shooting = false;
                     return;
                 }

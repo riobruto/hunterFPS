@@ -186,6 +186,7 @@ namespace Life.Controllers
         public override void ForcePlayerPerception()
         {
             if (IsDead) return;
+
             _engagedTime = 120;
             _attackPoint = PlayerHeadPosition;
             _interestPoint = PlayerGameObject.transform.position;
@@ -227,10 +228,9 @@ namespace Life.Controllers
             if (IsDead) return;
             SetHealth(GetHealth() - payload.Amount);
             if (GetHealth() <= 0) return;
-
             if (payload.HurtByPlayer) TakingDamageEvent?.Invoke(this);
-            _hurtStopVelocityMultiplier = -1.2f;
 
+            _hurtStopVelocityMultiplier = 0;
             _engagedTime = 50;
             _interestPoint = PlayerGameObject.transform.position;
             _attackPoint = PlayerHeadPosition;
@@ -314,6 +314,11 @@ namespace Life.Controllers
 
         private void ManageContact()
         {
+            if (!HasPlayerVisual)
+            {
+                _currentSquad.ReleaseAttackSlot(this);
+            }
+
             if (HasPlayerVisual && !_hasNearThreat)
             {
                 if (_currentSquad != null && _currentSquad.HasEngageTimeout)
@@ -641,9 +646,15 @@ namespace Life.Controllers
             }
         }
 
-        public override void Kick(Vector3 position, Vector3 direction)
-        {//ADD COOLDOWN FOR BEING HURT DUE TO MULTIPLE HITBOXES
-            Damage(10);
+        private float _recieveKickCooldown = 0.1f;
+        private float _lastRecieverkKickTime = 0;
+
+        public override void Kick(Vector3 position, Vector3 direction, float damage)
+        {
+            //prevent multiples hitboxes being kicked
+            if (Time.time - _lastRecieverkKickTime < _recieveKickCooldown) return;
+            _lastRecieverkKickTime = Time.time;
+            Damage(damage);
         }
 
         private SpatialDataQuery _debugQuery;
@@ -770,9 +781,9 @@ namespace Life.Controllers
         public bool TryThrowGrenade()
         {
             if (Vector3.Distance(AttackPoint, transform.position) < _minDistanceGrenade) return false;
-            if (Vector3.Distance(PlayerOccluderPosition, transform.position) < _minDistanceGrenade) return false;
             if (Vector3.Distance(AttackPoint, transform.position) > _maxDistanceGrenade) return false;
 
+            if (PlayerOccluderGameObject) if (Vector3.Distance(PlayerOccluderPosition, transform.position) < _minDistanceGrenade) return false;
             if (PlayerOccluderGameObject.layer == gameObject.layer) return false;
 
             if (_currentSquad != null)
@@ -888,12 +899,12 @@ namespace Life.Controllers
         }
 
         public bool Safe => Vector3.Distance(_targetPosition, _soldier.transform.position) < 1f;
+
         private Vector3 _targetPosition;
 
         public override void Start()
         {
             _targetPosition = _soldier.FindCoverFromGrenade().Position;
-
             _soldier.SetTarget(_targetPosition);
             _soldier.SetMovementType(SoldierMovementType.RUN);
             _soldier.FaceTarget = false;

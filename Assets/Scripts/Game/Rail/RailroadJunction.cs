@@ -35,6 +35,7 @@ namespace Rail
 
         public bool GetSwitchState() => _switchState;
 
+#if UNITY_EDITOR
         internal override void DrawGizmos()
         {
             RailData CArrow = GetRailDataFromTime(_goesIn ? 0 : 1, 1);
@@ -50,7 +51,7 @@ namespace Rail
             Handles.color = Connected ? Color.green : Color.red;
             DrawArrowFromData(CArrow);
         }
-
+#endif
         public override RailData GetRailDataFromPoint(Vector3 point, int splineIndex = 0)
         {
             RailData data = base.GetRailDataFromPoint(point, splineIndex);

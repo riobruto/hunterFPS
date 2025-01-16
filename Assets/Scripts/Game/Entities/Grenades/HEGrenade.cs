@@ -14,7 +14,6 @@ namespace Game.Entities.Grenades
     {
         [SerializeField] private ParticleSystem _particleSystem;
         [SerializeField] private MeshRenderer _mesh;
-
         [SerializeField] private AudioClipGroup _explosion;
         [SerializeField] private AudioClipGroup _explosionFar;
         [SerializeField] private AudioClipGroup _bounce;
@@ -33,34 +32,43 @@ namespace Game.Entities.Grenades
         private IEnumerator Explode(int secondsRemaining)
         {
             yield return new WaitForSeconds(secondsRemaining);
-            Vector3 explosionPos = transform.position;
-            LayerMask mask = Bootstrap.Resolve<GameSettings>().RaycastConfiguration.GrenadeHitLayers;
-
-            Collider[] colliders = Physics.OverlapSphere(explosionPos, 10, mask);
-
-            foreach (Collider hit in colliders)
-            {
-                if (hit.gameObject.isStatic) continue;
-
-                if (VisualPhysics.Linecast(hit.ClosestPoint(transform.position), transform.position, mask)) continue;
-
-                hit.TryGetComponent(out IDamageableFromExplosive damageable);
-
-                if (damageable != null)
-                {
-                    damageable.NotifyDamage(Mathf.Lerp(80, 0, Mathf.InverseLerp(0, 8, Vector3.Distance(hit.ClosestPoint(transform.position), transform.position))));
-                }
-
-                Rigidbody rb = hit.GetComponent<Rigidbody>();
-                if (rb != null)
-                    rb.AddExplosionForce(500, explosionPos, 10, 3.0F, ForceMode.Acceleration);
-            }
-
-            //Debug.Break();
+            CalculateHits();
 
             UpdateVisuals();
-            Destroy(gameObject, 5);
-            yield break;
+            Destroy(gameObject, 1);
+
+            yield return null;
+        }
+
+        private void CalculateHits()
+        {
+            Vector3 explosionPos = transform.position;
+            LayerMask mask = Bootstrap.Resolve<GameSettings>().RaycastConfiguration.GrenadeHitLayers;
+            Collider[] colliders = VisualPhysics.OverlapSphere(explosionPos, 10, mask, QueryTriggerInteraction.Ignore);
+
+            foreach (Collider collider in colliders)
+            {
+                if (collider.gameObject.isStatic) continue;
+
+                VisualPhysics.Linecast(collider.ClosestPoint(transform.position), transform.position, out RaycastHit hit, mask, QueryTriggerInteraction.Ignore);
+                if (hit.transform == null) continue;
+                if (hit.transform != transform) continue;
+
+
+                if (collider.TryGetComponent(out IDamageableFromExplosive damageable))
+                {
+                    damageable.NotifyDamage(CalculateDamage(collider));
+                }
+                if (collider.TryGetComponent(out Rigidbody rb))
+                {
+                    rb.AddExplosionForce(500, explosionPos, 10, 3.0F, ForceMode.Acceleration);
+                }
+            }
+        }
+
+        private float CalculateDamage(Collider collider)
+        {
+            return Mathf.Lerp(200, 0, Mathf.InverseLerp(0, 6, Vector3.Distance(collider.ClosestPoint(transform.position), transform.position)));
         }
 
         private void OnCollisionEnter(Collision collision)
@@ -81,9 +89,8 @@ namespace Game.Entities.Grenades
 
         void IDamagableFromHurtbox.NotifyDamage(float damage, Vector3 position, Vector3 direction)
         {
-            if(_rigidbody == null) _rigidbody = GetComponent<Rigidbody>();
+            if (_rigidbody == null) _rigidbody = GetComponent<Rigidbody>();
             _rigidbody.AddForce(direction.normalized * 10f, ForceMode.VelocityChange);
-
         }
     }
 }

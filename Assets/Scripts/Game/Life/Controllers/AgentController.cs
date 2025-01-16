@@ -408,8 +408,9 @@ namespace Life.Controllers
         {
         }
 
-        public virtual void Kick(Vector3 position, Vector3 direction)
+        public virtual void Kick(Vector3 position, Vector3 direction, float damage)
         {
+          
         }
 
         #endregion Virtual Methods

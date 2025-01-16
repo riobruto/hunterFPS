@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Game.Player.Attachment
 {
-    public class LaserPointerAttachment : MonoBehaviour
+    public class LaserPointerAttachmentComponent : MonoBehaviour
     {
         private Vector3 point;
         private PlayerWeapons _weapons;

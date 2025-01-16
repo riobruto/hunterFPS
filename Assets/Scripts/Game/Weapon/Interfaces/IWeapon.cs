@@ -43,7 +43,7 @@ namespace Game.Player.Weapon
 
         bool Fire();
 
-        void Reload(int amount);
+        void Reload();
 
         void OpenBolt();
 

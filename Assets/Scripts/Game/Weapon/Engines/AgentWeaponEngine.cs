@@ -8,9 +8,11 @@ using UnityEngine;
 
 namespace Game.Player.Weapon.Engines
 {
-    public class WeaponEngine : MonoBehaviour, IWeapon
+    public class AgentWeaponEngine : MonoBehaviour, IWeapon
     {
+        //TODO: Simplificar comportamiento para NPCS
         private int _currentAmmo = 0;
+
         private float _fireRatio;
         private bool _hasReleasedTrigger;
         private bool _isActive;
@@ -182,7 +184,7 @@ namespace Game.Player.Weapon.Engines
             _wantShooting = false;
         }
 
-        void IWeapon.Reload(int amount)
+        void IWeapon.Reload()
         {
             if (!_canReload) return;
 
@@ -192,7 +194,7 @@ namespace Game.Player.Weapon.Engines
                 return;
             }
 
-            StartCoroutine(IReload(amount));
+            StartCoroutine(IReload());
         }
 
         private bool CanFireFromFireMode()
@@ -229,6 +231,10 @@ namespace Game.Player.Weapon.Engines
 
             if (_weaponSettings.Reload.FastReloadOnEmpty && _currentAmmo == 0)
             {
+                //hack: la conmcha de dioooos
+                //sobrescribe la municion disponible del player
+                //deberia detectar si existe municion disponible para hacer esto.
+
                 _currentAmmo = _weaponSettings.Ammo.Size;
             }
             else
@@ -257,7 +263,7 @@ namespace Game.Player.Weapon.Engines
             yield return null;
         }
 
-        private IEnumerator IReload(int amount)
+        private IEnumerator IReload()
         {
             Debug.Log("ReloadBegin");
             NotifyState(WeaponState.BEGIN_RELOADING);
@@ -268,11 +274,11 @@ namespace Game.Player.Weapon.Engines
             {
                 if (_currentAmmo == 0)
                 {
-                    _currentAmmo = amount;
+                    _currentAmmo = _maxAmmo;
                 }
                 else if (_currentAmmo != 0)
                 {
-                    _currentAmmo = amount + 1;
+                    _currentAmmo = _maxAmmo + 1;
                 }
             }
             _pinDeactivated = false;

@@ -96,7 +96,7 @@ namespace Game.Life.Controllers
             {
                 _weapon.WeaponEngine.ReleaseFire();
                 _shooting = false;
-                _weapon.WeaponEngine.Reload(_weapon.WeaponEngine.MaxAmmo);
+                _weapon.WeaponEngine.Reload();
                 return;
             }
 
