@@ -1,12 +1,13 @@
 ﻿using Core.Engine;
+using Game.Life.Entities;
 using Game.Service;
 using Life.Controllers;
-using System.Collections.Generic;
-using System.Linq;
-using UnityEngine.AI;
-using UnityEngine;
-using Game.Life.Entities;
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using UnityEngine;
+using UnityEngine.AI;
 
 namespace Game.Life
 {
@@ -82,6 +83,8 @@ namespace Game.Life
 
         private float CalcultePathDistance(NavMeshPath path)
         {
+            if (path == null) return 0;
+
             float lng = 0.0f;
 
             if ((path.status != NavMeshPathStatus.PathInvalid) && (path.corners.Length > 1))
@@ -96,14 +99,14 @@ namespace Game.Life
         }
     }
 
-    public struct SpatialQueryData
+    public struct SpatialQueryPrefs
     {
         public AgentController AgentController;
         public Vector3 Position;
         public Vector3 Threat;
         public float MinDistance;
 
-        public SpatialQueryData(AgentController soldier, Vector3 position, Vector3 threat, float minDistance) : this()
+        public SpatialQueryPrefs(AgentController soldier, Vector3 position, Vector3 threat, float minDistance) : this()
         {
             AgentController = soldier;
             Position = position;
@@ -122,7 +125,7 @@ namespace Game.Life
         //Points que tienen visibilidad ocluida hacia el Enemigo
         public List<SpatialDataPoint> SafePoints;
 
-        //Points que tienen visibilidad ocluida hacia el Enemigo a media altura, pero tienen visibilidad a altura completa
+        //Points que tienen visibilidad ocluida hacia el ENemigo a media altura, pero tienen visibilidad a altura completa
         public List<SpatialDataPoint> SafeCrouchPoints;
 
         //Points que tienen visibilidad ocluida hacia el Enemigo, y esta cerca de su fuente de oclusion(paredes o obstaculos)
@@ -131,49 +134,58 @@ namespace Game.Life
         //Points que tienen visibilidad ocluida hacia el Enemigo a media altura, y esta cerca de su fuente de oclusion(paredes o obstaculos)
         public List<SpatialDataPoint> WallCoverCrouchedPoints;
 
-        public const int X_RESOLUTION = 30, Z_RESOLUTION = 30;
-        public bool AvoidNearAgents { get; private set; }
+        public const int X_RESOLUTION = 10, Z_RESOLUTION = 10;
 
-        public SpatialDataQuery(SpatialQueryData data)
+        public SpatialDataQuery(SpatialQueryPrefs data)
         {
-            Debug.Log("NEW QUERY");
-            SpatialDataPoint[] points = GetCombatSpatialData(data.AgentController, data.Position, data.Threat, data.MinDistance).ToArray();
-            //probar try catch
+            Stopwatch w = Stopwatch.StartNew();
+            //TODO: RESOLVER ALLOC
+            //POSIBLEMENTE EL CALC PATH SEA LENTO.
 
-            //fix: ESTO ES NEFASTO CREA MAS ALLOC Q LA PUTA DE TU MAMA CUANDO SE ALOCA CON MI CHALAMPI : 7/1/25
-            AllPoints = points.OrderBy(x => x.TravelLenght).ToList();
+            AllPoints = new List<SpatialDataPoint>();
+            UnsafePoints = new List<SpatialDataPoint>();
+            SafePoints = new List<SpatialDataPoint>();
+            SafeCrouchPoints = new List<SpatialDataPoint>();
+            WallCoverPoints = new List<SpatialDataPoint>();
+            WallCoverCrouchedPoints = new List<SpatialDataPoint>();
+            {
+                PopulateListWithSpatialData(data.AgentController, data.Position, data.Threat, data.MinDistance);
+            }
 
-            UnsafePoints = points.Where(x => x.HasVisualStanding && x.HasVisualCrouching && Vector3.Distance(x.Position, x.OcclusionPoint) > 2).OrderBy(x => x.TravelLenght).ToList();
-
-            SafePoints = points.Where(x => !x.HasVisualStanding && !x.HasVisualCrouching && Vector3.Distance(x.Position, x.OcclusionPoint) > 2).OrderBy(x => x.TravelLenght).ToList();
-            SafeCrouchPoints = points.Where(x => x.HasVisualStanding && !x.HasVisualCrouching && Vector3.Distance(x.Position, x.OcclusionPoint) > 2).OrderBy(x => x.TravelLenght).ToList();
-
-            WallCoverPoints = points.Where(x => !x.HasVisualStanding && !x.HasVisualCrouching && Vector3.Distance(x.Position, x.OcclusionPoint) < 2).OrderBy(x => x.TravelLenght).ToList();
-            WallCoverCrouchedPoints = points.Where(x => x.HasVisualStanding && !x.HasVisualCrouching && Vector3.Distance(x.Position, x.OcclusionPoint) < 2).OrderBy(x => x.TravelLenght).ToList();
+            UnsafePoints.Sort(SortByTravelDistance);
+            SafePoints.Sort(SortByTravelDistance);
+            SafeCrouchPoints.Sort(SortByTravelDistance);
+            WallCoverPoints.Sort(SortByTravelDistance);
+            WallCoverCrouchedPoints.Sort(SortByTravelDistance);
+            UnityEngine.Debug.Log($"NEW QUERY: {w.Elapsed.TotalMilliseconds}");
+            w.Stop();
         }
 
-        public IEnumerable<SpatialDataPoint> GetCombatSpatialData(AgentController controller, Vector3 position, Vector3 threat, float safeDistance = 15)
+        public void PopulateListWithSpatialData(AgentController controller, Vector3 position, Vector3 threat, float safeDistance = 15)
         {
             NavMeshPath path = new NavMeshPath();
+            
             if (!controller.NavMeshAgent.isOnNavMesh)
             {
                 throw new UnityException("Agent is not placed in a NavMesh");
             }
+
             for (int x = 1; x < X_RESOLUTION; x++)
             {
                 for (int z = 1; z < Z_RESOLUTION; z++)
                 {
-                    Vector3 point = new Vector3(x - X_RESOLUTION / 2, 0, z - Z_RESOLUTION / 2);
+                    //if (x % 2 == 0 || z % 2 == 0) continue;
+
+                    Vector3 point = new Vector3(x - X_RESOLUTION / 2, 0, z - Z_RESOLUTION / 2) * 2f;
                     bool validPoint = NavMesh.SamplePosition(position + point, out NavMeshHit hit, 20, NavMesh.AllAreas);
                     if (!validPoint) continue;
-                    //checks if gets in the way of an agent.
-                    if (IsInAgentDestination(controller, hit.position)) continue;
-
-                    bool validPath = controller.NavMeshAgent.CalculatePath(position + point, path);
+                    bool validPath = NavMesh.CalculatePath(controller.transform.position, position + point, NavMesh.AllAreas, path);
                     if (!validPath || path.status == NavMeshPathStatus.PathPartial) continue;
+                    if (IsInAgentDestination(controller, hit.position)) continue;
                     if (Vector3.Distance(hit.position, threat) < safeDistance) continue;
 
-                    yield return new(
+                    //generamos el punto
+                    SpatialDataPoint datapoint = new(
                        hit.position,
                        CalculateOcclusionPoint(hit.position + Vector3.up * controller.Height, threat),
                        Vector3.Distance(hit.position, threat),
@@ -181,11 +193,24 @@ namespace Game.Life
                        HasVisual(hit.position + Vector3.up * controller.Height, threat),
                        HasVisual(hit.position + Vector3.up * controller.CrouchHeight, threat),
                        threat.y - (hit.position.y + controller.Height) > 1.5f,
-                       path); ;
+                       path);
+
+                    AllPoints.Add(datapoint);
+
+                    if (Vector3.Distance(datapoint.Position, datapoint.OcclusionPoint) < 1)
+                    {
+                        if (!datapoint.HasVisualStanding) { SafePoints.Add(datapoint); WallCoverPoints.Add(datapoint); continue; }
+                        if (!datapoint.HasVisualCrouching) { SafeCrouchPoints.Add(datapoint); WallCoverCrouchedPoints.Add(datapoint); continue; }
+                    }
+                    else
+                    {
+                        if (!datapoint.HasVisualStanding) { SafePoints.Add(datapoint); continue; }
+                        if (!datapoint.HasVisualCrouching) { SafeCrouchPoints.Add(datapoint); continue; }
+                    }
+                    UnsafePoints.Add(datapoint);
+                    continue;
                 }
             }
-
-            yield break;
         }
 
         private bool IsInAgentDestination(AgentController controller, Vector3 hit)
@@ -207,5 +232,7 @@ namespace Game.Life
             Physics.Linecast(from, to, out RaycastHit hit, Bootstrap.Resolve<GameSettings>().RaycastConfiguration.CoverLayers);
             return hit.point;
         }
+
+        public int SortByTravelDistance(SpatialDataPoint A, SpatialDataPoint B) => A.TravelLenght.CompareTo(B.TravelLenght);
     }
 }

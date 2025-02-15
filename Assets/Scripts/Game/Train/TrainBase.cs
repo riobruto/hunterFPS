@@ -133,17 +133,13 @@ namespace Game.Train
 
         private void OnCollisionEnter(Collision collision)
         {
-
-
-
-
             if (collision.gameObject == p)
             {
                 if (Vector3.Dot(collision.relativeVelocity, -Vector3.up) > 0.5f)
                 {
                     if (collision.relativeVelocity.magnitude > .5f)
                     {
-                        p.GetComponent<PlayerHealth>().Hurt(10000000);
+                        p.GetComponent<PlayerHealth>().Hurt(10000000, p.transform.position - transform.position);
                         p.GetComponent<PlayerRigidbodyMovement>().Push(collision.relativeVelocity);
                         _rigidbody.velocity = _lastVelocity;
                     }

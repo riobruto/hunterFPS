@@ -10,6 +10,7 @@ namespace Game.Life.Entities
     public class SoldierSquadCreatorEntity : MonoBehaviour
     {
         [SerializeField] private GameObject[] _soldierPrefabs;
+        [SerializeField] private Transform _spawnPoint;
         [SerializeField] private float _spawnRadius = 5f;
         [SerializeField] private SquadBeginState _beginState;
 
@@ -20,7 +21,6 @@ namespace Game.Life.Entities
 
         [SerializeField] private Transform _holdTransform;
 
-        [ContextMenu("SpawnSquad")]
 
         private void Start()
         {
@@ -30,7 +30,8 @@ namespace Game.Life.Entities
             }
         }
 
-
+        
+        [ContextMenu("SpawnSquad")]
         public void CreateSquad()
         {
             List<SoldierAgentController> soldiers = new List<SoldierAgentController>();
@@ -41,7 +42,7 @@ namespace Game.Life.Entities
                 SoldierAgentController controller = Instantiate(obj).GetComponent<SoldierAgentController>();
                 soldiers.Add(controller);
                 //overriding el class member porque no lo encuentra por el orden de ejecucion todo violado este
-                controller.GetComponent<NavMeshAgent>().Warp(transform.position + new Vector3(Random.insideUnitCircle.x, 0, Random.insideUnitCircle.y) * Random.Range(0, _spawnRadius));
+                controller.GetComponent<NavMeshAgent>().Warp(_spawnPoint.position + new Vector3(Random.insideUnitCircle.x, 0, Random.insideUnitCircle.y) * Random.Range(0, _spawnRadius));
                 controller.GetComponent<NavMeshAgent>().avoidancePriority = priority;
 
                 priority++;
@@ -53,7 +54,7 @@ namespace Game.Life.Entities
 
             if (_holdPosition)
             {
-                squad.SetGoalHold(_holdTransform);
+                squad.SetGoalHold(_holdTransform, _spawnRadius);
             }
             else squad.SetGoalChase();
         }

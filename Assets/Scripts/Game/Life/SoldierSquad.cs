@@ -57,18 +57,21 @@ namespace Game.Life
 
         private bool _canLoosePlayer = true;
         public bool ShouldHoldPlayer { get; private set; } = false;
+        public float MaxHoldRadius { get; private set; }
 
-        public void SetGoalHold(Transform transform)
+        
+
+
+        public void SetGoalHold(Transform transform, float maxRadius)
         {
             _goalHoldTransform = transform;
             ShouldHoldPlayer = true;
+            MaxHoldRadius = maxRadius;
         }
 
-        public void SetGoalChase()
-        {
-            ShouldHoldPlayer = false;
-        }
-
+        public void SetGoalChase() =>  ShouldHoldPlayer = false;      
+        public void ForceEngage(int duration = 10) => _timeSincePlayerFound = Time.time + duration;
+        
         public Vector3 HoldPosition
         {
             get => _goalHoldTransform.position;

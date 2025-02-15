@@ -1,9 +1,9 @@
+using Core.Save;
 using UnityEngine;
 
 namespace Game.Inventory
 {
-    [CreateAssetMenu(fileName = "New Inventory Item", menuName = "Inventory/InventoryItem")]
-    public class InventoryItem : ScriptableObject
+    public class InventoryItem : SaveableScriptableObject
     {
         [SerializeField] private string _name;
         [SerializeField, TextArea] private string _description;

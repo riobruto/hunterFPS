@@ -15,20 +15,31 @@ namespace Game.Player
 
         private RaycastConfiguration _raycastConfiguration;
         private IInteractable _interactable;
-        private Vector3 interactHit;
+        private Vector3 _interactHit;
         private bool _hasInteraction;
 
         [SerializeField] private bool _debug;
         [SerializeField] private int _interactDistance;
         [SerializeField] private Transform _head;
+
         public bool AllowInteraction;
-        public bool CanInteract => AllowInteraction && _hasInteraction;
+
+        public bool CanInteract
+        {
+            get
+            {
+                if (_interactable != default && !_interactable.CanInteract()) return false;
+                return AllowInteraction && _hasInteraction;
+            }
+        }
+
         private void Start()
         {
             _raycastConfiguration = Bootstrap.Resolve<GameSettings>().RaycastConfiguration;
         }
 
         private bool _interact;
+
         private void OnInteract(InputValue value)
         {
             _interact = value.isPressed;
@@ -55,7 +66,7 @@ namespace Game.Player
                     return;
                 }
             }
-            if (_hasInteraction && Keyboard.current.fKey.wasPressedThisFrame && currentInteractable.BeginInteraction(interactHit))
+            if (_hasInteraction && Keyboard.current.fKey.wasPressedThisFrame && currentInteractable.BeginInteraction(_interactHit))
             {
                 _interactable = currentInteractable;
                 NotifyState(InteractableState.BEGIN_INTERACTION);
@@ -67,7 +78,7 @@ namespace Game.Player
             RaycastHit hitInfo;
             Ray ray = new Ray(_head.position, _head.forward);
             if (!VisualPhysics.SphereCast(ray, .25f, out hitInfo, _interactDistance, _raycastConfiguration.InteractableLayer)) return default;
-            interactHit = hitInfo.point;
+            _interactHit = hitInfo.point;
             return FindInteractableInFamily(hitInfo.collider.gameObject.transform);
         }
 

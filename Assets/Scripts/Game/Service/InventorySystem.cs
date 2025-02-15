@@ -1,10 +1,14 @@
 ﻿using Core.Engine;
+using Core.Save;
 using Core.Weapon;
 using Game.Inventory;
 using Game.Weapon;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 using UnityEngine.Events;
 
 namespace Game.Service
@@ -12,22 +16,70 @@ namespace Game.Service
     public class InventoryService : SceneService
     {
         public static InventorySystem Instance;
+        private static string _currentProfileName = "juan";
 
-        internal override void Initialize()
+        internal override void Initialize() => PlayerService.PlayerSpawnEvent += OnPlayerSpawn;
+
+        private void OnPlayerSpawn(GameObject player)
         {
             Instance = new GameObject("InventorySystem").AddComponent<InventorySystem>();
-            GameObject.DontDestroyOnLoad(Instance);
             Instance.Initialize();
+            GameObject.DontDestroyOnLoad(Instance);
+            //TODO: LOAD SAVED INVENTORY;
+            LoadInventory();
         }
 
         public static void SaveInventory()
+        {
+            if (!PlayerService.Active) return;
 
-        {   //TODO: Logica de guardado y cargado creada por el service.
-            //PlayerPrefs.Save();
+
+            InventorySaveData data = new(GetLocationsForSaveables(Instance.Consumables));
+            string json = JsonConvert.SerializeObject(data);
+            string directory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + $"/Refaulter/SaveData";
+            Directory.CreateDirectory(directory);
+
+            string SaveName = "data";
+            SaveName = directory + "/" + SaveName + ".json";
+
+            Debug.Log(json);
+            Debug.Break();
+            try
+            {
+                File.AppendAllText(SaveName, json + "\n");
+            }
+            catch
+            {
+                Debug.LogError("Wont Save");
+            }
+        }
+
+        private static string[] GetLocationsForSaveables(SaveableScriptableObject[] saveables)
+        {
+            string[] result = new string[saveables.Length];
+
+            for (int i = 0; i < saveables.Length; i++)
+            {
+                if (saveables == null) continue;
+                result[i] = saveables[i].name;
+            }
+
+            return result;
         }
 
         public static void LoadInventory()
         {
+            //load json
+        }
+
+        public class InventorySaveData
+        {
+            public string[] ConsumbleAddresses;
+
+            public InventorySaveData(string[] consumbleAddresses)
+            {
+                ConsumbleAddresses = consumbleAddresses;
+            }
         }
     }
 
@@ -42,8 +94,25 @@ namespace Game.Service
     public delegate void InventoryAttachmentDelegate(AttachmentSettings item);
 
     public class InventorySystem : MonoBehaviour
-
     {
+        public void SetInventoryFromSave()
+        {
+        }
+
+        public void Initialize()
+        {
+            Ammunitions = new Dictionary<AmmunitionItem, int>();
+            Grenades = new Dictionary<GrenadeType, int>();
+            foreach (GrenadeType grenade in Enum.GetValues(typeof(GrenadeType)))
+            {
+                Grenades.Add(grenade, 3);
+            }
+
+            //GetSavedData
+        }
+
+        //save weapons, ammo, equipables, equipped, consumables
+        //TODO: IMPLEMENTAR ADDRESABLES
         public event InventoryControllerDelegate ToggleInventoryEvent;
 
         public ConsumableItem[] Consumables = new ConsumableItem[8];
@@ -52,7 +121,6 @@ namespace Game.Service
         public Dictionary<AmmunitionItem, int> Ammunitions;
         public Dictionary<GrenadeType, int> Grenades;
         public List<AttachmentSettings> CurrentAttachments => _attachments;
-
         [SerializeField] private AttachmentSettings _testAttach;
 
         [ContextMenu("ItemTest")]
@@ -81,6 +149,7 @@ namespace Game.Service
 
         public bool TryAddItem(InventoryItem item)
         {
+            if (!PlayerService.Active) return false;
             if (item is ConsumableItem)
             {
                 for (int i = 0; i < Consumables.Length; i++)
@@ -97,7 +166,6 @@ namespace Game.Service
                 UIService.CreateMessage("Your inventory is full");
                 return false;
             }
-
             if (item is EquipableItem)
             {
                 for (int i = 0; i < Equipables.Length; i++)
@@ -119,6 +187,7 @@ namespace Game.Service
 
         public bool TryRemoveItem(InventoryItem item)
         {
+            if (!PlayerService.Active) return false;
             if (item is ConsumableItem)
             {
                 for (int i = 0; i < Consumables.Length; i++)
@@ -133,7 +202,6 @@ namespace Game.Service
                 }
                 return false;
             }
-
             if (item is EquipableItem)
             {
                 for (int i = 0; i < Equipables.Length; i++)
@@ -149,20 +217,6 @@ namespace Game.Service
                 return false;
             }
             return false;
-        }
-
-        public void Initialize()
-        {
-            Ammunitions = new Dictionary<AmmunitionItem, int>();
-            //LOAD AMMO FROM SAVE
-
-            Grenades = new Dictionary<GrenadeType, int>();
-
-            foreach (GrenadeType grenade in Enum.GetValues(typeof(GrenadeType)))
-            {
-                Grenades.Add(grenade, 3);
-            }
-            //GetSavedData
         }
 
         internal void ShowInventoryUI()
@@ -208,11 +262,13 @@ namespace Game.Service
 
         internal void GiveGrenades(int amount, GrenadeType type)
         {
+            if (!PlayerService.Active) return;
             Grenades[type] = amount - Grenades[type];
         }
 
         internal bool TryGiveAmmo(AmmunitionItem type, int amount)
         {
+            if (!PlayerService.Active) return false;
             if (amount <= 0) return false;
 
             if (!Ammunitions.ContainsKey(type))
@@ -234,6 +290,7 @@ namespace Game.Service
             GiveAmmoEvent?.Invoke(type);
             return true;
         }
+
         /// <summary>
         /// Takes a given amount of ammunition type, and returns the maximun amount possible clamped to the desired amount
         /// </summary>
@@ -242,21 +299,26 @@ namespace Game.Service
         /// <returns></returns>
         internal int TakeAvaliableAmmo(AmmunitionItem type, int desiredAmount)
         {
+            if (!PlayerService.Active) return 0;
             if (desiredAmount <= 0) return 0;
             if (!Ammunitions.ContainsKey(type)) { return 0; }
             int resultant = Mathf.Clamp(Ammunitions[type], 0, desiredAmount);
             Ammunitions[type] -= resultant;
+            Debug.Log("TakingAmmo");
             return resultant;
         }
+
         public bool HasAmmoOfType(AmmunitionItem type) => Ammunitions.ContainsKey(type) && Ammunitions[type] > 0;
-       
+
         public bool TryGiveAttachment(AttachmentSettings attachment)
         {
+            if (!PlayerService.Active) return false;
             if (_attachments.Contains(attachment)) return false;
             _attachments.Add(attachment);
             AttachmentAddedEvent?.Invoke(attachment);
             return true;
         }
+
         public bool HasAttachment(AttachmentSettings attachment) => _attachments.Contains(attachment);
     }
 }

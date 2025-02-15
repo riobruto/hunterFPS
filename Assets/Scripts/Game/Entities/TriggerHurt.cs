@@ -24,7 +24,7 @@ namespace Game.Entities
 
             if (other.gameObject == player)
             {
-                player.GetComponent<PlayerHealth>().Hurt(10f);
+                player.GetComponent<PlayerHealth>().Hurt(10f, transform.position);
             }
         }
 
@@ -35,7 +35,7 @@ namespace Game.Entities
                 if (Time.time - _lastTimeHurt > 1)
                 {
                     _lastTimeHurt = Time.time;
-                    player.GetComponent<PlayerHealth>().Hurt(10f);
+                    player.GetComponent<PlayerHealth>().Hurt(10f, transform.position);
                 }
             }
         }

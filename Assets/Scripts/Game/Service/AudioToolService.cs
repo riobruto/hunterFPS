@@ -1,8 +1,9 @@
 ﻿using Core.Engine;
+using Game.Audio;
 using UnityEngine;
 using UnityEngine.Audio;
 
-namespace Game.Audio
+namespace Game.Service
 {
     public enum AudioChannels
     {
@@ -35,6 +36,8 @@ namespace Game.Audio
             {
                 oneShots[i] = new GameObject("One shot audio").AddComponent<AudioBlendOneShot>();
                 oneShots[i].Initialize();
+                oneShots[i].hideFlags = HideFlags.HideInHierarchy;
+                GameObject.DontDestroyOnLoad(oneShots[i]);
             }
         }
 
@@ -108,7 +111,6 @@ namespace Game.Audio
         {
             if (clip == null) return;
             AudioBlendOneShot shot = OneShots.GetNext();
-        
 
             shot.transform.position = Vector3.zero;
             AudioSource audioSource = shot.Near;

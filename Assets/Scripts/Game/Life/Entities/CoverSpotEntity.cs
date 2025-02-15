@@ -28,7 +28,9 @@ namespace Game.Life.Entities
 
         public bool IsValid(SoldierAgentController controller, Vector3 threat)
         {
-            bool dot = Vector3.Dot(transform.forward, threat - transform.position) > .8f;
+            threat.y = transform.position.y;
+
+            bool dot = Vector3.Dot(transform.forward, (threat - transform.position).normalized) > .25f;
             bool maxThreatDistance = Vector3.Distance(transform.position, threat) > 20f;
             bool minThreatDistance = Vector3.Distance(transform.position, threat) < 1;
 

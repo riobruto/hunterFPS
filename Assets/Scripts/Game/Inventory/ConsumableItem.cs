@@ -8,9 +8,7 @@ namespace Game.Inventory
     {
         [Header("Consumable Info")]
         [SerializeField] private ConsumableProperties _properties;
-
         [SerializeField] private GameObject _animationGameObject;
-
         [Tooltip("The name that is going to appear in the menu to use")]
         [SerializeField] private string _consumeActionName;
 

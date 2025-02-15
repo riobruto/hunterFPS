@@ -57,7 +57,7 @@ namespace Game.Entities.Grenades
 
                 if (collider.TryGetComponent(out IDamageableFromExplosive damageable))
                 {
-                    damageable.NotifyDamage(CalculateDamage(collider));
+                    damageable.NotifyDamage(CalculateDamage(collider), transform.position);
                 }
                 if (collider.TryGetComponent(out Rigidbody rb))
                 {

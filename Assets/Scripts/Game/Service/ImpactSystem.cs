@@ -1,5 +1,4 @@
 ﻿using Core.Engine;
-using Game.Audio;
 using Game.Impact;
 using Game.Player.Sound;
 using System.Collections;
@@ -19,6 +18,7 @@ namespace Game.Service
             if (_initialized) return;
             Debug.Log("Initializing Impacts");
             _system = new GameObject("ImpactSystem").AddComponent<ImpactSystem>();
+            GameObject.DontDestroyOnLoad(_system);
             _system.Create();
             _initialized = true;
         }
@@ -34,18 +34,11 @@ namespace Game.Service
         private RingBuffer<GameObject> LimbMutilatedBuffer;
         private RingBuffer<GameObject> Tracers;
         private RingBuffer<GameObject> BloodDecalBuffer;
-
         private RingBuffer<GameObject> ConcreteBuffer;
         private RingBuffer<GameObject> MetalBuffer;
         private RingBuffer<GameObject> WoodBuffer;
         private RingBuffer<GameObject> DefaultBuffer;
         private RingBuffer<GameObject> BloodBuffer;
-
-        //TODO add support for multiple impacts!
-
-        private void Start()
-        {
-        }
 
         private void CreateTracers()
         {
@@ -55,6 +48,7 @@ namespace Game.Service
             {
                 tracers[i] = Instantiate(_dictionary.Tracer);
                 tracers[i].SetActive(false);
+                DontDestroyOnLoad(tracers[i]);
             }
             Tracers = new RingBuffer<GameObject>(tracers);
         }
@@ -66,6 +60,9 @@ namespace Game.Service
             {
                 explosions[i] = Instantiate(_dictionary.GrenadeExplosion.ImpactPrefab);
                 explosions[i].SetActive(false);
+                explosions[i].hideFlags = HideFlags.HideInHierarchy;
+
+                DontDestroyOnLoad(explosions[i]);
             }
             ExplosionBuffer = new RingBuffer<GameObject>(explosions);
         }
@@ -77,24 +74,7 @@ namespace Game.Service
             explosion.transform.up = Vector3.up;
             explosion.SetActive(true);
             explosion.GetComponent<ParticleSystem>().Play();
-
             Vector3 playerPos = Bootstrap.Resolve<PlayerService>().Player.transform.position;
-
-            float distance = (position - playerPos).magnitude;
-            AudioSource.PlayClipAtPoint(_dictionary.GrenadeExplosion.Sound.GetRandom(), playerPos + (position - playerPos).normalized, Mathf.InverseLerp(50, 0, distance));
-            AudioSource.PlayClipAtPoint(_dictionary.GrenadeExplosion.SoundFar.GetRandom(), playerPos + (position - playerPos).normalized, Mathf.InverseLerp(0, 50, distance));
-        }
-
-        public void ExplosionAtPosition(Vector3 position, Vector3 direction)
-        {
-            GameObject explosion = ExplosionBuffer.GetNext();
-            explosion.transform.position = position;
-            explosion.transform.up = direction;
-
-            explosion.SetActive(true);
-            explosion.GetComponent<ParticleSystem>().Play();
-            Vector3 playerPos = Bootstrap.Resolve<PlayerService>().Player.transform.position;
-
             float distance = (position - playerPos).magnitude;
             AudioSource.PlayClipAtPoint(_dictionary.GrenadeExplosion.Sound.GetRandom(), playerPos + (position - playerPos).normalized, Mathf.InverseLerp(50, 0, distance));
             AudioSource.PlayClipAtPoint(_dictionary.GrenadeExplosion.SoundFar.GetRandom(), playerPos + (position - playerPos).normalized, Mathf.InverseLerp(0, 50, distance));
@@ -116,6 +96,8 @@ namespace Game.Service
             {
                 bufferImpact[i] = Instantiate(impact.ImpactPrefab);
                 bufferImpact[i].SetActive(false);
+                bufferImpact[i].hideFlags = HideFlags.HideInHierarchy;
+                DontDestroyOnLoad(bufferImpact[i]);
             }
             return new RingBuffer<GameObject>(bufferImpact);
         }
@@ -169,6 +151,7 @@ namespace Game.Service
                 decal.size = size;
                 decal.gameObject.SetActive(false);
                 decal.gameObject.hideFlags = HideFlags.HideInHierarchy;
+                DontDestroyOnLoad(bloodDecals[i]);
             }
             BloodDecalBuffer = new RingBuffer<GameObject>(bloodDecals);
         }
@@ -200,6 +183,7 @@ namespace Game.Service
             rendered.transform.position = from;
             rendered.startWidth = Random.Range(0.05f, 0.15f);
             rendered.Clear();
+            BulletAirSound(from, to);
 
             float trailTime = .25f;
             float speed = UnityEngine.Random.Range(_dictionary.TracerMinSpeed, _dictionary.TracerMaxSpeed);
@@ -215,11 +199,24 @@ namespace Game.Service
             yield break;
         }
 
+        private void BulletAirSound(Vector3 from, Vector3 to)
+        {
+            if (!PlayerService.Active) return;
+
+            Vector3 cameraPos = Bootstrap.Resolve<PlayerService>().PlayerCamera.transform.position;
+            Vector3 toCameraDir = cameraPos - from;
+            Vector3 bulletDir = to - from;
+            // calculate hit before reaching oido del player
+            if (Vector3.Dot(toCameraDir.normalized, (to - cameraPos).normalized) < 0) return;
+            if (Mathf.Abs(Vector3.Dot(toCameraDir.normalized, bulletDir.normalized)) > .8f)
+            {
+                AudioToolService.PlayClipAtPoint(_dictionary.NearBullet.GetRandom(), cameraPos + bulletDir.normalized, 1f, AudioChannels.ENVIRONMENT, 5);
+            }
+        }
+
         internal void ImpactAtPosition(Vector3 point, Vector3 normal, Transform transform, SurfaceType type = SurfaceType.CONCRETE)
         {
             GameObject impact = GetImpactsFromSurfaceType(type).GetNext();
-
-
 
             impact.transform.position = point;
             impact.transform.forward = normal;

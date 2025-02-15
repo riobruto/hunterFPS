@@ -36,6 +36,10 @@ namespace Life.Controllers
     [RequireComponent(typeof(NavMeshAgent), typeof(Animator))]
     public class AgentController : MonoBehaviour
     {
+
+        
+
+
         private StateMachine _machine;
         private Animator _animator;
         private NavMeshAgent _navMeshAgent;
@@ -110,6 +114,9 @@ namespace Life.Controllers
 
         public Vector3 PlayerPosition => _player.transform.position;
         public Vector3 PlayerHeadPosition => _playerCamera.transform.position;
+        public Transform PlayerTransform => _player.transform;
+        public Transform PlayerHead => _playerCamera.transform;
+
         public bool HasPlayerVisual => _playerDetected;
         public GameObject PlayerGameObject { get => _player; }
         public Vector3 LastPlayerKnownPosition => _lastKnownPosition;
@@ -144,15 +151,36 @@ namespace Life.Controllers
             _navMeshAgent.updatePosition = true;
             _navMeshAgent.speed = 3;
 
-            _player = Bootstrap.Resolve<PlayerService>().Player;
-            _playerCamera = Bootstrap.Resolve<PlayerService>().PlayerCamera;
-            _ignoreMask = Bootstrap.Resolve<GameSettings>().RaycastConfiguration.IgnoreLayers;
-            _playerSound = _player.GetComponentInChildren<PlayerSoundController>();
-            _playerInventory = InventoryService.Instance;
 
-            _playerSound.StepSound += OnPlayerStep;
-            _playerSound.GunSound += OnPlayerGun;
-            _playerInventory.DropItem += OnPlayerDropped;
+            //TODO: IF THE PLAYER IS NOT SPAWNED, MAKE ALREADY SPAWNED.
+            if (!PlayerService.Active)
+            {
+                PlayerService.PlayerSpawnEvent += (player) =>
+                {
+                    //hack?
+                    _player = Bootstrap.Resolve<PlayerService>().Player;
+                    _playerCamera = Bootstrap.Resolve<PlayerService>().PlayerCamera;
+                    _ignoreMask = Bootstrap.Resolve<GameSettings>().RaycastConfiguration.IgnoreLayers;
+                    _playerSound = _player.GetComponentInChildren<PlayerSoundController>();
+                    _playerInventory = InventoryService.Instance;
+                    _playerSound.StepSound += OnPlayerStep;
+                    _playerSound.GunSound += OnPlayerGun;
+                    _playerInventory.DropItem += OnPlayerDropped;
+                };
+            }
+            else
+            {
+                _player = Bootstrap.Resolve<PlayerService>().Player;
+                _playerCamera = Bootstrap.Resolve<PlayerService>().PlayerCamera;
+                _ignoreMask = Bootstrap.Resolve<GameSettings>().RaycastConfiguration.IgnoreLayers;
+                _playerSound = _player.GetComponentInChildren<PlayerSoundController>();
+                _playerInventory = InventoryService.Instance;
+                _playerSound.StepSound += OnPlayerStep;
+                _playerSound.GunSound += OnPlayerGun;
+                _playerInventory.DropItem += OnPlayerDropped;
+
+            }
+
 
             Initialized = true;
             OnStart();
@@ -223,15 +251,14 @@ namespace Life.Controllers
 
         internal void Damage(float amount)
         {
-            AgentHurtPayload payload = new AgentHurtPayload(false, amount, Vector3.zero, null);
+            AgentHurtPayload payload = new(false, amount, Vector3.zero, null);
             HurtEvent?.Invoke(payload, this);
             OnHurt(payload);
         }
 
         private void OnPlayerGun(Vector3 position, float radius)
         {
-            if (AgentGlobalService.IgnorePlayer) return;
-
+            if (AgentGlobalService.IgnorePlayer) return;       
             if (Vector3.Distance(position, transform.position) <= radius)
             {
                 HeardGunshotsEvent?.Invoke(this);
@@ -252,12 +279,15 @@ namespace Life.Controllers
         public bool IsPlayerInRange(float distance)
         {
             if (AgentGlobalService.IgnorePlayer) return false;
+            if (!PlayerService.Active) return false;
+
             return Vector3.Distance(transform.position + transform.up * 2f, _playerCamera.transform.position) < distance;
         }
 
         public bool IsPlayerInViewAngle(float dotAngle)
         {
             if (AgentGlobalService.IgnorePlayer) return false;
+            if (!PlayerService.Active) return false;
             return Vector3.Dot(transform.forward, _playerCamera.transform.position - transform.position) > dotAngle;
         }
 
@@ -267,6 +297,7 @@ namespace Life.Controllers
         public bool IsPlayerVisible()
         {
             if (AgentGlobalService.IgnorePlayer) return false;
+            if (!PlayerService.Active) return false;
             //Debug.DrawLine(_playerCamera.transform.position, transform.position);
 
             if (VisualPhysics.Linecast(_playerCamera.transform.position, _head.position, out RaycastHit hit, _ignoreMask, QueryTriggerInteraction.Ignore))
@@ -362,7 +393,13 @@ namespace Life.Controllers
             _animator.SetFloat("mov_forward", relativeVelocity.z, .05f, Time.deltaTime);
             _animator.SetFloat("aim_vertical", aim_vertical, .05f, Time.deltaTime);
         }
+        private void OnDisable()
+        {
+            _playerSound.StepSound -= OnPlayerStep;
+            _playerSound.GunSound -= OnPlayerGun;
+            _playerInventory.DropItem -= OnPlayerDropped;
 
+        }
         private void OnDrawGizmos()
         {
             if (Application.isPlaying && _machine != null)
@@ -410,9 +447,9 @@ namespace Life.Controllers
 
         public virtual void Kick(Vector3 position, Vector3 direction, float damage)
         {
-          
         }
 
+       
         #endregion Virtual Methods
     }
 }

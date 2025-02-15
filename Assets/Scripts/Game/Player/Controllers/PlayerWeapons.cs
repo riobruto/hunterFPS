@@ -79,22 +79,23 @@ namespace Game.Player.Controllers
 
         private bool _aimInput;
 
-        [SerializeField] private bool _areWeaponSlotsAcummulative;
-
         private GrenadeType _currentType = GrenadeType.HE;
 
         private PlayerWeaponInstance _currentWeaponInstance;
 
-        [SerializeField] private GameObject _GasGrenade;
-
         private IWeapon _gunWeaponEngine;
 
         [Header("Editor References")]
-        [SerializeField] private Transform _head;
+        [SerializeField] private bool _areWeaponSlotsAcummulative;
 
-        [SerializeField] private GameObject _HEGrenade;
+        [SerializeField] private Transform _head;
+        [SerializeField] private GameObject _gasGrenade;
+        [SerializeField] private GameObject _heGrenade;
+        [SerializeField] private Transform _weaponVisualTransform;
+
         //private InventorySystem _inventory;
         private bool _isChangingSlot;
+
         private bool _isObstructed;
         private bool _isThrowingGranade;
         private bool _lastCheckForwardObstruction;
@@ -103,7 +104,6 @@ namespace Game.Player.Controllers
         private PlayerRigidbodyMovement _playerMovementController;
         private IWeapon _weaponEngine;
         private Dictionary<WeaponSlotType, PlayerWeaponSlot> _weaponSlots;
-        [SerializeField] private Transform _weaponVisualTransform;
         private bool _canAim => !_playerMovementController.IsSprinting && !_playerMovementController.IsFalling && !_weaponEngine.BoltOpen && !_weaponEngine.IsReloading && !_isThrowingGranade;
         private bool _canChangeWeapons => !_weaponEngine.IsReloading && !_weaponEngine.IsShooting && !_isChangingSlot && !_weaponEngine.BoltOpen && !_isThrowingGranade;
         private bool _canThrowGrenade => !_weaponEngine.IsReloading && !_weaponEngine.IsShooting && !_isChangingSlot && !_weaponEngine.BoltOpen && !_isThrowingGranade;
@@ -182,7 +182,6 @@ namespace Game.Player.Controllers
                     {
                         return;
                     }
-
                     WeaponSwapEvent?.Invoke(type);
 
                     StartCoroutine(IChangeWeaponToInstance(_weaponSlots[type].WeaponInstances[index]));
@@ -233,8 +232,8 @@ namespace Game.Player.Controllers
         {
             switch (type)
             {
-                case GrenadeType.HE: return _HEGrenade;
-                case GrenadeType.GAS: return _GasGrenade;
+                case GrenadeType.HE: return _heGrenade;
+                case GrenadeType.GAS: return _gasGrenade;
             }
             return null;
         }
@@ -491,27 +490,7 @@ namespace Game.Player.Controllers
 
             if (value.isPressed)
             {
-                if (_weaponEngine.BoltOpen)
-                {
-                    if (_weaponEngine.WeaponSettings.Reload.FastReloadOnEmpty && _weaponEngine.CurrentAmmo == 0)
-                    {
-                        if (InventoryService.Instance.Ammunitions[_weaponEngine.WeaponSettings.Ammo.Type] > _weaponEngine.WeaponSettings.Ammo.Size)
-                        {
-                            if (_weaponEngine.Insert()) { InventoryService.Instance.Ammunitions[_weaponEngine.WeaponSettings.Ammo.Type] -= _weaponEngine.WeaponSettings.Ammo.Size; }
-                            return;
-                        }
-                    }
-
-                    if (InventoryService.Instance.Ammunitions[_weaponEngine.WeaponSettings.Ammo.Type] > 0)
-                    {
-                        if (_weaponEngine.CurrentAmmo >= _weaponEngine.MaxAmmo) { UIService.CreateMessage("Weapon is full", 2f); }
-                        if (_weaponEngine.Insert()) { InventoryService.Instance.Ammunitions[_weaponEngine.WeaponSettings.Ammo.Type] -= 1; }
-                    }
-                    else { UIService.CreateMessage("No ammo", 2f); }
-
-                    return;
-                }
-
+                if (_weaponEngine.BoltOpen && _weaponEngine.Insert()) return;
                 if (_weaponEngine.CurrentAmmo > 0) _weaponEngine.Fire();
             }
 

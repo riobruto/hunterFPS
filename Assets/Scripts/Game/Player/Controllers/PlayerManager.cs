@@ -4,8 +4,10 @@ using Game.Inventory;
 using Game.Player.Movement;
 using Game.Player.Weapon;
 using Game.Service;
+using Game.UI;
 using System.Collections;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace Game.Player.Controllers
 {
@@ -54,14 +56,12 @@ namespace Game.Player.Controllers
             _health.DeadEvent += OnDie;
             _train.PlayerEnterEvent += OnEnterTrain;
             _train.PlayerExitEvent += OnExitTrain;
-
             _lean.AllowLean = true;
 
             //UIService.CreateMessage(new MessageParameters("Este es un mensaje generado por el juego", 5, Color.white, new Color(0, 0, 0, .5f)));
             //UIService.CreateMessage(new MessageParameters("No puedes interactuar con este elemento", 5, Color.white, new Color(0, 0, 0, .5f)));
             //UIService.CreateMessage(new MessageParameters("Tu inventario esta lleno", 5, Color.white, new Color(0, 0, 0, .5f)));
             //UIService.CreateMessage(new MessageParameters("Puto el que lee XDDD JIJOLINES", 5, Color.white, new Color(0, 0, 0, .5f)));
-
             yield return null;
         }
 
@@ -78,7 +78,8 @@ namespace Game.Player.Controllers
         private void OnFall(Vector3 start, Vector3 end)
         {
             float distance = Mathf.Abs(end.y - start.y);
-            if (distance > 2) _health.Hurt(distance);
+            //todo: calcular bien daño por caida no seas roñoso
+            if (distance > 5) _health.Hurt(distance * 5, Vector3.one);
         }
 
         private void OnExitTrain()
@@ -156,6 +157,7 @@ namespace Game.Player.Controllers
             {
                 _weaponController.Seathe();
             }
+            StartCoroutine(RespawnSequence());
         }
 
         private void OnInventoryOpen(bool state)
@@ -189,6 +191,43 @@ namespace Game.Player.Controllers
             _movementController.AllowLookMovement = true;
             _lean.AllowLean = true;
             _interactionController.AllowInteraction = true;
+        }
+
+        private IEnumerator RespawnSequence()
+        {
+           
+            yield return new WaitForSeconds(3);              
+            //show text
+            //allow click respawn
+            FindObjectOfType<HUDLoadingScreen>().ShowRespawnText(true);
+            yield return new WaitUntil(() => Mouse.current.leftButton.wasPressedThisFrame);
+            FindObjectOfType<HUDLoadingScreen>().ShowRespawnText(false);
+            FindObjectOfType<HUDLoadingScreen>().FadeIn();
+            yield return new WaitForSeconds(2);
+            Bootstrap.Resolve<PlayerService>().Respawn();
+           FindObjectOfType<HUDLoadingScreen>().FadeOut();
+          
+            yield break;
+        }
+
+        [ContextMenu("Restore")]
+        public void RestorePlayer()
+        {
+            _inventoryController.SetUIActive(false);
+            _movementController.AllowMovement = true;
+            _movementController.AllowJump = true;
+            _movementController.AllowCrouch = true;
+            _movementController.AllowSprint = true;
+            _movementController.AllowLookMovement = true;
+            _weaponController.AllowInput = true;
+            _interactionController.AllowInteraction = true;
+            _inventoryController.AllowInput = true;
+            _lean.AllowLean = true;
+            _kick.AllowKick = true;
+            _movementController.Restore();
+            _health.Restore();
+            _weaponController.Draw();
+        
         }
     }
 }

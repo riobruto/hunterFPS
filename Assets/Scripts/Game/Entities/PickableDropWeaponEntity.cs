@@ -46,7 +46,7 @@ namespace Game.Entities
         {
             if (_isPlayerWeapon)
             {
-                if (Bootstrap.Resolve<PlayerService>().Player.GetComponent<PlayerWeapons>().TryGiveWeapon(_weapon, _weapon.Ammo.Size))
+                if (Bootstrap.Resolve<PlayerService>().GetPlayerComponent<PlayerWeapons>().TryGiveWeapon(_weapon, _weapon.Ammo.Size))
                 {
                     InventoryService.Instance.TryGiveAmmo(_weapon.Ammo.Type, _weapon.Ammo.Type.PickUpAmount);
                     _taken = true;

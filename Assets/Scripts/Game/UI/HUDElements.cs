@@ -50,7 +50,7 @@ namespace UI
         private void Start()
         {
             _active = true;
-            _health = Bootstrap.Resolve<PlayerService>().Player.GetComponent<PlayerHealth>();
+            _health = Bootstrap.Resolve<PlayerService>().GetPlayerComponent<PlayerHealth>();
 
             _heart.MaxHealth = 100;
             if (_health == null)
@@ -58,7 +58,7 @@ namespace UI
                 throw new UnityException("No Player Health in the scene");
             }
 
-            _weapon = Bootstrap.Resolve<PlayerService>().Player.GetComponent<PlayerWeapons>();
+            _weapon = Bootstrap.Resolve<PlayerService>().GetPlayerComponent<PlayerWeapons>();
 
             if (_weapon == null)
             {
@@ -74,7 +74,7 @@ namespace UI
             _weapon.WeaponGrenadeTypeChanged += OnSwapGrenade;
             _weapon.WeaponGrenadeStateEvent += OnGrenade;
 
-            _movement = Bootstrap.Resolve<PlayerService>().Player.GetComponent<PlayerRigidbodyMovement>();
+            _movement = Bootstrap.Resolve<PlayerService>().GetPlayerComponent<PlayerRigidbodyMovement>();
         }
 
         private void OnGrenade(GrenadeType type, GrenadeState state)

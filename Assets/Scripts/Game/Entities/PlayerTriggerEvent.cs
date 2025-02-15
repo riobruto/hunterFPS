@@ -15,7 +15,8 @@ namespace Assets.Scripts
 
         private void Start()
         {
-            player = Bootstrap.Resolve<PlayerService>().Player;
+            if (PlayerService.Active) { player = Bootstrap.Resolve<PlayerService>().Player; }
+            else PlayerService.PlayerSpawnEvent += (p) => player = p;
             _collider = GetComponent<BoxCollider>();
         }
 

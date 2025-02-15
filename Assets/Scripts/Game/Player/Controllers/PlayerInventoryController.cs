@@ -12,9 +12,7 @@ namespace Game.Player.Controllers
 {
     public class PlayerModifier
     {
-        public PlayerModifier(ConsumableItem item)
-
-        {
+        public PlayerModifier(ConsumableItem item){
             TimeSinceAdded = Time.time;
             Duration = item.Properties.DurationInMinutes * 60;
             HealthRecover = item.Properties.HealthRecoverAmount;
@@ -32,26 +30,19 @@ namespace Game.Player.Controllers
     public class PlayerInventoryController : MonoBehaviour
     {
         private InventorySystem _system;
-
         private bool _openRequest;
         private bool _canConsumeItem => !_isConsumingItem;
         private bool _hasGasmaskOn;
         private bool _isConsumingItem;
-
         private PlayerHealth _health;
         private PlayerRigidbodyMovement _movement;
 
         public event UnityAction<ConsumableItem> ItemBeginConsumingEvent;
         public event UnityAction<ConsumableItem> ItemFinishConsumeEvent;
 
-        public bool AllowInput;
+        public bool AllowInput;        
         public bool IsConsumingItem { get => _isConsumingItem; }
         private List<PlayerModifier> _activeModifiers = new List<PlayerModifier>();
-
-
-
-
-
         private void Start()
         {
             _system = InventoryService.Instance;

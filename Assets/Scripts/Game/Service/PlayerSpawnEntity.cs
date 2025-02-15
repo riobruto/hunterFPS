@@ -5,8 +5,10 @@ namespace Game.Service
     internal class PlayerSpawnEntity : MonoBehaviour
     {
         [SerializeField] private Transform[] _spawnPoints;
-
         public Transform[] SpawnPoints { get => _spawnPoints; }
+
+        //create the player and playerUI prefabs here for avoiding the RESOURCES.LOAD METHOD?
+
 
         private void OnDrawGizmos()
         {

@@ -36,7 +36,7 @@ namespace UI.Train
         {
             _openPose = _rect.localPosition;
             _closedPose = _openPose - Vector3.up * 480f;
-            _controller = Bootstrap.Resolve<PlayerService>().Player.GetComponent<PlayerTrainController>();
+            _controller = Bootstrap.Resolve<PlayerService>().GetPlayerComponent<PlayerTrainController>();
             StartCoroutine(ShowHud(false));
         }
 

@@ -19,15 +19,15 @@ namespace Game.Impact
 
         [Header("Tracers")]
         [SerializeField] private GameObject _tracer;
-
         [SerializeField] private float _tracerMinTime;
         [SerializeField] private float _tracerMaxTime;
-
         [SerializeField] private Texture _bulletHoles;
         [SerializeField] private BulletCoordinate[] _bulletCoordinates;
+        [SerializeField] private AudioClipGroup _nearBullet;
 
         [Header("Decal Sets")]
         [SerializeField] private DecalTextureSet _bloodDecalSet;
+        
 
         public ImpactObject GrenadeExplosion => _grenadeExplosion;
         public ImpactObject ConcreteHit => _concreteHit;
@@ -39,6 +39,7 @@ namespace Game.Impact
         public DecalTextureSet BloodDecalSet => _bloodDecalSet;
         public float TracerMinSpeed { get => _tracerMinTime; }
         public float TracerMaxSpeed { get => _tracerMaxTime; }
+        public AudioClipGroup NearBullet { get => _nearBullet; }
 
         public Vector2Int GetBulletHoleFromType(SurfaceType type)
         {

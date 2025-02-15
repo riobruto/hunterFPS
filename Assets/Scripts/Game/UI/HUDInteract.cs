@@ -9,12 +9,11 @@ namespace Game.UI
     internal class HUDInteract : MonoBehaviour
     {
         [SerializeField] private Image _icon;
-
         private PlayerInteractionController _controller;
 
         private void Start()
         {
-            _controller = Bootstrap.Resolve<PlayerService>().Player.GetComponent<PlayerInteractionController>();
+            _controller = Bootstrap.Resolve<PlayerService>().GetPlayerComponent<PlayerInteractionController>();
         }
 
         private void LateUpdate()

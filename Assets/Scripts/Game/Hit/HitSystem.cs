@@ -1,5 +1,4 @@
 ﻿using Core.Engine;
-using Game.Hit;
 using Game.Player.Weapon;
 using Game.Service;
 using UnityEngine;
@@ -7,27 +6,6 @@ using UnityEngine;
 namespace Game.Service
 {
     public delegate void HitDelegate(HitWeaponEventPayload payload);
-
-    public class HitScanService : SceneService
-    {
-        public HitDelegate HitEvent;
-        public HitSystem HitSystem;
-
-        internal override void Initialize()
-        {
-            HitSystem = new GameObject("HitSystem").AddComponent<HitSystem>();
-        }
-
-        public void Dispatch(HitWeaponEventPayload payload)
-        {
-            HitEvent?.Invoke(payload);
-        }
-
-        internal override void End()
-        {
-            GameObject.Destroy(HitSystem);
-        }
-    }
 
     public class HitWeaponEventPayload
     {

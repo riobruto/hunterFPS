@@ -1,6 +1,4 @@
-﻿using Core.Engine;
-using Game.Audio;
-using Game.Hit;
+﻿using Game.Hit;
 using Game.Player.Sound;
 using Game.Service;
 using UnityEngine;
@@ -33,15 +31,15 @@ namespace Game.Entities
         public int PiecesDuration { get => _piecesDuration; set => _piecesDuration = value; }
         public bool Broken { get => _broken; }
 
-        void IDamageableFromExplosive.NotifyDamage(float damage)
+        void IDamageableFromExplosive.NotifyDamage(float damage, Vector3 position)
         {
-            Hurt(damage);
+            Hurt(damage, position);
         }
 
-        private void Hurt(float damage)
+        private void Hurt(float damage, Vector3 position)
         {
             health -= damage;
-
+            _rigidbody.AddExplosionForce(5, position, 1);
             if (health <= 0 && !_broken)
             {
                 Break();
@@ -52,7 +50,7 @@ namespace Game.Entities
         {
             //Bootstrap.Resolve<ImpactService>().System.ImpactAtPosition(payload.RaycastHit.point, payload.RaycastHit.normal);
 
-            Hurt(payload.Damage);
+            Hurt(payload.Damage, payload.Ray.direction);
         }
 
         private void Break()
@@ -87,7 +85,7 @@ namespace Game.Entities
         {
             if (!_breakByKick) return;
             _rigidbody.AddForceAtPosition(direction, position);
-            Hurt(damage);
+            Hurt(damage,direction);
         }
     }
 }

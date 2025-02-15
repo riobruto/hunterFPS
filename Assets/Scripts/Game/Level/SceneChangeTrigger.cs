@@ -8,21 +8,17 @@ namespace Game.Level
 {
     public class SceneChangeTrigger : MonoBehaviour
     {
-        //[SerializeField] private SceneAsset scene;
+        [Header("Scene")]
+        [SerializeField] private Scene _scene;
 
         private float _fadeTime = 1.5f;
 
-        private void OnTriggerEnter(Collider other)
-        {
-            StartCoroutine(FindObjectOfType<HUDLoadingScreen>().FadeIn());
-            StartCoroutine(ChangeScene());
-        }
+        private void OnTriggerEnter(Collider other) => StartCoroutine(ChangeScene());      
+        private IEnumerator ChangeScene(){
 
-        private IEnumerator ChangeScene()
-        {
+            //desea continuar?
             yield return new WaitForSeconds(_fadeTime);
-            //SceneManager.LoadScene(scene.name);
-            SceneManager.LoadScene("UI", LoadSceneMode.Additive);
+            SceneManager.LoadScene(_scene.name);
             yield return null;
         }
     }

@@ -6,6 +6,7 @@ using Game.Player.Weapon;
 using Game.Player.Weapon.Engines;
 using Game.Service;
 using UnityEngine;
+using static UnityEditor.Experimental.GraphView.GraphView;
 
 namespace Game.Life
 {
@@ -55,9 +56,19 @@ namespace Game.Life
             _weaponEngine.Activate();
             _weaponEngine.WeaponChangedState += OnWeaponChangeState;
             _weaponEngine.SetHitScanMask(Bootstrap.Resolve<GameSettings>().RaycastConfiguration.EnemyGunLayers);
-            _playerCamera = Bootstrap.Resolve<PlayerService>().PlayerCamera;
 
-            GetComponent<Animator>().SetInteger("WEAPON_TYPE", (int)_weaponType);
+            if (PlayerService.Active) {
+                _playerCamera = Bootstrap.Resolve<PlayerService>().PlayerCamera;
+            }
+            else{
+                PlayerService.PlayerSpawnEvent += (player) =>
+                {
+                    _playerCamera = Bootstrap.Resolve<PlayerService>().PlayerCamera;
+                };
+            }
+
+
+                GetComponent<Animator>().SetInteger("WEAPON_TYPE", (int)_weaponType);
         }
 
         public void DropWeapon()
@@ -82,7 +93,8 @@ namespace Game.Life
 
             if (e.State == WeaponState.BEGIN_SHOOTING)
             {
-                AudioToolService.PlayGunShot(_fireSound, _fireFarSound, _weaponTransform.position, _playerCamera.transform.position, 20, 1, AudioChannels.AGENT);
+                AudioToolService.PlayGunShot(_fireSound, _fireFarSound, _weaponTransform.position, _playerCamera.transform.position, 50, 1, AudioChannels.AGENT);
+
                 _weaponParticleSystem.Play();
                 GetComponent<Animator>().SetTrigger("FIRE");
             }

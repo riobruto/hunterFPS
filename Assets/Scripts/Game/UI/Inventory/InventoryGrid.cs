@@ -16,7 +16,7 @@ namespace UI.Inventory
 
         public UnityAction<InventorySlot> GridSlotClicked;
 
-        private void Start()
+        private void Awake()
         {
             _inventorySlots = new InventorySlot[_gridSizeX, _gridSizeY];
             GenerateSlots();

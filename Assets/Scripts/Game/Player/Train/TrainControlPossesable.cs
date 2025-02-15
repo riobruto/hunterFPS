@@ -40,7 +40,7 @@ namespace Game.Player.Train
         {
             _currentTrain = GetComponent<ITrainEngine>();
 
-            _controller = Bootstrap.Resolve<PlayerService>().Player.GetComponent<PlayerTrainController>();
+            _controller = Bootstrap.Resolve<PlayerService>().GetPlayerComponent<PlayerTrainController>();
             _enter.EnterEvent += EnterTrain;
             _reverser = 0;
             _currentTrain.SetReverser(0);

@@ -45,7 +45,7 @@ namespace Game.Player.Controllers
         }
 
         //TODO: Crear metodo para pasar direccion de daño
-        public void Hurt(float damage)
+        public void Hurt(float damage, Vector3 direction)
         {
             if (_inmune) return;
 
@@ -63,7 +63,7 @@ namespace Game.Player.Controllers
                 DeadEvent?.Invoke();
             }
 
-            HurtEvent?.Invoke(new HurtPayload(damage, _lastDirection));
+            HurtEvent?.Invoke(new HurtPayload(damage, direction));
         }
 
         private void ManageSound()
@@ -85,21 +85,27 @@ namespace Game.Player.Controllers
             _currentHealth += amount;
         }
 
-        void IDamageableFromExplosive.NotifyDamage(float damage)
+        public void Restore()
         {
-            Hurt(damage);
+            _dead = false;
+            _currentHealth = 100;
+            _regenHealthLimit = 100;
+        }
+
+        void IDamageableFromExplosive.NotifyDamage(float damage, Vector3 position)
+        {
+            Hurt(damage, position - transform.position);
             _lastDirection = Vector3.one;
         }
 
         void IHittableFromWeapon.Hit(HitWeaponEventPayload payload)
         {
-            Hurt(payload.Damage);
-            _lastDirection = (payload.Ray.origin - transform.position).normalized;
+            Hurt(payload.Damage, (payload.Ray.origin - transform.position).normalized);
         }
 
         void IDamagableFromHurtbox.NotifyDamage(float damage, Vector3 position, Vector3 direction)
         {
-            Hurt(damage);
+            Hurt(damage, direction);
         }
     }
 

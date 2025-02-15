@@ -1,6 +1,6 @@
 ﻿using Core.Engine;
+using System;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 namespace Game.Service
 {
@@ -10,6 +10,9 @@ namespace Game.Service
 
     public class UIService : SceneService
     {
+        private GameObject _ui;
+        public GameObject UIGameObject;
+
         public static event MessageDelegate CreateMessageEvent;
 
         public static event SubtitleDelegate CreateSubtitleEvent;
@@ -39,12 +42,19 @@ namespace Game.Service
 
         internal override void Initialize()
         {
-            SceneManager.LoadSceneAsync("UI", LoadSceneMode.Additive);
+            PlayerService.PlayerSpawnEvent += OnPlayerSpawn;
+            ///SceneManager.LoadSceneAsync("UI", LoadSceneMode.Additive);
+        }
+
+        private void OnPlayerSpawn(GameObject player)
+        {
+            _ui = GameObject.Instantiate(Resources.Load<GameObject>("UI/UI_Complete"));
+            GameObject.DontDestroyOnLoad(_ui);
         }
 
         internal override void End()
         {
-            SceneManager.UnloadSceneAsync(1);
+            GameObject.Destroy(_ui);
         }
     }
 

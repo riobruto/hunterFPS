@@ -25,11 +25,7 @@ namespace Game.Entities
         [SerializeField] private MeshRenderer _renderer;
         private float _time;
 
-        public void NotifyDamage(float damage)
-        {
-            _time = 1;
-            _hitPoints.Add(new DummyHit(transform.position, transform.forward, Time.time));
-        }
+       
 
         public void Hit(HitWeaponEventPayload payload)
         {
@@ -60,6 +56,12 @@ namespace Game.Entities
 
                 Gizmos.DrawSphere(hit.HitPos, ((hit.Time + 5) - Time.time) * 0.03f);
             }
+        }
+
+        void IDamageableFromExplosive.NotifyDamage(float damage, Vector3 position)
+        {
+            _time = 1;
+            _hitPoints.Add(new DummyHit(transform.position, transform.forward, Time.time));
         }
     }
 }

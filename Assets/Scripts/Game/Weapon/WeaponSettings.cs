@@ -1,4 +1,5 @@
-﻿using Game.Inventory;
+﻿using Core.Save;
+using Game.Inventory;
 using Game.Player.Sound;
 using System;
 using UnityEngine;
@@ -6,7 +7,7 @@ using UnityEngine;
 namespace Core.Weapon
 {
     [CreateAssetMenu(menuName = "Game/WeaponAsset", order = 815)]
-    public class WeaponSettings : ScriptableObject
+    public class WeaponSettings : SaveableScriptableObject
     {
         [Header("Weapon")]
         [Header("Sprites")]

@@ -9,7 +9,6 @@ namespace UI.Inventory
     public class TEST_ButtonGiverTest : MonoBehaviour
     {
         [SerializeField] private InventoryItem[] _item;
-
         [SerializeField] private Button _button;
 
         private void Start()

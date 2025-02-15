@@ -1,11 +1,11 @@
-﻿using Game.Player.Sound;
-using System.Collections;
+﻿using Core.Save;
+using Game.Player.Sound;
 using UnityEngine;
 
 namespace Game.Inventory
 {
     [CreateAssetMenu(fileName = "New Ammo Item", menuName = "Inventory/AmmoItem")]
-    public class AmmunitionItem : ScriptableObject
+    public class AmmunitionItem : SaveableScriptableObject
     {
         [Header("Ammo Info")]
         [SerializeField] private string _name;

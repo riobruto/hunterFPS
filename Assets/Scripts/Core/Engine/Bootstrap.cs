@@ -1,8 +1,8 @@
-﻿
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Core.Engine
 {
@@ -10,13 +10,14 @@ namespace Core.Engine
     {
         private static Dictionary<Type, object> _services { get; set; } = new Dictionary<Type, object>();
 
-        [RuntimeInitializeOnLoadMethod]
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Init()
         {
             ///Este metodo es responsable de crear todos los servicios que vamos a utilizar cuando comienza la ejecucion de una escena y los organiza
             ///para poder resolver dependencias unicas de manera ordenada.
             ///
             //Iniciamos todas las clases que sean subclases de Scene Service.
+            //Iniciamos siempre y cuando los servicios sean necesitados
 
             Type IType = typeof(SceneService);
             IEnumerable<Type> ITypes = AppDomain.CurrentDomain.GetAssemblies()
@@ -28,7 +29,6 @@ namespace Core.Engine
                 _services.Add(type, s);
                 s.Initialize();
             }
-
             Debug.Log("Initialization Method");
         }
 

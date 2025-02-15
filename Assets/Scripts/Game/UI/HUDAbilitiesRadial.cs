@@ -22,7 +22,7 @@ namespace Game.UI
         private void Start()
         {
             _active = true;
-            Bootstrap.Resolve<PlayerService>().Player.GetComponent<PlayerAbilitiesController>().OpenRadialEvent += OnRadialInput;
+            Bootstrap.Resolve<PlayerService>().GetPlayerComponent<PlayerAbilitiesController>().OpenRadialEvent += OnRadialInput;
         }
 
         private void OnRadialInput(bool state)

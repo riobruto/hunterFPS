@@ -105,7 +105,7 @@ namespace Game.Entities
             }
         }
 
-        void IDamageableFromExplosive.NotifyDamage(float damage)
+        void IDamageableFromExplosive.NotifyDamage(float damage, Vector3 position)
         {
             LimbHitEvent?.Invoke(damage, this);
             _ownerAgent.Damage(damage);

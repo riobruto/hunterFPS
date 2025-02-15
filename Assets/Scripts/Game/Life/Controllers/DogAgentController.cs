@@ -515,7 +515,7 @@ namespace Life.Controllers
         {
             _startTime = Time.time;
             _dog.Animator.SetTrigger("ATTACK");
-            _dog.PlayerGameObject.GetComponent<PlayerHealth>().Hurt(25);
+            _dog.PlayerGameObject.GetComponent<PlayerHealth>().Hurt(25, _dog.PlayerHeadPosition - _dog.transform.position);
         }
 
         public override void Update()

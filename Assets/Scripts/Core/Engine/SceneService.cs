@@ -9,13 +9,13 @@ namespace Core.Engine
 {
     public class SceneService 
     {
+
         public SceneService()
         {
 
         }
 
-        internal virtual void Initialize()
-        {
+        internal virtual void Initialize(){
             
         }
 

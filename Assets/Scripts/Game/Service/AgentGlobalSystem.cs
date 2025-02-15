@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Game.Service
 {
@@ -26,6 +27,7 @@ namespace Game.Service
         internal override void Initialize()
         {
             Instance = new GameObject("AgentGlobalSystem").AddComponent<AgentGlobalSystem>();
+            GameObject.DontDestroyOnLoad(Instance);
             //GameObject.DontDestroyOnLoad(Instance);
             Instance.Initialize();
         }
@@ -43,6 +45,13 @@ namespace Game.Service
 
         internal void Initialize()
         {
+            SceneManager.sceneLoaded += OnSceneLoaded;
+
+        }
+
+        private void OnSceneLoaded(Scene arg0, LoadSceneMode arg1)
+        {
+            _activeSquads.Clear();           
         }
 
         public void RegisterAgent(AgentController controller)

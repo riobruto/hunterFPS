@@ -14,6 +14,9 @@ namespace Game.Audio
         {
             near = gameObject.AddComponent<AudioSource>();
             far = gameObject.AddComponent<AudioSource>();
+            near.hideFlags = HideFlags.HideInHierarchy;
+            far.hideFlags = HideFlags.HideInHierarchy;
+
         }
     }
 }

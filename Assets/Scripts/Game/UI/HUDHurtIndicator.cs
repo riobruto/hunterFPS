@@ -22,7 +22,7 @@ namespace Game.UI
         // Use this for initialization
         private void Start()
         {
-            _health = Bootstrap.Resolve<PlayerService>().Player.GetComponent<PlayerHealth>();
+            _health = Bootstrap.Resolve<PlayerService>().GetPlayerComponent<PlayerHealth>();
             _health.HurtEvent += OnHurt;
         }
 

@@ -83,6 +83,11 @@ namespace Game.Life.Controllers
         public override void OnUpdate()
         {
             ManageWeapon();
+
+            if (PlayerHeadPosition != Vector3.zero)
+            {
+                Weapon.SetFireTarget(PlayerHeadPosition);
+            }
         }
 
         private bool _allowFire;
@@ -133,7 +138,7 @@ namespace Game.Life.Controllers
 
         public override void Start()
         {            //TODO: Sound
-            _cooldown = 2;
+            _cooldown = .02f;
             _turret.Light.intensity = 1570f;
             _turret.PlayClip(_turret.EngageClip);
         }
@@ -204,7 +209,7 @@ namespace Game.Life.Controllers
             _turret.Pitch.localRotation = Quaternion.Slerp(_turret.Pitch.localRotation, Quaternion.Euler(pitch), Time.deltaTime);
         }
 
-        private float _timeChange = 4;
+        private float _timeChange = .04F;
         private float _time;
 
         private Vector3 _currentDir;

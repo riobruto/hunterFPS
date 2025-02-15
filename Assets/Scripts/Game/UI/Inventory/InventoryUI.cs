@@ -19,13 +19,10 @@ namespace UI.Inventory
         {
             _equippableGrid.GridSlotClicked += (x) => OnGridClicked(x);
             _consumableGrid.GridSlotClicked += (x) => OnGridClicked(x);
-
             _inventorySystem = InventoryService.Instance;
-
             _inventorySystem.InventoryItemGiven += OnItemGiven;
             _inventorySystem.InventoryItemRemoved += OnItemRemoved;
             _inventorySystem.ToggleInventoryEvent += OnInventoryToggle;
-
             _contextMenu.Use += Use;
             _contextMenu.Drop += Drop;
 

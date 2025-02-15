@@ -75,11 +75,11 @@ namespace Game.Player.Weapon.Engines
             }
         }
 
-        private bool _canShoot => !_isReloading && ValidFireRatio && !_isBoltOpen && _isActive && !_isManipulatingBolt && !_isInserting && !_pinDeactivated && _isInitialized;
+        private bool _canShoot => !_isReloading && _validFireRatio && !_isBoltOpen && _isActive && !_isManipulatingBolt && !_isInserting && !_pinDeactivated && _isInitialized;
         //this variable checks if the weapon has been cocked in order to shoot o re-cock bolt actions. SEMI and AUTO are automatically set to false
 
-        private bool _isShooting => _wantShooting && ValidFireRatio && CanFireFromFireMode() && _currentAmmo > 0;
-        private bool ValidFireRatio => _fireRatio <= float.Epsilon && _isInitialized;
+        private bool _isShooting => _wantShooting && _validFireRatio && CanFireFromFireMode() && _currentAmmo > 0;
+        private bool _validFireRatio => _fireRatio <= float.Epsilon && _isInitialized;
 
         void IWeapon.Activate()
         {
@@ -220,23 +220,19 @@ namespace Game.Player.Weapon.Engines
                     Vector3 spreadVector = new Vector3(UnityEngine.Random.Range(-spread.x, spread.x), UnityEngine.Random.Range(-spread.y, spread.y), UnityEngine.Random.Range(-spread.y, spread.y));
                     Ray ray = new Ray(GetRay().origin, GetRay().direction + spreadVector);
 
-                    if (VisualPhysics.Raycast(ray, out RaycastHit hit, 1000, _currentLayerMask))
+                    if (VisualPhysics.Raycast(ray, out RaycastHit hit, 1000, _currentLayerMask, QueryTriggerInteraction.Ignore))
                     {
                         Bootstrap.Resolve<HitScanService>().Dispatch(new HitWeaponEventPayload(hit, new Ray(ray.origin, ray.direction), _damage / _weaponSettings.Shot.Amount, _playerIsOwner));
-
                         Bootstrap.Resolve<ImpactService>().System.TraceAtPosition(ray.origin + offset, hit.point);
                     }
-                    else
-                    {
-                        Bootstrap.Resolve<ImpactService>().System.TraceAtPosition(ray.origin + offset, ray.origin + ray.direction * 100);
-                    }
+                    else Bootstrap.Resolve<ImpactService>().System.TraceAtPosition(ray.origin + offset, ray.origin + ray.direction * 100);
                 }
             }
             else
             {
                 Ray ray = new Ray(GetRay().origin, GetRay().direction);
 
-                if (VisualPhysics.Raycast(ray, out RaycastHit hit, 1000, _currentLayerMask))
+                if (VisualPhysics.Raycast(ray, out RaycastHit hit, 1000, _currentLayerMask, QueryTriggerInteraction.Ignore))
                 {
                     Bootstrap.Resolve<HitScanService>().Dispatch(new HitWeaponEventPayload(hit, new Ray(ray.origin, ray.direction), _damage, _playerIsOwner));
                     Bootstrap.Resolve<ImpactService>().System.TraceAtPosition(ray.origin + offset, hit.point);
@@ -289,10 +285,12 @@ namespace Game.Player.Weapon.Engines
             NotifyState(WeaponState.BEGIN_INSERT);
             _isInserting = true;
 
-            if (_weaponSettings.Reload.FastReloadOnEmpty && _currentAmmo == 0){
+            if (_weaponSettings.Reload.FastReloadOnEmpty && _currentAmmo == 0)
+            {
                 _currentAmmo = _inventory.TakeAvaliableAmmo(_weaponSettings.Ammo.Type, _weaponSettings.Ammo.Size);
             }
-            else{
+            else
+            {
                 _currentAmmo += _inventory.TakeAvaliableAmmo(_weaponSettings.Ammo.Type, 1);
             }
 
@@ -373,7 +371,7 @@ namespace Game.Player.Weapon.Engines
 
             if (_wantShooting)
             {
-                if (!ValidFireRatio) return;
+                if (!_validFireRatio) return;
                 if (!CanFireFromFireMode()) return;
 
                 if (_currentAmmo <= 0)

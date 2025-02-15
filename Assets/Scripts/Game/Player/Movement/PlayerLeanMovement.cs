@@ -15,7 +15,7 @@ namespace Game.Player.Movement
         {
             float target;
 
-            target = AllowLean ? -LeanVector * 22 : 0;
+            target = AllowLean ? -LeanVector * 12 : 0;
 
             if (CheckLeanCollision(LeanVector))
             {

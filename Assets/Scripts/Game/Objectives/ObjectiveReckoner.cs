@@ -22,7 +22,7 @@ namespace Game.Objectives
 
         public event ReckonerDelegate ReckonerCompletedEvent;
 
-        private ObjectiveService service => Bootstrap.Resolve<ObjectiveService>();
+        private ObjectiveService _service => Bootstrap.Resolve<ObjectiveService>();
         public bool Completed => _completed;
 
         private int _index = 0;
@@ -30,7 +30,7 @@ namespace Game.Objectives
 
         private void Start()
         {
-            service.SetReckoner(this);
+            _service.SetReckoner(this);
             CreateObjectives();
             _current = _objectives[_index];
             _current.StatusChanged += Advance;

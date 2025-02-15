@@ -1,4 +1,4 @@
-﻿using System.Collections;
+﻿using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -7,42 +7,25 @@ namespace Game.UI
     public class HUDLoadingScreen : MonoBehaviour
     {
         [SerializeField] private Image _background;
+        [SerializeField] private TMP_Text _text;
+
         private float _time;
-        private float _fadeTime = 5f;
+        private float _fadeTime = .45f;
+        private Color _targetColor;
 
         // [SerializeField] private TMP_Text _text;
-        private void Start()
+        private void Start() => FadeOut();
+
+        private void LateUpdate()
         {
-            StartCoroutine(FadeOut());
+            _background.color = Color.Lerp(_background.color, _targetColor, Time.deltaTime / _fadeTime);
+            _background.gameObject.SetActive(_background.color.a > 0 ? true : false);
         }
 
-        public IEnumerator FadeOut()
-        {
-            _time = 0;
+        public void FadeOut() => _targetColor = new Color(1, 1, 1, 0);
 
-            while (_time < _fadeTime)
-            {
-                _background.color = Color.Lerp(_background.color, new Color(1, 1, 1, 0), _time / _fadeTime);
-                _time += Time.deltaTime;
-                yield return null;
-            }
-            yield return null;
-            _background.enabled = false;
-        }
+        public void FadeIn() => _targetColor = new Color(1, 1, 1, 1);
 
-        public IEnumerator FadeIn()
-        {
-            _time = 0;
-            _background.enabled = true;
-
-            while (_time < _fadeTime)
-            {
-                _background.color = Color.Lerp(_background.color, new Color(1, 1, 1, 1), _time / _fadeTime);
-                _time += Time.deltaTime;
-                yield return null;
-            }
-
-            yield return null;
-        }
+        internal void ShowRespawnText(bool v) => _text.gameObject.SetActive(v);
     }
 }

@@ -29,7 +29,7 @@ namespace Game.Train
 
             if (_rb.velocity.magnitude > 2.5f)
             {
-                _player.GetComponent<PlayerHealth>().Hurt(_rb.velocity.magnitude);
+                _player.GetComponent<PlayerHealth>().Hurt(_rb.velocity.magnitude, _rb.velocity);
             }
             Vector3 pushPos = _boxCollider.ClosestPointOnBounds(_player.transform.position) - transform.position;
             Debug.DrawRay(transform.position, pushPos);
