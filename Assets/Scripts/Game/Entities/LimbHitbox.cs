@@ -82,9 +82,7 @@ namespace Game.Entities
         {
             if (IsMutilated) return;
             gameObject.layer = 17;
-
             _rb.isKinematic = false;
-
             _rb.velocity = (_ownerAgent.NavMeshAgent.velocity);
         }
 
@@ -105,15 +103,20 @@ namespace Game.Entities
             }
         }
 
-        void IDamageableFromExplosive.NotifyDamage(float damage, Vector3 position)
+        void IDamageableFromExplosive.NotifyDamage(float damage, Vector3 position, Vector3 explosionDirection)
         {
+            if(damage >= _ownerAgent.GetHealth()){
+                _ownerAgent.KillAndPush((explosionDirection + Vector3.up).normalized * damage);
+                return;
+            }
             LimbHitEvent?.Invoke(damage, this);
             _ownerAgent.Damage(damage);
+           
         }
 
         internal void RunOver(Vector3 velocity, float damage)
         {
-            _ownerAgent.RunOver(velocity);
+            _ownerAgent.KillAndPush(velocity);
         }
 
         internal void Impulse(Vector3 velocity)

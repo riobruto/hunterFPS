@@ -37,8 +37,6 @@ namespace Life.Controllers
     public class AgentController : MonoBehaviour
     {
 
-        
-
 
         private StateMachine _machine;
         private Animator _animator;
@@ -125,7 +123,6 @@ namespace Life.Controllers
         public float DetectionRange { get => _rangeDistance; }
         public bool Initialized { get; private set; }
         public AgentGroup AgentGroup => _group;
-
         public virtual void Restore()
         {
             SetMaxHealth(_maxHealth);
@@ -398,6 +395,7 @@ namespace Life.Controllers
             _playerSound.StepSound -= OnPlayerStep;
             _playerSound.GunSound -= OnPlayerGun;
             _playerInventory.DropItem -= OnPlayerDropped;
+            AgentGlobalSystem.DiscardAgent(this);
 
         }
         private void OnDrawGizmos()
@@ -435,7 +433,7 @@ namespace Life.Controllers
         public virtual void OnHeardSteps()
         { }
 
-        public virtual void RunOver(Vector3 velocity)
+        public virtual void KillAndPush(Vector3 velocity)
         { }
 
         public virtual void ForcePlayerPerception()
@@ -447,7 +445,7 @@ namespace Life.Controllers
 
         public virtual void Kick(Vector3 position, Vector3 direction, float damage)
         {
-        }
+        }      
 
        
         #endregion Virtual Methods

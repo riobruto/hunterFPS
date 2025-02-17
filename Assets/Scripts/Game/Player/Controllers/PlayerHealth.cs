@@ -92,10 +92,10 @@ namespace Game.Player.Controllers
             _regenHealthLimit = 100;
         }
 
-        void IDamageableFromExplosive.NotifyDamage(float damage, Vector3 position)
+        void IDamageableFromExplosive.NotifyDamage(float damage, Vector3 position, Vector3 explosionDirection)
         {
             Hurt(damage, position - transform.position);
-            _lastDirection = Vector3.one;
+            _lastDirection = -explosionDirection;
         }
 
         void IHittableFromWeapon.Hit(HitWeaponEventPayload payload)

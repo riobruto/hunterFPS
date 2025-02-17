@@ -4,5 +4,6 @@
     {
         SINGLE,
         SHOTGUN,
+        PROJECTILE,
     }
 }

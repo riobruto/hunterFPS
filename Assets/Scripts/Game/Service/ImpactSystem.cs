@@ -82,16 +82,17 @@ namespace Game.Service
 
         private void CreateImpacts()
         {
+            DefaultBuffer = GenerateBufferForImpact(_dictionary.GenericHit);
             ConcreteBuffer = GenerateBufferForImpact(_dictionary.ConcreteHit);
             MetalBuffer = GenerateBufferForImpact(_dictionary.MetalHit);
             WoodBuffer = GenerateBufferForImpact(_dictionary.WoodHit);
-            DefaultBuffer = GenerateBufferForImpact(_dictionary.GenericHit);
             BloodBuffer = GenerateBufferForImpact(_dictionary.BloodHit);
         }
 
         public RingBuffer<GameObject> GenerateBufferForImpact(ImpactObject impact)
         {
             GameObject[] bufferImpact = new GameObject[impact.AmountPerScene];
+
             for (int i = 0; i < bufferImpact.Length; i++)
             {
                 bufferImpact[i] = Instantiate(impact.ImpactPrefab);

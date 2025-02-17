@@ -321,7 +321,9 @@ namespace Game.Player.Weapon.Engines
                     return;
                 }
 
-                CreateHitScan();
+                if (_weaponSettings.Shot.Mode == WeaponShotType.PROJECTILE) { CreateProjectile(); }
+                else CreateHitScan();
+
                 _pinDeactivated = _weaponSettings.FireModes == WeaponFireModes.BOLT;
                 _fireRatio = 60 / (float)_firePPM;
                 _hasReleasedTrigger = false;
@@ -426,6 +428,14 @@ namespace Game.Player.Weapon.Engines
         void IWeapon.SetHitScanMask(LayerMask mask)
         {
             _currentLayerMask = mask;
+        }
+
+        private void CreateProjectile()
+        {
+            GameObject projectile = Instantiate(_weaponSettings.Shot.Projectile, GetRay().GetPoint(1.1f), Quaternion.LookRotation(GetRay().direction));
+          
+            projectile.TryGetComponent(out IProjectile projectileInterface);
+            projectileInterface.Launch(GetRay().direction);
         }
     }
 }

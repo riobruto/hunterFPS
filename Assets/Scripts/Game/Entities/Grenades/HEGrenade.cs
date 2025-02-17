@@ -33,7 +33,6 @@ namespace Game.Entities.Grenades
         {
             yield return new WaitForSeconds(secondsRemaining);
             CalculateHits();
-
             UpdateVisuals();
             Destroy(gameObject, 1);
 
@@ -57,7 +56,7 @@ namespace Game.Entities.Grenades
 
                 if (collider.TryGetComponent(out IDamageableFromExplosive damageable))
                 {
-                    damageable.NotifyDamage(CalculateDamage(collider), transform.position);
+                    damageable.NotifyDamage(CalculateDamage(collider), transform.position,(collider.transform.position - transform.position));
                 }
                 if (collider.TryGetComponent(out Rigidbody rb))
                 {

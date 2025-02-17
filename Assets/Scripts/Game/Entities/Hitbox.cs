@@ -14,7 +14,7 @@ namespace Game.Entities
             _ownerAgent = transform.root.GetComponent<AgentController>();
         }
 
-        void IDamageableFromExplosive.NotifyDamage(float damage, Vector3 position)
+        void IDamageableFromExplosive.NotifyDamage(float damage, Vector3 position, Vector3 explosionDirection)
         {
             _ownerAgent.Damage(damage);
         }

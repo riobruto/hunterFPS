@@ -301,7 +301,11 @@ namespace Life.Controllers
             ManageContact();
 
             _weapon.SetFireTarget(_attackPoint);
-            Animator.SetLayerWeight(2, Mathf.SmoothDamp(Animator.GetLayerWeight(2), _desiredWeight, ref _desiredRefWeight, .25f));
+
+            if (_hurtStopVelocityMultiplier > 1)
+            {
+                Animator.SetLayerWeight(2, Mathf.SmoothDamp(Animator.GetLayerWeight(2), _desiredWeight, ref _desiredRefWeight, .25f));
+            }
 
             ManageFootsteps();
         }
@@ -379,10 +383,10 @@ namespace Life.Controllers
             Machine.ForceChangeToState(_actBusy);
         }
 
-        public override void RunOver(Vector3 velocity)
+        public override void KillAndPush(Vector3 velocity)
         {
+            if (IsDead) { return; }
             SetHealth(0);
-
             foreach (LimbHitbox body in GetComponentsInChildren<LimbHitbox>(true))
             {
                 body.Ragdoll();
@@ -613,7 +617,7 @@ namespace Life.Controllers
         {
             get
             {
-                if (Weapon.Empty) return true;
+                if (Weapon.Empty && _soldierType != SoldierType.SHOTGUNNER) return true;
                 if (_currentSquad != null)
                 {
                     return !_currentSquad.TryTakeAttackSlot(this);
@@ -677,21 +681,22 @@ namespace Life.Controllers
 
         private int _queryAmount;
 
-        private SpatialDataQuery DebugQuery
+        public SpatialDataQuery LastSpatialDataQuery
         {
-            get { return _debugQuery; }
-            set
+            get { return _lastSpatialDataQuery; }
+            private set
             {
                 _queryAmount++;
-                _debugQuery = value;
+                _lastSpatialDataQuery = value;
             }
         }
 
-        private SpatialDataQuery _debugQuery;
+        private SpatialDataQuery _lastSpatialDataQuery;
 
         [SerializeField] private bool _debugSpatialData;
 
         public SoldierType SoldierType { get => _soldierType; }
+
         public CoverSpotEntity CurrentCoverSpot
         {
             get { return _currentCoverSpot; }
@@ -708,8 +713,6 @@ namespace Life.Controllers
         }
 
         private CoverSpotEntity _currentCoverSpot;
-
-        
 
         public Vector3 FindCoverFromPlayer(bool mantainVisual)
         {
@@ -735,7 +738,7 @@ namespace Life.Controllers
             }
 
             SpatialDataQuery query = new SpatialDataQuery(new SpatialQueryPrefs(this, center, PlayerHeadPosition, 2f));
-            DebugQuery = query;
+            LastSpatialDataQuery = query;
 
             if (query.WallCoverPoints.Count > 0) { return query.WallCoverPoints[0].Position; }
             if (query.SafePoints.Count > 0) { return query.SafePoints[0].Position; }
@@ -758,7 +761,7 @@ namespace Life.Controllers
                 case SoldierType.SHOTGUNNER:
                     //shotgunners are very agressive and will flush the player, le ponemos que no busquen ataques cubiertos si no que den cara de cerca.
                     SpatialDataQuery shotquery = new SpatialDataQuery(new SpatialQueryPrefs(this, PlayerGameObject.transform.position, PlayerHeadPosition, 5f));
-                    DebugQuery = shotquery;
+                    LastSpatialDataQuery = shotquery;
                     if (shotquery.WallCoverCrouchedPoints.Count > 0) { return shotquery.WallCoverCrouchedPoints[0].Position; }
                     if (shotquery.SafeCrouchPoints.Count > 0) { return shotquery.SafeCrouchPoints[0].Position; }
                     if (shotquery.UnsafePoints.Count > 0) return shotquery.UnsafePoints[0].Position;
@@ -796,7 +799,7 @@ namespace Life.Controllers
             }
 
             SpatialDataQuery query = new SpatialDataQuery(new SpatialQueryPrefs(this, center, PlayerHeadPosition, 5f));
-            DebugQuery = query;
+            LastSpatialDataQuery = query;
             if (query.WallCoverCrouchedPoints.Count > 0) { return query.WallCoverCrouchedPoints[0].Position; }
             if (query.SafeCrouchPoints.Count > 0) { return query.SafeCrouchPoints[0].Position; }
             if (query.UnsafePoints.Count > 0) return query.UnsafePoints[0].Position;
@@ -832,7 +835,7 @@ namespace Life.Controllers
         public SpatialDataPoint FindCoverFromGrenade()
         {
             SpatialDataQuery query = new SpatialDataQuery(new SpatialQueryPrefs(this, transform.position, _grenadePosition, _grenadeSafeDistance));
-            DebugQuery = query;
+            LastSpatialDataQuery = query;
             return query.AllPoints[query.AllPoints.Count - 1];
         }
 
@@ -901,20 +904,20 @@ namespace Life.Controllers
         {
             Debug.DrawRay(transform.position + Vector3.up * 1.60f + transform.forward * .5f, CalculateGrenadeThrowVector(transform.position + Vector3.up * 1.60f + transform.forward * .5f, PlayerPosition).normalized, Color.red);
             base.DrawGizmos();
-            if (_debugSpatialData && DebugQuery != null)
+            if (_debugSpatialData && LastSpatialDataQuery != null)
             {
                 Handles.Label(transform.position + transform.up * 2,
                     $"Querys Done:{_queryAmount}" +
-                    $"Points: {DebugQuery.AllPoints.Count}" +
-                    $"SafePoints: {DebugQuery.SafePoints.Count}" +
-                    $"SafeCrouchedPoints: {DebugQuery.SafeCrouchPoints.Count}" +
-                    $"UnsafePoints: {DebugQuery.UnsafePoints.Count}");
+                    $"Points: {LastSpatialDataQuery.AllPoints.Count}" +
+                    $"SafePoints: {LastSpatialDataQuery.SafePoints.Count}" +
+                    $"SafeCrouchedPoints: {LastSpatialDataQuery.SafeCrouchPoints.Count}" +
+                    $"UnsafePoints: {LastSpatialDataQuery.UnsafePoints.Count}");
 
-                foreach (SpatialDataPoint point in DebugQuery.UnsafePoints) { Gizmos.color = Color.red; Gizmos.DrawCube(point.Position, Vector3.one * .125f); }
-                foreach (SpatialDataPoint point in DebugQuery.SafePoints) { Gizmos.color = Color.green; Gizmos.DrawCube(point.Position, Vector3.one * .125f); }
-                foreach (SpatialDataPoint point in DebugQuery.SafeCrouchPoints) { Gizmos.color = Color.yellow; Gizmos.DrawCube(point.Position, Vector3.one * .125f); }
-                foreach (SpatialDataPoint point in DebugQuery.WallCoverCrouchedPoints) { Gizmos.color = Color.yellow + Color.red; Gizmos.DrawCube(point.Position, Vector3.one * .125f); }
-                foreach (SpatialDataPoint point in DebugQuery.WallCoverPoints) { Gizmos.color = Color.blue; Gizmos.DrawCube(point.Position, Vector3.one * .125f); }
+                foreach (SpatialDataPoint point in LastSpatialDataQuery.UnsafePoints) { Gizmos.color = Color.red; Gizmos.DrawCube(point.Position, Vector3.one * .125f); }
+                foreach (SpatialDataPoint point in LastSpatialDataQuery.SafePoints) { Gizmos.color = Color.green; Gizmos.DrawCube(point.Position, Vector3.one * .125f); }
+                foreach (SpatialDataPoint point in LastSpatialDataQuery.SafeCrouchPoints) { Gizmos.color = Color.yellow; Gizmos.DrawCube(point.Position, Vector3.one * .125f); }
+                foreach (SpatialDataPoint point in LastSpatialDataQuery.WallCoverCrouchedPoints) { Gizmos.color = Color.yellow + Color.red; Gizmos.DrawCube(point.Position, Vector3.one * .125f); }
+                foreach (SpatialDataPoint point in LastSpatialDataQuery.WallCoverPoints) { Gizmos.color = Color.blue; Gizmos.DrawCube(point.Position, Vector3.one * .125f); }
             }
 
             Gizmos.color = Color.red;
@@ -1000,6 +1003,8 @@ namespace Life.Controllers
         //creates a timeout for not wanting to shoot anymore
         private float _engageTimeOut;
 
+        private float _shotgunnerMoveTime;
+
         public SoldierEngagePlayerState(AgentController context) : base(context)
         {
             _soldier = context as SoldierAgentController;
@@ -1017,6 +1022,7 @@ namespace Life.Controllers
         {
             _reactionTime = Time.time;
             _engageTimeOut = Random.Range(4f, 8f);
+            _shotgunnerMoveTime = 0;
             FindAttackPoint();
 
             if (_soldier.HasPlayerVisual) { _soldier.FaceTarget = true; _soldier.SetMovementType(SoldierMovementType.WALK); }
@@ -1026,6 +1032,7 @@ namespace Life.Controllers
         public override void Update()
         {
             if (Time.time - _reactionTime > _engageTimeOut) { _soldier.Squad.ReleaseAttackSlot(_soldier); }
+            _shotgunnerMoveTime += .1f;
 
             bool hasDistance = Vector3.Distance(_destination, _soldier.transform.position) > 2f;
             _soldier.SetLookTarget(_soldier.AttackPoint);
@@ -1035,6 +1042,21 @@ namespace Life.Controllers
             {
                 _soldier.FaceTarget = true;
                 _soldier.SetMovementType(SoldierMovementType.WALK);
+
+                if (_soldier.SoldierType == SoldierType.SHOTGUNNER)
+                {
+                    if (_shotgunnerMoveTime > 2)
+                    {
+                        /*
+                        if (_soldier.LastSpatialDataQuery != null)
+                        {
+                            _soldier.SetTarget(_soldier.LastSpatialDataQuery.UnsafePoints[Random.Range(0, _soldier.LastSpatialDataQuery.UnsafePoints.Count)].Position);
+                        }*/
+                        FindAttackPoint();
+                        _shotgunnerMoveTime = 0;
+                    }
+                }
+
                 return;
             }
 
@@ -1070,6 +1092,7 @@ namespace Life.Controllers
 
         private void FindAttackPoint()
         {
+            _shotgunnerMoveTime = 0;
             _destination = _soldier.FindAgressivePosition(true);
             //_destination = await _soldier.GetAttackPointAsync();
             _soldier.SetTarget(_destination);
@@ -1354,7 +1377,6 @@ namespace Life.Controllers
         public override void Start()
         {
             _soldier.Animator.SetTrigger("COVER");
-
             _soldier.Squad.ReleaseAttackSlot(_soldier);
             _soldier.SetAllowFire(false);
             _soldier.FaceTarget = false;

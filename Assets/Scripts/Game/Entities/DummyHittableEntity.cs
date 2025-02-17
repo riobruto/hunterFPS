@@ -58,7 +58,7 @@ namespace Game.Entities
             }
         }
 
-        void IDamageableFromExplosive.NotifyDamage(float damage, Vector3 position)
+        void IDamageableFromExplosive.NotifyDamage(float damage, Vector3 position, Vector3 explosionDirection)
         {
             _time = 1;
             _hitPoints.Add(new DummyHit(transform.position, transform.forward, Time.time));

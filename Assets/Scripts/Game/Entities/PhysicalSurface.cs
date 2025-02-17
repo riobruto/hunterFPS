@@ -18,6 +18,9 @@ namespace Game.Entities
 
         void IHittableFromWeapon.Hit(HitWeaponEventPayload payload)
         {
+
+            //FIX: CUANDO LA ESCENA SE RECARGA, ALGUNOS IMPACTS SON DESTRUIDOS Y SUS REFERENCIAS SON NULAS
+
             Bootstrap.Resolve<ImpactService>().System.ImpactAtPosition(payload.RaycastHit.point, payload.RaycastHit.normal, transform, _type);
 
             switch (_type)

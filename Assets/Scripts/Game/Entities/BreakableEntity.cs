@@ -31,8 +31,9 @@ namespace Game.Entities
         public int PiecesDuration { get => _piecesDuration; set => _piecesDuration = value; }
         public bool Broken { get => _broken; }
 
-        void IDamageableFromExplosive.NotifyDamage(float damage, Vector3 position)
+        void IDamageableFromExplosive.NotifyDamage(float damage, Vector3 position, Vector3 explosionDirection)
         {
+            
             Hurt(damage, position);
         }
 

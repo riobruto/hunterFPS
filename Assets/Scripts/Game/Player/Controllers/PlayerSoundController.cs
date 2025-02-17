@@ -174,7 +174,6 @@ namespace Game.Player.Controllers
         private IEnumerator PlayShellSound(WeaponStateEventArgs e)
         {
             if (e.Sender.WeaponSettings.FireModes == WeaponFireModes.BOLT) yield break;
-
             yield return new WaitForSeconds(1.25f);
             AudioToolService.PlayPlayerSound(e.Sender.WeaponSettings.Ammo.Type.ShellImpact.GetRandom(), .20f, .1f);
             yield return null;

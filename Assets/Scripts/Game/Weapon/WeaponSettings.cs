@@ -142,17 +142,17 @@ namespace Core.Weapon
         public class WeaponShot
         {
             [SerializeField] private WeaponShotType _shotType;
-
             [Tooltip("Amount of rays in Shotgun and Meelee")]
             [SerializeField] private int _amount;
-
             [Tooltip("The shape of the rays, if weapon is meelee, the x axis represents the horizontal spray while y axis represent the offset of the rays vertically")]
             [SerializeField] private Vector2 _spead;
 
-            public WeaponShotType Mode => _shotType;
+            [SerializeField] private GameObject _projectile;
 
+            public WeaponShotType Mode => _shotType;
             public int Amount => _amount;
             public Vector2 Spread => _spead;
+            public GameObject Projectile => _projectile;
         }
 
         [Serializable]
