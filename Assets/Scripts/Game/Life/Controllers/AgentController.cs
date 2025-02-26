@@ -103,9 +103,11 @@ namespace Life.Controllers
         private PlayerSoundController _playerSound;
         private InventorySystem _playerInventory;
         private bool _playerDetected => GetPlayerDetection();
-        public virtual bool GetPlayerDetection(){           
+        public virtual bool GetPlayerDetection(){
 
-            if (IsPlayerInRange(2)) return true;
+            if (!PlayerService.Active) return false;
+
+                if (IsPlayerInRange(2)) return true;
             return IsPlayerInRange(_rangeDistance) && IsPlayerInViewAngle(_currentViewAngle) && IsPlayerVisible();
         }
         public Vector3 PlayerPosition => _player.transform.position;
@@ -386,14 +388,20 @@ namespace Life.Controllers
             _animator.SetFloat("mov_forward", relativeVelocity.z, .05f, Time.deltaTime);
             _animator.SetFloat("aim_vertical", aim_vertical, .05f, Time.deltaTime);
         }
-        private void OnDisable()
+        
+        private void OnDestroy()
         {
-            _playerSound.StepSound -= OnPlayerStep;
-            _playerSound.GunSound -= OnPlayerGun;
-            _playerInventory.DropItem -= OnPlayerDropped;
+            if (PlayerService.Active)
+            {
+                _playerSound.StepSound -= OnPlayerStep;
+                _playerSound.GunSound -= OnPlayerGun;
+                _playerInventory.DropItem -= OnPlayerDropped;
+            }
             AgentGlobalSystem.DiscardAgent(this);
-
+            OnDestroyAgent();
         }
+
+
         private void OnDrawGizmos()
         {
             if (Application.isPlaying && _machine != null)
@@ -443,9 +451,9 @@ namespace Life.Controllers
 
         public virtual void Kick(Vector3 position, Vector3 direction, float damage)
         {
-        }      
+        }     
 
-       
+       public virtual void OnDestroyAgent() { }
         #endregion Virtual Methods
     }
 }

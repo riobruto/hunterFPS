@@ -24,6 +24,8 @@ namespace Game.Service
             IgnorePlayer = ignorePlayer;
         }
 
+       
+
         internal override void Initialize()
         {
             Instance = new GameObject("AgentGlobalSystem").AddComponent<AgentGlobalSystem>();
@@ -46,14 +48,18 @@ namespace Game.Service
         internal void Initialize()
         {
             SceneManager.sceneLoaded += OnSceneLoaded;
-
         }
 
         private void OnSceneLoaded(Scene arg0, LoadSceneMode arg1)
         {
             _activeSquads.Clear();           
         }
+        public  void GiveSquadToAgent(SoldierAgentController soldierAgentController)
+        {
+            SoldierAgentController[] soldier = { soldierAgentController };
+            CreateSquad(soldier);
 
+        }
         public void RegisterAgent(AgentController controller)
         {
             _activeAgents.Add(controller);

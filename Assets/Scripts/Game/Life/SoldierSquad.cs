@@ -39,7 +39,7 @@ namespace Game.Life
         public event SquadMemberGrenadeDelegate SquadMemberThrowGranadeToPlayer;
 
         public int MemberAmount => _soldiers.Count;
-        public bool HasEngageTimeout { get => Time.time - _timeSincePlayerFound > _timeToCalm; }
+        public bool HasEngageTimeout { get => Time.time - _timeSincePlayerFound < _timeToCalm; }
 
         public const int MemberAmountLimit = 5;
         public const int AttackingSlots = 2;
@@ -48,7 +48,7 @@ namespace Game.Life
         public const int GrenadeCoolDown = 30;
 
         //GroupStealthData
-        private float _timeSincePlayerFound = 0;
+        private float _timeSincePlayerFound = 10000;
 
         private float _timeToCalm = 15f;
         private float _elapsedSinceAlerted = 0;
@@ -58,10 +58,6 @@ namespace Game.Life
         private bool _canLoosePlayer = true;
         public bool ShouldHoldPlayer { get; private set; } = false;
         public float MaxHoldRadius { get; private set; }
-
-        
-
-
         public void SetGoalHold(Transform transform, float maxRadius)
         {
             _goalHoldTransform = transform;
@@ -127,13 +123,13 @@ namespace Game.Life
 
         private void OnSoldierHearedCombat(AgentController controller)
         {
-            _timeSincePlayerFound = Time.time;
+            _timeSincePlayerFound = 0;
             CreateTimedGizmo(Shape.SQUARE, controller.transform.position + Vector3.up * 1.5f, 3, Color.red + Color.blue);
         }
 
         private void OnSoldierHearedPlayer(AgentController controller)
         {
-            _timeSincePlayerFound = Time.time;
+            _timeSincePlayerFound = 0;
 
             CreateTimedGizmo(Shape.SQUARE, controller.transform.position + Vector3.up * 1.5f, 3, Color.green + Color.blue);
         }
@@ -148,7 +144,7 @@ namespace Game.Life
 
         private void OnSoldierTakingDamage(SoldierAgentController csoldier)
         {
-            _timeSincePlayerFound = Time.time;
+            _timeSincePlayerFound = 0;
 
             CreateTimedGizmo(Shape.SPHERE, csoldier.Head.position + Vector3.up, 3, Color.red);
         }
@@ -166,7 +162,7 @@ namespace Game.Life
             }
             //hack: gives the ability to shoot reactively
 
-            _timeSincePlayerFound = Time.time;
+            _timeSincePlayerFound = 0;
             CreateTimedGizmo(Shape.SQUARE, sender.transform.position + Vector3.up * 2, 3, Color.red);
             SquadMemberSawPlayer?.Invoke(sender as SoldierAgentController);
         }
