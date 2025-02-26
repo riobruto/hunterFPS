@@ -94,7 +94,6 @@ namespace Core.Console {
                             //TODO: IMPLEMENTAR ADDRESABLES 
                             _giveItemMenu = !_giveItemMenu;
                             if (_cachedSearch.Count == 0) _cachedSearch = LoadItemsOfTypeByLabel<InventoryItem>("Consumables");
-
                         }
 
                         if (GUILayout.Button("Give Weapon"))
@@ -105,9 +104,8 @@ namespace Core.Console {
                         if (GUILayout.Button("Give Attachment"))
                         {
                             _giveAttachmentMenu = !_giveAttachmentMenu;
-                            _catchedAttachmentSettings = FindAll<AttachmentSettings>("Assets/Resources/WeaponSettings");
-
-
+                            if (_catchedAttachmentSettings.Count == 0)
+                                _catchedAttachmentSettings = LoadItemsOfTypeByLabel<AttachmentSettings>("Attachments");
                         }
 
                         if (GUILayout.Button("Restore Player"))
@@ -119,23 +117,21 @@ namespace Core.Console {
                         {
                             InventoryService.Instance.Ammunitions[FindObjectOfType<PlayerWeapons>().WeaponEngine.WeaponSettings.Ammo.Type] = 9999;
                         }
-
-                        if (GUILayout.Button("Toggle Player Inmunnity"))
-                        {
+                        if (GUILayout.Button("Toggle Player Inmunnity")){
                             _inmune = !_inmune;
                             Bootstrap.Resolve<PlayerService>().GetPlayerComponent<PlayerHealth>().SetInmunity(_inmune);
-
+                            UIService.CreateMessage($"Player is now " + (_inmune ? "inmune" : "not inmune"));
                         }
-                        if (GUILayout.Button(_disabledAI ? "Enable AI" : "Disable AI"))
-                        {
+                        if (GUILayout.Button(_disabledAI ? "Enable AI" : "Disable AI")){
                             _disabledAI = !_disabledAI;
                             AgentGlobalService.SetDisableAI(_disabledAI);
-
+                            UIService.CreateMessage($"The AI is now " + (_disabledAI ? "disabled" : "enabled"));
                         }
 
                         if (GUILayout.Button($"Ignore Player: {_ignorePlayer}"))
                         {
                             _ignorePlayer = !_ignorePlayer;
+                            UIService.CreateMessage($"The AI is now " + (_ignorePlayer ? "ignores player" : "does not ignores player"));
                             AgentGlobalService.SetIgnorePlayer(_ignorePlayer);
 
                         }
