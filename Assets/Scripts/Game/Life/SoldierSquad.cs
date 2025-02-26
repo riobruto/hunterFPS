@@ -41,7 +41,7 @@ namespace Game.Life
         public int MemberAmount => _soldiers.Count;
         public bool HasEngageTimeout { get => Time.time - _timeSincePlayerFound < _timeToCalm; }
 
-        public const int MemberAmountLimit = 5;
+        public const int MemberAmountLimit = 4;
         public const int AttackingSlots = 2;
         public const int FlankingSlots = 1;
         public const int GrenadeSlot = 1;
@@ -109,16 +109,15 @@ namespace Game.Life
                 soldier.SetSquad(this);
             }
         }
-
         private void OnSoldierThrowGrenade(SoldierAgentController csoldier, Vector3 targetPosition)
         {
             SquadMemberThrowGranadeToPlayer?.Invoke(csoldier, targetPosition);
-
             _lastGrenadeTime = Time.time;
         }
 
         private void OnSoldierSearchingPlayer(SoldierAgentController csoldier)
         {
+
         }
 
         private void OnSoldierHearedCombat(AgentController controller)
@@ -170,11 +169,8 @@ namespace Game.Life
         private void OnSoldierDead(AgentController controller)
         {
             SoldierAgentController soldier = controller as SoldierAgentController;
-
             if (!_soldiers.Contains(soldier)) return;
             SquadMemberDeceasedEvent?.Invoke(soldier);
-
-            _soldiers.Remove(soldier);
             soldier.DeadEvent -= OnSoldierDead;
             soldier.PlayerPerceptionEvent -= OnSoldierHavingPlayerVisual;
             soldier.HeardGunshotsEvent -= OnSoldierHearedCombat;
@@ -187,6 +183,8 @@ namespace Game.Life
             soldier.FlankingEvent -= OnSoldierFlankingPlayer;
             soldier.SetSquad(null);
             ReleaseAttackSlot(soldier);
+
+            _soldiers.Remove(soldier);
         }
 
         public bool TryTakeAttackSlot(SoldierAgentController controller)

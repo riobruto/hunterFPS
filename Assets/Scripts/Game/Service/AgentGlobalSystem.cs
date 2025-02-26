@@ -54,7 +54,7 @@ namespace Game.Service
         {
             _activeSquads.Clear();           
         }
-        public  void GiveSquadToAgent(SoldierAgentController soldierAgentController)
+        public void GiveSquadToAgent(SoldierAgentController soldierAgentController)
         {
             SoldierAgentController[] soldier = { soldierAgentController };
             CreateSquad(soldier);
@@ -76,21 +76,21 @@ namespace Game.Service
 
         public SoldierSquad CreateSquad(SoldierAgentController[] soldier)
         {
+        
+            foreach (SoldierSquad soldierSquad in _activeSquads)
+            {
+                if (soldierSquad.MemberAmount + soldier.Length <= SoldierSquad.MemberAmountLimit)
+                {
+                    soldierSquad.AddMembers(soldier);
+                    return soldierSquad;
+                }
+            }
             if (_activeSquads.Count == 0)
             {
                 SoldierSquad sq = new SoldierSquad(soldier);
                 _activeSquads.Add(sq);
                 return sq;
             }
-            foreach (SoldierSquad soldierSquad in _activeSquads)
-            {
-                if (soldierSquad.MemberAmount + soldier.Length < SoldierSquad.MemberAmountLimit)
-                {
-                    soldierSquad.AddMembers(soldier);
-                    return soldierSquad;
-                }
-            }
-
             SoldierSquad squad = new SoldierSquad(soldier);
             _activeSquads.Add(squad);
 

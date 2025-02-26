@@ -208,6 +208,7 @@ namespace Life.Controllers
                 _playerSound.GunSound -= OnPlayerGun;
                 _agentGlobalsystem.DiscardAgent(this);
                 DeadEvent?.Invoke(this);
+
                 OnDeath();
             }
         }

@@ -14,9 +14,13 @@ using System;
 using System.Collections;
 
 using System.Linq;
+
 #if UNITY_EDITOR
+
 using UnityEditor;
+
 #endif
+
 using UnityEngine;
 using UnityEngine.AI;
 using Random = UnityEngine.Random;
@@ -102,6 +106,7 @@ namespace Life.Controllers
 
         //STATES
         private SoldierReportState _report;
+
         private SoldierGoToPlayer _goToPlayer;
         private SoldierEnterState _enter;
         private SoldierDieState _die;
@@ -132,12 +137,13 @@ namespace Life.Controllers
         //Squad
         private SoldierSquad _currentSquad;
 
+        private bool _hasSquad => _currentSquad != null;
+
         public void SetSquad(SoldierSquad squad)
         {
-            if (squad == null)
+            if (squad == null && _hasSquad)
             {
                 //TODO: DUMP SQUAD EVENTS HERE!
-
                 _currentSquad.SquadMemberSawPlayer -= OnSquadSawPlayer;
                 _currentSquad.SquadMemberThrowGranadeToPlayer -= OnSquadThrownGrenade;
                 _currentSquad = null;
@@ -172,7 +178,7 @@ namespace Life.Controllers
         public bool UseWaypoints => _useWaypoints;
         public AgentWaypoints Waypoints => _waypoints;
         public AgentFireWeapon Weapon => _weapon;
-      
+
         public SoldierSquad Squad => _currentSquad;
 
         public void SetAimLayerWeight(float target)
@@ -194,7 +200,6 @@ namespace Life.Controllers
             StartCoroutine(IGoToPointSpawn());
         }
 
-
         public override void ForcePlayerPerception()
         {
             if (IsDead) return;
@@ -206,13 +211,17 @@ namespace Life.Controllers
         public override void OnDeath()
         {
             AllowThinking(false);
+
             Machine.ForceChangeToState(_die);
+
             NavMeshAgent.isStopped = true;
+
             Animator.SetTrigger("DIE");
             Animator.SetLayerWeight(2, 0);
             Animator.SetLayerWeight(3, 0);
             Animator.SetLayerWeight(4, 0);
             CurrentCoverSpot = null;
+
             if (!IsPlayerInRange(15)) { ShoutDead(); }
         }
 
@@ -277,8 +286,8 @@ namespace Life.Controllers
             StartCoroutine(BindWeapon());
             SetAllowReload(true);
 
+            if (!_hasSquad) AgentGlobalSystem.GiveSquadToAgent(this);
 
-            AgentGlobalSystem.GiveSquadToAgent(this);
             Machine.ChangeStateEvent += OnStateChangedFromMachine;
         }
 
@@ -336,10 +345,9 @@ namespace Life.Controllers
 
         private void ManageContact()
         {
-
             if (!HasPlayerVisual)
             {
-                if (_currentSquad != null )_currentSquad.ReleaseAttackSlot(this);
+                if (_currentSquad != null) _currentSquad.ReleaseAttackSlot(this);
             }
 
             if (HasPlayerVisual && !_hasNearThreat)
@@ -531,7 +539,6 @@ namespace Life.Controllers
             Machine.AddTransition(_grenadeCover, _attack, new FuncPredicate(() => _grenadeCover.Safe && ShouldEngageThePlayer));
             Machine.AddTransition(_grenadeCover, _retreatCover, new FuncPredicate(() => _grenadeCover.Safe && ShouldCoverFromThePlayer));
 
-
             Machine.AddTransition(_actBusy, _attack, new FuncPredicate(() => ShouldEngageThePlayer));
             Machine.AddTransition(_actBusy, _retreatCover, new FuncPredicate(() => ShouldCoverFromThePlayer));
 
@@ -620,18 +627,15 @@ namespace Life.Controllers
         {
             get
             {
+                if (Weapon.Empty)
+                {
+                    return false;
+                }
                 if (_currentSquad != null)
                 {
                     if (_currentSquad.HasEngageTimeout) return false;
                     return _currentSquad.TryTakeAttackSlot(this);
                 }
-                if (Weapon.Empty)
-                {
-                    return false;
-                }
-              
-                //if (!HasPlayerVisual) return false; deberia chequear el engaged de la squad no?
-
                 return false;
             }
         }
@@ -923,7 +927,7 @@ namespace Life.Controllers
                 IGrenade grenade = GOgrenade.GetComponent<IGrenade>();
                 grenade.Rigidbody.AddTorque(Random.insideUnitSphere);
                 grenade.Trigger(3);
-                
+
                 yield break;
             }
 
@@ -1512,11 +1516,12 @@ namespace Life.Controllers
         }
     }
 
-    public class SoldierActBusyState : BaseState {
-
+    public class SoldierActBusyState : BaseState
+    {
         private SoldierAgentController _soldier;
         private Vector3 _destination;
         private Vector3 _lookPoint;
+
         // todo: idle state, unalerted, scare
         public SoldierActBusyState(AgentController context) : base(context)
         {
@@ -1534,16 +1539,13 @@ namespace Life.Controllers
 
         public override void Start()
         {
-           
-            _soldier.Animator.SetBool("RELAX", true);            
+            _soldier.Animator.SetBool("RELAX", true);
             _soldier.SetTarget(_soldier.transform.position);
             _soldier.FaceTarget = false;
         }
 
         public override void Update()
         {
-            
         }
     }
-
 }
