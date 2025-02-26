@@ -103,7 +103,10 @@ namespace Game.Player.Controllers
         private Vector2 _mouseRayDirection;
         private PlayerRigidbodyMovement _playerMovementController;
         private IWeapon _weaponEngine;
+
         private Dictionary<WeaponSlotType, PlayerWeaponSlot> _weaponSlots;
+        private bool _playerIsDead;
+
         private bool _canAim => !_playerMovementController.IsSprinting && !_playerMovementController.IsFalling && !_weaponEngine.BoltOpen && !_weaponEngine.IsReloading && !_isThrowingGranade;
         private bool _canChangeWeapons => !_weaponEngine.IsReloading && !_weaponEngine.IsShooting && !_isChangingSlot && !_weaponEngine.BoltOpen && !_isThrowingGranade;
         private bool _canThrowGrenade => !_weaponEngine.IsReloading && !_weaponEngine.IsShooting && !_isChangingSlot && !_weaponEngine.BoltOpen && !_isThrowingGranade;
@@ -127,6 +130,14 @@ namespace Game.Player.Controllers
             _weaponEngine.ReleaseFire();
             _weaponEngine.Deactivate();
             WeaponDrawEvent?.Invoke(false);
+        }
+
+        public void SavePlayerWeaponState()
+        {
+        }
+
+        public void LoadPlayerWeaponState()
+        {
         }
 
         public bool TryGiveWeapon(WeaponSettings weapon, int currentAmmo)
@@ -346,8 +357,6 @@ namespace Game.Player.Controllers
 
         private void OnGUI()
         {
-            return;
-
             GUILayout.Label($"Mouse: {_mouseRayDirection}");
 
             using (new GUILayout.HorizontalScope(GUI.skin.box))
@@ -410,14 +419,12 @@ namespace Game.Player.Controllers
             CreateWeaponEngines();
             CreateWeaponSlots();
 
-            foreach (IObserverFromPlayerWeapon observer in gameObject.GetComponentsInChildren<IObserverFromPlayerWeapon>())
-            {
+            foreach (IObserverFromPlayerWeapon observer in gameObject.GetComponentsInChildren<IObserverFromPlayerWeapon>()){
                 observer.Initalize(this);
             }
 
             //_inventory = InventoryService.Instance;
         }
-
         private IEnumerator ThrowGrenade()
         {
             GrenadeType cachedType = _currentType;
@@ -446,6 +453,10 @@ namespace Game.Player.Controllers
 
             if (_playerMovementController.IsSprinting) { _weaponEngine.ReleaseFire(); }
             if (_isObstructed) { _weaponEngine.ReleaseFire(); }
+
+            if (!AllowInput) {
+                _weaponEngine.ReleaseFire();
+            }
 
             if (!_canUseWeapon)
             {
@@ -558,14 +569,31 @@ namespace Game.Player.Controllers
             ChangeWeaponBySlot((WeaponSlotType)(slot - 1));
         }
 
+        private void OnWeaponScroll(InputValue value)
+        {
+            Vector2 delta = value.Get<Vector2>();
+            delta.y /= 120;
+            //Debug.Log(delta);
+            if (_isChangingSlot) return;
+            int slot = 0;
+            if (_currentWeaponInstance != null) slot = (int)_currentWeaponInstance.Settings.SlotType;
+            slot = (int)Mathf.Repeat(slot + (int)delta.y, Enum.GetValues(typeof(WeaponSlotType)).Length);
+            ChangeWeaponBySlot((WeaponSlotType)(slot));
+        }
+
         #endregion Input
+
+        [ContextMenu("Save")]
+        private void Save()
+        {
+            Bootstrap.Resolve<PlayerService>().SavePlayerWeaponState();
+        }
     }
 
     [Serializable]
     public class PlayerWeaponSlot
     {
         private WeaponSlotType _slotType;
-
         private List<PlayerWeaponInstance> _weapons = new List<PlayerWeaponInstance>();
 
         public PlayerWeaponSlot(WeaponSlotType slotType, bool multipleWeapons)

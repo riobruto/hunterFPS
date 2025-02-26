@@ -7,6 +7,7 @@ using Game.Service;
 using Life.StateMachines;
 using Life.StateMachines.Interfaces;
 using Nomnom.RaycastVisualization;
+using System;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.Events;
@@ -36,11 +37,10 @@ namespace Life.Controllers
     [RequireComponent(typeof(NavMeshAgent), typeof(Animator))]
     public class AgentController : MonoBehaviour
     {
-
-
         private StateMachine _machine;
         private Animator _animator;
         private NavMeshAgent _navMeshAgent;
+
         private float _health;
         private float _maxHealth;
         private bool _isDead => !_alive;
@@ -84,6 +84,7 @@ namespace Life.Controllers
 
         public NavMeshAgent NavMeshAgent
         {
+          
             get => _navMeshAgent;
         }
 
@@ -102,19 +103,15 @@ namespace Life.Controllers
         private PlayerSoundController _playerSound;
         private InventorySystem _playerInventory;
         private bool _playerDetected => GetPlayerDetection();
+        public virtual bool GetPlayerDetection(){           
 
-        public virtual bool GetPlayerDetection()
-        {
             if (IsPlayerInRange(2)) return true;
-
             return IsPlayerInRange(_rangeDistance) && IsPlayerInViewAngle(_currentViewAngle) && IsPlayerVisible();
         }
-
         public Vector3 PlayerPosition => _player.transform.position;
         public Vector3 PlayerHeadPosition => _playerCamera.transform.position;
         public Transform PlayerTransform => _player.transform;
         public Transform PlayerHead => _playerCamera.transform;
-
         public bool HasPlayerVisual => _playerDetected;
         public GameObject PlayerGameObject { get => _player; }
         public Vector3 LastPlayerKnownPosition => _lastKnownPosition;
@@ -138,7 +135,6 @@ namespace Life.Controllers
         {
             _agentGlobalsystem = AgentGlobalService.Instance;
             _agentGlobalsystem.RegisterAgent(this);
-
             _machine = new StateMachine();
 
             _navMeshAgent = GetComponent<NavMeshAgent>();
@@ -434,6 +430,8 @@ namespace Life.Controllers
         { }
 
         public virtual void KillAndPush(Vector3 velocity)
+        { }
+        public virtual void KillAndPush(Vector3 velocity, LimbHitbox hitbox)
         { }
 
         public virtual void ForcePlayerPerception()

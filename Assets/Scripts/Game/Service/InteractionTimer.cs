@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Game.Service
 {
-    internal class InteractionTimerService : SceneService
+    internal class InteractionTimerService : GameGlobalService
     {
         public InteractionTimer Instance;
 

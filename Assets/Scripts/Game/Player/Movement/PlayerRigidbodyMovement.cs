@@ -447,7 +447,7 @@ namespace Game.Player
             _rigidBody.AddForce(worldDirection, ForceMode.Acceleration);
         }
 
-        internal void Teletransport(Vector3 position)
+        internal void Teleport(Vector3 position)
         {
             _rigidBody.position = position;
         }

@@ -1,6 +1,7 @@
 ﻿using Core.Engine;
 using System;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 
 namespace Game.Service
 {
@@ -8,13 +9,11 @@ namespace Game.Service
 
     public delegate void SubtitleDelegate(SubtitleParameters parameters);
 
-    public class UIService : SceneService
+    public class UIService : GameGlobalService
     {
         private GameObject _ui;
         public GameObject UIGameObject;
-
         public static event MessageDelegate CreateMessageEvent;
-
         public static event SubtitleDelegate CreateSubtitleEvent;
 
         public static void CreateMessage(MessageParameters parameters)
@@ -48,8 +47,13 @@ namespace Game.Service
 
         private void OnPlayerSpawn(GameObject player)
         {
-            _ui = GameObject.Instantiate(Resources.Load<GameObject>("UI/UI_Complete"));
-            GameObject.DontDestroyOnLoad(_ui);
+            //USE ADDRESSABLES
+            Addressables.InstantiateAsync("Assets/Prefabs/UI/UI_Complete.prefab").Completed += (x) =>
+            {
+                _ui = x.Result;
+                GameObject.DontDestroyOnLoad(_ui);
+            };           
+           
         }
 
         internal override void End()

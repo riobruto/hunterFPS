@@ -10,7 +10,7 @@ using UnityEngine.SceneManagement;
 
 namespace Game.Service
 {
-    public class AgentGlobalService : SceneService
+    public class AgentGlobalService : GameGlobalService
     {
         public static AgentGlobalSystem Instance { get; private set; }
         public static bool AIDisabled { get; private set; }

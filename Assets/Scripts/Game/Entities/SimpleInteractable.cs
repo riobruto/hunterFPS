@@ -11,7 +11,10 @@ namespace Game.Entities
         public abstract bool CanInteract { get; }
         public abstract bool Taken { get; }
         public abstract bool Interact();
-
+        private void Start()
+        {
+            gameObject.layer = 30;
+        }
         bool IInteractable.BeginInteraction(Vector3 position)
         {
             return Interact();

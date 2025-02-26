@@ -10,14 +10,14 @@ namespace MyEditor.Life
     [CanEditMultipleObjects]
     public class AgentControllerDrawer : Editor
     {
-        private AgentController controller;
+        private AgentController _controller;
 
         public override void OnInspectorGUI()
         {
             DrawDefaultInspector();
             DrawHeaderForCustomEditor();
 
-            controller = target as AgentController;
+            _controller = target as AgentController;
 
             if (targets.Length > 1)
             {
@@ -34,9 +34,9 @@ namespace MyEditor.Life
                 DisplayAgentState();
                 DisplayHealthBar();
 
-                if (GUILayout.Button("Restore") && controller.IsDead)
+                if (GUILayout.Button("Restore") && _controller.IsDead)
                 {
-                    controller.Restore();
+                    _controller.Restore();
                 }
             }
         }
@@ -78,7 +78,7 @@ namespace MyEditor.Life
         {
             EditorGUILayout.LabelField("Agent Status", EditorStyles.boldLabel);
 
-            if (controller.GetHealth() <= 0)
+            if (_controller.GetHealth() <= 0)
             {
                 Rect deadr = EditorGUILayout.BeginVertical();
                 EditorGUI.DrawRect(deadr, Color.red / 4);
@@ -88,7 +88,7 @@ namespace MyEditor.Life
                 return;
             }
 
-            if (!controller.Initialized)
+            if (!_controller.Initialized)
             {
                 Rect empty = EditorGUILayout.BeginVertical();
                 EditorGUI.DrawRect(empty, Color.grey / 4);
@@ -99,7 +99,7 @@ namespace MyEditor.Life
             }
             Rect rect = EditorGUILayout.BeginVertical();
             EditorGUI.DrawRect(rect, Color.yellow / 4);
-            EditorGUILayout.LabelField(controller.CurrentState.GetType().Name, EditorStyles.centeredGreyMiniLabel);
+            EditorGUILayout.LabelField(_controller.CurrentState.GetType().Name, EditorStyles.centeredGreyMiniLabel);
             GUILayout.Space(10);
             EditorGUILayout.EndVertical();
             EditorGUILayout.Separator();
@@ -108,9 +108,9 @@ namespace MyEditor.Life
         private void DisplayHealthBar()
         {
             EditorGUILayout.Separator();
-            float progress = controller.GetHealth() / controller.GetMaxHealth();
+            float progress = _controller.GetHealth() / _controller.GetMaxHealth();
             Rect r = EditorGUILayout.BeginVertical();
-            EditorGUI.ProgressBar(r, progress, $"Health: {controller.GetHealth()}/{controller.GetMaxHealth()}");
+            EditorGUI.ProgressBar(r, progress, $"Health: {_controller.GetHealth()}/{_controller.GetMaxHealth()}");
             GUILayout.Space(18);
             EditorGUILayout.EndVertical();
             EditorGUILayout.Separator();
@@ -120,7 +120,7 @@ namespace MyEditor.Life
         {
             EditorGUILayout.LabelField(" Agent Player Status", EditorStyles.boldLabel);
 
-            if (!controller.Initialized)
+            if (!_controller.Initialized)
             {
                 Rect empty = EditorGUILayout.BeginVertical();
                 EditorGUI.DrawRect(empty, Color.grey / 4);
@@ -132,8 +132,8 @@ namespace MyEditor.Life
             }
 
             Rect playerinforect = EditorGUILayout.BeginVertical();
-            EditorGUI.DrawRect(playerinforect, controller.HasPlayerVisual ? Color.red / 2 : Color.green / 2);
-            EditorGUI.LabelField(playerinforect, controller.HasPlayerVisual ? "Player Detected" : "Player Undetected", EditorStyles.centeredGreyMiniLabel);
+            EditorGUI.DrawRect(playerinforect, _controller.HasPlayerVisual ? Color.red / 2 : Color.green / 2);
+            EditorGUI.LabelField(playerinforect, _controller.HasPlayerVisual ? "Player Detected" : "Player Undetected", EditorStyles.centeredGreyMiniLabel);
             GUILayout.Space(18);
             EditorGUILayout.EndVertical();
 

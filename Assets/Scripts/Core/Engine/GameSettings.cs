@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Core.Engine
 {
-    public class GameSettings : SceneService
+    public class GameSettings : GameGlobalService
     {
         public RaycastConfiguration RaycastConfiguration { get; private set; }
         public PlayerConfiguration PlayerConfiguration { get; private set; }

@@ -5,6 +5,7 @@ using Game.Player.Controllers;
 using Game.Service;
 using Game.UI;
 using Game.Weapon;
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -23,30 +24,15 @@ namespace UI
         [SerializeField] private TMP_Text _currentAmmo;
         [SerializeField] private TMP_Text _inventoryAmmo;
         [SerializeField] private TMP_Text _ammoType;
+        [SerializeField] private TMP_Text _respawnText;
 
         [SerializeField] private HUDHeartDisplay _heart;
-
-        [SerializeField] private HUDWeaponSlot _pistolWeaponSlot;
-        [SerializeField] private HUDWeaponSlot _smgWeaponSlot;
-        [SerializeField] private HUDWeaponSlot _rifleWeaponSlot;
-        [SerializeField] private HUDWeaponSlot _sniperWeaponSlot;
-        [SerializeField] private HUDWeaponSlot _shotgunWeaponSlot;
-
-        [SerializeField] private HUDGrenadeSlot _grenadeSlot;
-
+        [SerializeField] private HUDGrenadeSlot _grenadeSlot;        
         private PlayerHealth _health;
         private PlayerWeapons _weapon;
         private PlayerRigidbodyMovement _movement;
-
-        private HUDWeaponSlot[] _weaponSlots => new HUDWeaponSlot[]
-        {
-            _pistolWeaponSlot,
-            _smgWeaponSlot,
-            _rifleWeaponSlot,
-            _sniperWeaponSlot,
-            _shotgunWeaponSlot
-        };
-
+        [SerializeField] private HUDWeaponSlot[] _weaponSlots;
+            
         private void Start()
         {
             _active = true;
@@ -96,13 +82,6 @@ namespace UI
                 else slot.Hide();
             }
         }
-
-        private void OnSecondaryAddedWeapon(PlayerWeaponSlot slot)
-        {
-            _smgWeaponSlot.Set(slot);
-            _smgWeaponSlot.Show(5f);
-        }
-
         private void OnWeaponAdded(PlayerWeaponSlot slot)
         {
             foreach (HUDWeaponSlot hudslot in _weaponSlots)
@@ -110,7 +89,7 @@ namespace UI
                 if (hudslot.Type == slot.SlotType)
                 {
                     hudslot.Set(slot);
-                    _sniperWeaponSlot.Show(5f);
+                    //hudslot.Show();
                 }
                 else hudslot.Hide();
             }
@@ -156,5 +135,8 @@ namespace UI
             _inventoryAmmo.text = avaliableAmmoString;
             _ammoType.text = $"{_weapon.WeaponEngine.WeaponSettings.Ammo.Type.Name}";
         }
+
+        internal void ShowRespawnText(bool v) => _respawnText.gameObject.SetActive(v);
+       
     }
 }

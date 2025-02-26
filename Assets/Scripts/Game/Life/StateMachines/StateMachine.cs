@@ -10,8 +10,8 @@ namespace Life.StateMachines
     public class StateMachine
     {
         private StateNode _current;
-        private Dictionary<Type, StateNode> nodes = new();
-        private HashSet<ITransition> anyTransition = new();
+        private Dictionary<Type, StateNode> _nodes = new();
+        private HashSet<ITransition> _anyTransition = new();
         public event ChangeStateDelegate ChangeStateEvent;
         public IState CurrentState { get => _current.State; }
 
@@ -24,7 +24,7 @@ namespace Life.StateMachines
 
         public void SetState(IState state)
         {
-            _current = nodes[state.GetType()];
+            _current = _nodes[state.GetType()];
             _current.State?.Start();
         }
 
@@ -35,7 +35,7 @@ namespace Life.StateMachines
 
         public void AddAnyTransition(IState to, IPredicate condition)
         {
-            anyTransition.Add(new Transition(GetOrAddNode(to).State, condition));
+            _anyTransition.Add(new Transition(GetOrAddNode(to).State, condition));
         }
 
         public void DrawGizmos()
@@ -45,12 +45,12 @@ namespace Life.StateMachines
 
         private StateNode GetOrAddNode(IState state)
         {
-            StateNode node = nodes.GetValueOrDefault(state.GetType());
+            StateNode node = _nodes.GetValueOrDefault(state.GetType());
 
             if (node == null)
             {
                 node = new StateNode(state);
-                nodes.Add(state.GetType(), node);
+                _nodes.Add(state.GetType(), node);
             }
 
             return node;
@@ -71,14 +71,14 @@ namespace Life.StateMachines
             }
             _current.State?.End();
             ChangeStateEvent?.Invoke(_current.State, state);
-            _current = nodes[state.GetType()];
+            _current = _nodes[state.GetType()];
             _current.State?.Start();
             Debug.Log($"Current State is now {_current.State}");
         }
 
         private ITransition GetTransition()
         {
-            foreach (var transition in anyTransition)
+            foreach (var transition in _anyTransition)
             {
                 if (transition.Condition.Evaluate()) return transition;
             }

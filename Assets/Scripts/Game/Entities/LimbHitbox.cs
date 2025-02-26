@@ -6,6 +6,7 @@ using Game.Service;
 using Life.Controllers;
 using Nomnom.RaycastVisualization;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace Game.Entities
 {
@@ -31,9 +32,28 @@ namespace Game.Entities
             _ownerAgent = transform.root.GetComponent<AgentController>();
         }
 
+
+        
+        void IDamageableFromExplosive.NotifyDamage(float damage, Vector3 position, Vector3 explosionDirection)
+        {
+            if (damage >= _ownerAgent.GetHealth())
+            {
+                _ownerAgent.KillAndPush((_ownerAgent.transform.position - position + Vector3.up).normalized * damage);
+                return;
+            }
+            LimbHitEvent?.Invoke(damage, this);
+            _ownerAgent.Damage(damage);
+        }
+
         void IHittableFromWeapon.Hit(HitWeaponEventPayload payload)
         {
             Debug.Log($"limb that got hitteado NAME: {gameObject.name}");
+
+            float damage = CalculateDamage(payload.Damage, payload.Distance);
+            if (damage >= _ownerAgent.GetHealth()) {
+                _ownerAgent.KillAndPush((payload.Ray.direction + Vector3.up).normalized * 100f, this);
+                return;               
+            }
 
             LimbHitEvent?.Invoke(CalculateDamage(payload.Damage, payload.Distance), this);
             _ownerAgent.HurtAgent(new AgentHurtPayload(payload.IsSenderPlayer, CalculateDamage(payload.Damage, payload.Distance), payload.Ray.origin, this));
@@ -103,17 +123,7 @@ namespace Game.Entities
             }
         }
 
-        void IDamageableFromExplosive.NotifyDamage(float damage, Vector3 position, Vector3 explosionDirection)
-        {
-            if(damage >= _ownerAgent.GetHealth()){
-                _ownerAgent.KillAndPush((explosionDirection + Vector3.up).normalized * damage);
-                return;
-            }
-            LimbHitEvent?.Invoke(damage, this);
-            _ownerAgent.Damage(damage);
-           
-        }
-
+       
         internal void RunOver(Vector3 velocity, float damage)
         {
             _ownerAgent.KillAndPush(velocity);

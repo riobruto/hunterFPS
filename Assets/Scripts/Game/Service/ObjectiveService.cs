@@ -5,7 +5,7 @@ namespace Game.Objectives
 {
     public delegate void ObjectiveDelegate(ObjectiveReckoner reckoner, Objective current);
 
-    internal class ObjectiveService : SceneService
+    internal class ObjectiveService : GameGlobalService
     {
         private ObjectiveReckoner _currentReckoner;
         private Vector3 _objectivePoint;

@@ -5,7 +5,9 @@ using Game.Player.Movement;
 using Game.Player.Weapon;
 using Game.Service;
 using Game.UI;
+using Life.Controllers;
 using System.Collections;
+using UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -13,6 +15,9 @@ namespace Game.Player.Controllers
 {
     public class PlayerManager : MonoBehaviour
     {
+
+       
+
         private PlayerWeapons _weaponController;
         private PlayerRigidbodyMovement _movementController;
         private PlayerInventoryController _inventoryController;
@@ -199,13 +204,12 @@ namespace Game.Player.Controllers
             yield return new WaitForSeconds(3);              
             //show text
             //allow click respawn
-            FindObjectOfType<HUDLoadingScreen>().ShowRespawnText(true);
+            FindObjectOfType<HUDElements>().ShowRespawnText(true);
             yield return new WaitUntil(() => Mouse.current.leftButton.wasPressedThisFrame);
-            FindObjectOfType<HUDLoadingScreen>().ShowRespawnText(false);
-            FindObjectOfType<HUDLoadingScreen>().FadeIn();
+            FindObjectOfType<HUDElements>().ShowRespawnText(false);           
             yield return new WaitForSeconds(2);
             Bootstrap.Resolve<PlayerService>().Respawn();
-           FindObjectOfType<HUDLoadingScreen>().FadeOut();
+           
           
             yield break;
         }

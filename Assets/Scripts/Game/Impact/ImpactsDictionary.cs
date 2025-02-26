@@ -10,6 +10,7 @@ namespace Game.Impact
     {
         [Header("Hits")]
         [SerializeField] private ImpactObject _grenadeExplosion;
+        [SerializeField] private ImpactObject _lightExplosion;
 
         [SerializeField] private ImpactObject _concreteHit;
         [SerializeField] private ImpactObject _metalHit;
@@ -30,6 +31,7 @@ namespace Game.Impact
         
 
         public ImpactObject GrenadeExplosion => _grenadeExplosion;
+        public ImpactObject LightExplosion => _lightExplosion;
         public ImpactObject ConcreteHit => _concreteHit;
         public ImpactObject WoodHit => _woodHit;
         public ImpactObject MetalHit => _metalHit;

@@ -1,14 +1,18 @@
 ﻿using Core.Engine;
+using Game.Entities;
 using Game.Impact;
+using Game.Player.Controllers;
 using Game.Player.Sound;
+using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.VFX;
+using Random = UnityEngine.Random;
 
 namespace Game.Service
 {
-    public class ImpactService : SceneService
+    public class ImpactService : GameGlobalService
     {
         private ImpactSystem _system;
         private bool _initialized;
@@ -26,19 +30,31 @@ namespace Game.Service
         public ImpactSystem System => _system;
     }
 
+    public enum ExplosionType
+    {
+        LIGHT,
+        HEAVY,
+        COMBUSTIBLE
+    }
+
     public class ImpactSystem : MonoBehaviour
     {
         private ImpactsDictionary _dictionary;
 
+        //create buffer references to explosions
         private RingBuffer<GameObject> ExplosionBuffer;
-        private RingBuffer<GameObject> LimbMutilatedBuffer;
+        private RingBuffer<GameObject> LightExplosionBuffer;
+
+
+
+        private RingBuffer<GameObject> _limbMutilatedBuffer;
         private RingBuffer<GameObject> Tracers;
         private RingBuffer<GameObject> BloodDecalBuffer;
         private RingBuffer<GameObject> ConcreteBuffer;
         private RingBuffer<GameObject> MetalBuffer;
         private RingBuffer<GameObject> WoodBuffer;
-        private RingBuffer<GameObject> DefaultBuffer;
-        private RingBuffer<GameObject> BloodBuffer;
+        private RingBuffer<GameObject> _defaultBuffer;
+        private RingBuffer<GameObject> _bloodBuffer;
 
         private void CreateTracers()
         {
@@ -55,38 +71,60 @@ namespace Game.Service
 
         private void CreateExplosion()
         {
-            GameObject[] explosions = new GameObject[_dictionary.GrenadeExplosion.AmountPerScene];
-            for (int i = 0; i < explosions.Length; i++)
-            {
-                explosions[i] = Instantiate(_dictionary.GrenadeExplosion.ImpactPrefab);
-                explosions[i].SetActive(false);
-                explosions[i].hideFlags = HideFlags.HideInHierarchy;
-
-                DontDestroyOnLoad(explosions[i]);
-            }
-            ExplosionBuffer = new RingBuffer<GameObject>(explosions);
+            ExplosionBuffer = GenerateBufferFromGameObject(_dictionary.GrenadeExplosion);
+            LightExplosionBuffer = GenerateBufferFromGameObject(_dictionary.LightExplosion);
         }
 
-        public void ExplosionAtPosition(Vector3 position)
+        private RingBuffer<GameObject> GenerateBufferFromGameObject(ImpactObject prefab)
         {
-            GameObject explosion = ExplosionBuffer.GetNext();
+            GameObject[] explosions = new GameObject[prefab.AmountPerScene];
+            for (int i = 0; i < explosions.Length; i++)
+            {
+                explosions[i] = Instantiate(prefab.ImpactPrefab);
+                explosions[i].SetActive(false);
+                explosions[i].hideFlags = HideFlags.HideInHierarchy;
+                explosions[i].GetComponent<ExplosionSoundEntity>().Set(prefab);
+                DontDestroyOnLoad(explosions[i]);
+            }
+            return new RingBuffer<GameObject>(explosions);
+        }
+
+        public void ExplosionAtPosition(Vector3 position, ExplosionType type = ExplosionType.HEAVY)
+        {            
+            GameObject explosion;
+          
+            switch (type)
+            {
+                case ExplosionType.LIGHT:
+                    explosion = LightExplosionBuffer.GetNext();
+                    break;
+                case ExplosionType.HEAVY:
+                    explosion = ExplosionBuffer.GetNext();
+                    break;
+                case ExplosionType.COMBUSTIBLE:
+                    //todo: add combustible explosion (very fuegosity)
+                    explosion = ExplosionBuffer.GetNext(); break;
+                default:
+                    //default explosion type
+                    explosion = LightExplosionBuffer.GetNext(); break;
+            }
+            
             explosion.transform.position = position;
             explosion.transform.up = Vector3.up;
             explosion.SetActive(true);
+                
             explosion.GetComponent<ParticleSystem>().Play();
-            Vector3 playerPos = Bootstrap.Resolve<PlayerService>().Player.transform.position;
-            float distance = (position - playerPos).magnitude;
-            AudioSource.PlayClipAtPoint(_dictionary.GrenadeExplosion.Sound.GetRandom(), playerPos + (position - playerPos).normalized, Mathf.InverseLerp(50, 0, distance));
-            AudioSource.PlayClipAtPoint(_dictionary.GrenadeExplosion.SoundFar.GetRandom(), playerPos + (position - playerPos).normalized, Mathf.InverseLerp(0, 50, distance));
+            explosion.GetComponent<ExplosionSoundEntity>().Play();
+            Bootstrap.Resolve<PlayerService>().GetPlayerComponent<PlayerStunController>().Shock(explosion.transform.position);
         }
 
         private void CreateImpacts()
         {
-            DefaultBuffer = GenerateBufferForImpact(_dictionary.GenericHit);
+            _defaultBuffer = GenerateBufferForImpact(_dictionary.GenericHit);
             ConcreteBuffer = GenerateBufferForImpact(_dictionary.ConcreteHit);
             MetalBuffer = GenerateBufferForImpact(_dictionary.MetalHit);
             WoodBuffer = GenerateBufferForImpact(_dictionary.WoodHit);
-            BloodBuffer = GenerateBufferForImpact(_dictionary.BloodHit);
+            _bloodBuffer = GenerateBufferForImpact(_dictionary.BloodHit);
         }
 
         public RingBuffer<GameObject> GenerateBufferForImpact(ImpactObject impact)
@@ -127,15 +165,17 @@ namespace Game.Service
                 case SurfaceType.GLASS:
                 case SurfaceType.RUBBER:
                 case SurfaceType.NYLON:
-                    return DefaultBuffer;
+                    return _defaultBuffer;
 
                 case SurfaceType.FLESH:
-                    return BloodBuffer;
+                    return _bloodBuffer;
 
                 default:
-                    return DefaultBuffer;
+                    return _defaultBuffer;
             }
         }
+
+     
 
         private void CreateBloodDecals()
         {
@@ -157,18 +197,6 @@ namespace Game.Service
             BloodDecalBuffer = new RingBuffer<GameObject>(bloodDecals);
         }
 
-        public void ImpactAtPosition(Vector3 position, Vector3 direction)
-        {
-            GameObject explosion = ConcreteBuffer.GetNext();
-            explosion.transform.position = position;
-            explosion.transform.forward = direction;
-            explosion.SetActive(true);
-            /*
-             *
-            explosion.GetComponent<VisualEffect>().Play();
-            AudioSource.PlayClipAtPoint(_dictionary.ConcreteHit.Sound.GetRandom(), position, 1);
-            */
-        }
 
         internal void TraceAtPosition(Vector3 from, Vector3 to)
         {
@@ -217,7 +245,17 @@ namespace Game.Service
 
         internal void ImpactAtPosition(Vector3 point, Vector3 normal, Transform transform, SurfaceType type = SurfaceType.CONCRETE)
         {
-            GameObject impact = GetImpactsFromSurfaceType(type).GetNext();
+            RingBuffer<GameObject> buffer = GetImpactsFromSurfaceType(type);
+            GameObject impact = buffer.GetNext();
+
+            if(impact == null || buffer == null) {
+                // if the impact is null, means we just started the game or we destroyed it somehow during gameplay
+                //so we regenerate the buffer
+                //medio caca?  da hiccup seguro.
+                RegenerateBufferOfType(type);
+                buffer = GetImpactsFromSurfaceType(type);
+                impact = buffer.GetNext();
+            }
 
             impact.transform.position = point;
             impact.transform.forward = normal;
@@ -239,8 +277,60 @@ namespace Game.Service
             if (c != null) AudioToolService.PlayClipAtPoint(c.GetRandom(), point, 1, AudioChannels.ENVIRONMENT, 5f);
         }
 
+        private void RegenerateBufferOfType(SurfaceType type)
+        {
+            RingBuffer<GameObject> buffer = GetImpactsFromSurfaceType(type);
+
+            for (int i = 0; i < buffer.Values.Length; i++)
+            {
+                Destroy(buffer.Values[i]);
+            }
+
+            buffer = GenerateBufferForImpact(_dictionary.GetImpactObjectFromType(type));
+
+
+            switch (type)
+            {
+                case SurfaceType.ROCK:
+                case SurfaceType.CERAMIC:
+                case SurfaceType.BRICK:
+                case SurfaceType.CONCRETE:
+                     ConcreteBuffer = buffer; 
+                    break;
+                case SurfaceType.WOOD:
+                case SurfaceType.WOOD_HARD:
+                case SurfaceType.CARTBOARD:
+                case SurfaceType.PAPER:
+                     WoodBuffer = buffer; 
+                    break;
+                case SurfaceType.METAL_SOFT:
+                case SurfaceType.METAL:
+                case SurfaceType.METAL_HARD:
+                     MetalBuffer = buffer;
+                    break;
+
+                case SurfaceType.GLASS:
+                case SurfaceType.RUBBER:
+                case SurfaceType.NYLON:
+                     _defaultBuffer = buffer;
+                    break;
+                case SurfaceType.FLESH:
+                     _bloodBuffer = buffer;
+                    break;
+                default:
+                     _defaultBuffer = buffer; 
+                    break;
+            }
+
+            Debug.LogWarning("Some Impacts were null and the buffer was regenerated");
+          
+        }     
+
         internal void BloodDecalAtPosition(Vector3 point, Vector3 normal, Transform parent = null)
-        {//TODO: Crear shader solo para decals de impacto
+
+        {
+            
+            //TODO: Crear shader solo para decals de impacto
             GameObject decal = BloodDecalBuffer.GetNext();
             decal.GetComponent<DecalProjector>().material.SetTexture("_Color", _dictionary.BloodDecalSet.GetRandom());
             decal.transform.position = point;

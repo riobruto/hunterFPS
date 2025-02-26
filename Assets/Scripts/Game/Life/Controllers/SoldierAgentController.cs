@@ -14,7 +14,9 @@ using System;
 using System.Collections;
 
 using System.Linq;
+#if UNITY_EDITOR
 using UnityEditor;
+#endif
 using UnityEngine;
 using UnityEngine.AI;
 using Random = UnityEngine.Random;
@@ -267,8 +269,12 @@ namespace Life.Controllers
 
             CreateStates();
             CreateTransitions();
-            SetMaxHealth(100);
-            SetHealth(100);
+
+            float health = 100;
+            if (_soldierType == SoldierType.HEAVY) health = 175;
+
+            SetMaxHealth(health);
+            SetHealth(health);
             StartCoroutine(BindWeapon());
             SetAllowReload(true);
             Machine.ChangeStateEvent += OnStateChangedFromMachine;
@@ -383,15 +389,39 @@ namespace Life.Controllers
             Machine.ForceChangeToState(_actBusy);
         }
 
+        //this method will be called if any body detects damage over the gethealth() and push all the rigidbodies
         public override void KillAndPush(Vector3 velocity)
         {
-            if (IsDead) { return; }
+            if (IsDead) return;
             SetHealth(0);
             foreach (LimbHitbox body in GetComponentsInChildren<LimbHitbox>(true))
             {
                 body.Ragdoll();
-                body.Impulse(velocity);
             }
+            StartCoroutine(IPush(velocity, null));
+        }
+
+        public override void KillAndPush(Vector3 velocity, LimbHitbox hitbox)
+        {
+            if (IsDead) return;
+            SetHealth(0);
+            foreach (LimbHitbox body in GetComponentsInChildren<LimbHitbox>(true))
+            {
+                body.Ragdoll();
+            }
+            StartCoroutine(IPush(velocity, hitbox));
+        }
+
+        public IEnumerator IPush(Vector3 velocity, LimbHitbox specificHitbox)
+        {
+            yield return new WaitForEndOfFrame();
+
+            foreach (LimbHitbox body in GetComponentsInChildren<LimbHitbox>(true))
+            {
+                if (specificHitbox == null) body.Impulse(velocity);
+                else if (body == specificHitbox) body.Impulse(velocity);
+            }
+            yield return null;
         }
 
         public void SetMovementType(SoldierMovementType type)
@@ -877,23 +907,26 @@ namespace Life.Controllers
             SetAllowReload(false);
             //create shout/call
             Vector3 instancePos = transform.position + Vector3.up * 1.60f + transform.forward * .5f + transform.right * .5f;
-            yield return new WaitForSeconds(1.25f);
 
             if (IsDead)
             {// prevent enemy dying and throwing grenade
                 GameObject GOgrenade = Instantiate(_granade);
                 GOgrenade.transform.position = instancePos;
                 IGrenade grenade = GOgrenade.GetComponent<IGrenade>();
-                grenade.Trigger(5);
+                grenade.Rigidbody.AddTorque(Random.insideUnitSphere);
+                grenade.Trigger(3);
+                
                 yield break;
             }
 
+            yield return new WaitForSeconds(1.25f);
             {
                 GameObject GOgrenade = Instantiate(_granade);
                 GOgrenade.transform.position = instancePos;
                 IGrenade grenade = GOgrenade.GetComponent<IGrenade>();
-                grenade.Trigger(5);
+                grenade.Trigger(3);
                 grenade.Rigidbody.AddForce(CalculateGrenadeThrowVector(GOgrenade.transform.position, AttackPoint), ForceMode.VelocityChange);
+                grenade.Rigidbody.AddTorque(Random.insideUnitSphere);
                 AllowThinking(true);
                 SetAllowReload(true);
                 yield return null;
@@ -906,13 +939,14 @@ namespace Life.Controllers
             base.DrawGizmos();
             if (_debugSpatialData && LastSpatialDataQuery != null)
             {
+#if UNITY_EDITOR
                 Handles.Label(transform.position + transform.up * 2,
                     $"Querys Done:{_queryAmount}" +
                     $"Points: {LastSpatialDataQuery.AllPoints.Count}" +
                     $"SafePoints: {LastSpatialDataQuery.SafePoints.Count}" +
                     $"SafeCrouchedPoints: {LastSpatialDataQuery.SafeCrouchPoints.Count}" +
                     $"UnsafePoints: {LastSpatialDataQuery.UnsafePoints.Count}");
-
+#endif
                 foreach (SpatialDataPoint point in LastSpatialDataQuery.UnsafePoints) { Gizmos.color = Color.red; Gizmos.DrawCube(point.Position, Vector3.one * .125f); }
                 foreach (SpatialDataPoint point in LastSpatialDataQuery.SafePoints) { Gizmos.color = Color.green; Gizmos.DrawCube(point.Position, Vector3.one * .125f); }
                 foreach (SpatialDataPoint point in LastSpatialDataQuery.SafeCrouchPoints) { Gizmos.color = Color.yellow; Gizmos.DrawCube(point.Position, Vector3.one * .125f); }

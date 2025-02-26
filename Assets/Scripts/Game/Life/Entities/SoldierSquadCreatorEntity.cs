@@ -22,10 +22,8 @@ namespace Game.Life.Entities
         [SerializeField] private Transform _holdTransform;
 
 
-        private void Start()
-        {
-            if (_createOnStart)
-            {
+        private void Start(){
+            if (_createOnStart){
                 CreateSquad();
             }
         }

@@ -13,7 +13,7 @@ using UnityEngine.Events;
 
 namespace Game.Service
 {
-    public class InventoryService : SceneService
+    public class InventoryService : GameGlobalService
     {
         public static InventorySystem Instance;
         private static string _currentProfileName = "juan";
@@ -32,7 +32,6 @@ namespace Game.Service
         public static void SaveInventory()
         {
             if (!PlayerService.Active) return;
-
 
             InventorySaveData data = new(GetLocationsForSaveables(Instance.Consumables));
             string json = JsonConvert.SerializeObject(data);

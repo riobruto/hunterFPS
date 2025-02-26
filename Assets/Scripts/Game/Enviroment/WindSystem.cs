@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Game.Enviroment
 {
-    public class WindService : SceneService
+    public class WindService : GameGlobalService
     {
         private WindSystem _wind;
         public WindSystem Instance => _wind;

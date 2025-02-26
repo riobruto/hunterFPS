@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Game.Service
 {
-    public class HitScanService : SceneService
+    public class HitScanService : GameGlobalService
     {
         public HitDelegate HitEvent;
         public HitSystem HitSystem;

@@ -16,7 +16,7 @@ using UnityEngine.ResourceManagement.ResourceLocations;
 namespace Core.Console { 
 
 
-    public class ConsoleService : SceneService
+    public class ConsoleService : GameGlobalService
     {
         public ConsoleInput Input;
 
@@ -31,12 +31,7 @@ namespace Core.Console {
 
     public class ConsoleInput : MonoBehaviour
     {
-
-            
-
-
         private bool _consoleOpen;
-
         private void Start()
         {
             Debug.Log("HI, CONSOLE STARTED!");
@@ -67,8 +62,6 @@ namespace Core.Console {
 
             if (!_consoleOpen) return;
 
-
-
             using (new GUILayout.VerticalScope())
             {
 
@@ -91,8 +84,6 @@ namespace Core.Console {
                             if (GUILayout.Button("Load Player"))
                             {
                                 InventoryService.LoadInventory();
-
-
                             }
                         }
                     }
@@ -115,6 +106,8 @@ namespace Core.Console {
                         {
                             _giveAttachmentMenu = !_giveAttachmentMenu;
                             _catchedAttachmentSettings = FindAll<AttachmentSettings>("Assets/Resources/WeaponSettings");
+
+
                         }
 
                         if (GUILayout.Button("Restore Player"))

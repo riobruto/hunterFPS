@@ -2,12 +2,14 @@
 {
     public enum WeaponSlotType
     {
+        
         PISTOL,
         SMG,
         DMR,
-        SNIPER,
-        SHOTGUN,
-        MEELEE,
-        GRENADE
+        SNIPER ,
+        SHOTGUN ,
+        LAUNCHER,
+        HMG
+        
     }
 }

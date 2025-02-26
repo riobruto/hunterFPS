@@ -19,13 +19,13 @@ namespace Core.Engine
             //Iniciamos todas las clases que sean subclases de Scene Service.
             //Iniciamos siempre y cuando los servicios sean necesitados
 
-            Type IType = typeof(SceneService);
+            Type IType = typeof(GameGlobalService);
             IEnumerable<Type> ITypes = AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany(x => x.GetTypes()).Where(p => IType.IsAssignableFrom(p));
 
             foreach (Type type in ITypes)
             {
-                SceneService s = (SceneService)Activator.CreateInstance(type);
+                GameGlobalService s = (GameGlobalService)Activator.CreateInstance(type);
                 _services.Add(type, s);
                 s.Initialize();
             }

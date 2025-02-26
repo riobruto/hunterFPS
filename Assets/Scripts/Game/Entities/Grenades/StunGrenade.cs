@@ -2,6 +2,7 @@
 using Game.Audio;
 using Game.Hit;
 using Game.Player.Animation;
+using Game.Player.Controllers;
 using Game.Player.Sound;
 using Game.Service;
 using Nomnom.RaycastVisualization;
@@ -11,22 +12,22 @@ using UnityEngine;
 
 namespace Game.Entities.Grenades
 {
-    public class HEGrenade : MonoBehaviour, IGrenade, IDamagableFromHurtbox
+    public class StunGrenade : MonoBehaviour, IGrenade, IDamagableFromHurtbox
     {
         [SerializeField] private ParticleSystem _particleSystem;
         [SerializeField] private MeshRenderer _mesh;
-        [SerializeField] private AudioClipGroup _explosion;
-        [SerializeField] private AudioClipGroup _explosionFar;
         [SerializeField] private AudioClipGroup _bounce;
         private Rigidbody _rigidbody;
+
+        [SerializeField] private Light _light;
 
         Rigidbody IGrenade.Rigidbody => _rigidbody;
 
         void IGrenade.Trigger(int secondsRemaining)
         {
             _rigidbody = GetComponent<Rigidbody>();
-
-            Debug.Log("Started HE nade with: " + secondsRemaining);
+            _light = GetComponent<Light>();
+            Debug.Log("Started Stun nade with: " + secondsRemaining);
             StartCoroutine(Explode(secondsRemaining));
         }
 
@@ -36,7 +37,9 @@ namespace Game.Entities.Grenades
             CalculateHits();
             UpdateVisuals();
             Destroy(gameObject, 1);
-
+            _light.intensity = 100;
+            yield return new WaitForEndOfFrame();
+            _light.intensity =0;
             yield return null;
         }
 
@@ -61,14 +64,22 @@ namespace Game.Entities.Grenades
                 }
                 if (collider.TryGetComponent(out Rigidbody rb))
                 {
+                    if (!rb == Bootstrap.Resolve<PlayerService>().GetPlayerComponent<Rigidbody>())        
                     rb.AddExplosionForce(500, explosionPos, 10, 3.0F, ForceMode.Acceleration);
                 }
+
+                if(collider.transform == Bootstrap.Resolve<PlayerService>().Player.transform) {
+                    Bootstrap.Resolve<PlayerService>().GetPlayerComponent<PlayerStunController>().Stun(transform.position);
+                }
+
+
+
             }
         }
 
         private float CalculateDamage(Collider collider)
         {
-            return Mathf.Lerp(200, 0, Mathf.InverseLerp(0, 6, Vector3.Distance(collider.ClosestPoint(transform.position), transform.position)));
+            return Mathf.Lerp(50, 0, Mathf.InverseLerp(0, 6, Vector3.Distance(collider.ClosestPoint(transform.position), transform.position)));
         }
 
         private void OnCollisionEnter(Collision collision)
@@ -83,8 +94,8 @@ namespace Game.Entities.Grenades
         {
             Debug.Log("Exploding");
             _mesh.enabled = false;
-            Bootstrap.Resolve<ImpactService>().System.ExplosionAtPosition(transform.position);          
-            FindObjectOfType<PlayerCameraShake>().TriggerShake(15, 1);
+            Bootstrap.Resolve<ImpactService>().System.ExplosionAtPosition(transform.position, ExplosionType.LIGHT);
+            FindObjectOfType<PlayerCameraShake>().TriggerShake(15,1);
         }
 
         void IDamagableFromHurtbox.NotifyDamage(float damage, Vector3 position, Vector3 direction)

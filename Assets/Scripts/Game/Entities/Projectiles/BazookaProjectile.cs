@@ -18,7 +18,7 @@ namespace Game.Entities.Projectiles
 
         [SerializeField] private float _activationDistance;
         [SerializeField] private float _radius;
-        [SerializeField] private float _damage;
+        [SerializeField] private float _maxDamage;
 
         private float _hitPos;
         private float _distanceTraveled;
@@ -66,7 +66,7 @@ namespace Game.Entities.Projectiles
         private void UpdateVisuals()
         {
             Debug.Log("Exploding");
-            Bootstrap.Resolve<ImpactService>().System.ExplosionAtPosition(transform.position);
+            Bootstrap.Resolve<ImpactService>().System.ExplosionAtPosition(_lastPosition);
             //FindObjectOfType<CameraShakeController>().TriggerShake();
             Destroy(gameObject, 3);
         }
@@ -94,11 +94,10 @@ namespace Game.Entities.Projectiles
 
         private float CalculateDamage(Collider collider)
         {
-            return Mathf.Lerp(200, 0, Mathf.InverseLerp(0, _radius, Vector3.Distance(collider.ClosestPoint(transform.position), transform.position)));
+            return Mathf.Lerp(_maxDamage, 1, Mathf.InverseLerp(0, _radius, Vector3.Distance(collider.transform.position, transform.position)));
         }
 
-        private bool CheckCollision()        {
-            
+        private bool CheckCollision()       {            
             if (!_active) return false;
             if (_lifeTime > 15) return true;
             return VisualPhysics.Linecast(_lastPosition, _currentPosition, out RaycastHit hit, Bootstrap.Resolve<GameSettings>().RaycastConfiguration.GrenadeHitLayers, QueryTriggerInteraction.Ignore);

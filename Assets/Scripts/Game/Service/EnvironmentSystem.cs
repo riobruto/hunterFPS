@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Game.Service
 {
-    public class EnvironmentService : SceneService
+    public class EnvironmentService : GameGlobalService
     {
         private EnvironmentSystem _system;
 

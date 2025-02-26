@@ -29,7 +29,7 @@ namespace Game.Player
         {
             PlayerExitEvent?.Invoke();
             transform.SetParent(null, false);
-            _movement.Teletransport(trainControlPossesable.PlayerExitPosition.position);
+            _movement.Teleport(trainControlPossesable.PlayerExitPosition.position);
             _movement.Simulate(true);
             _inInTrain = false;
             _currentTrain = null;

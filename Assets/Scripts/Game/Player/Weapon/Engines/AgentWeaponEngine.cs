@@ -48,7 +48,7 @@ namespace Game.Player.Weapon.Engines
         Ray IWeapon.Ray => GetRay();
 
         private bool _canInsert => _currentAmmo < _maxAmmo && _isBoltOpen && !_isManipulatingBolt && !_isReloading && !_wantShooting && !_isInserting && _isInitialized && _hasReleasedTrigger;
-        private bool _canShoot => !_isReloading && ValidFireRatio && !_isBoltOpen && _isActive && !_isManipulatingBolt && !_isInserting && !_pinDeactivated && _isInitialized;
+        private bool _canShoot => !_isReloading && _validFireRatio && !_isBoltOpen && _isActive && !_isManipulatingBolt && !_isInserting && !_pinDeactivated && _isInitialized;
 
         private bool _canOpenBolt => !_wantShooting && !_isReloading && !_isManipulatingBolt && _isActive && _isInitialized && _weaponSettings.Reload.Mode == WeaponReloadMode.SINGLE && _hasReleasedTrigger;
 
@@ -65,13 +65,13 @@ namespace Game.Player.Weapon.Engines
 
         //this variable checks if the weapon has been cocked in order to shoot o re-cock bolt actions. SEMI and AUTO are automatically set to false
 
-        private bool ValidFireRatio => _fireRatio <= float.Epsilon && _isInitialized;
+        private bool _validFireRatio => _fireRatio <= float.Epsilon && _isInitialized;
 
         bool IWeapon.IsReloading => _isReloading;
 
         bool IWeapon.IsShooting => _isShooting;
 
-        private bool _isShooting => _wantShooting && ValidFireRatio && CanFireFromFireMode() && _currentAmmo > 0;
+        private bool _isShooting => _wantShooting && _validFireRatio && CanFireFromFireMode() && _currentAmmo > 0;
 
         WeaponSettings IWeapon.WeaponSettings => _weaponSettings;
 
@@ -205,7 +205,6 @@ namespace Game.Player.Weapon.Engines
 
         private IEnumerator ICloseBolt()
         {
-            Debug.Log("CloseBoltBegin");
             NotifyState(WeaponState.BEGIN_CLOSE_BOLT);
             _isManipulatingBolt = true;
             yield return new WaitForSeconds(_weaponSettings.Reload.BoltCloseTime);
@@ -217,14 +216,14 @@ namespace Game.Player.Weapon.Engines
 
             _isBoltOpen = false;
             _isManipulatingBolt = false;
-            Debug.Log("CloseBoltEnd");
+         
 
             yield return null;
         }
 
         private IEnumerator IInsert()
         {
-            Debug.Log("InsertBegin");
+            
             _isManipulatingBolt = true;
             NotifyState(WeaponState.BEGIN_INSERT);
             _isInserting = true;
@@ -244,7 +243,7 @@ namespace Game.Player.Weapon.Engines
 
             yield return new WaitForSeconds(_weaponSettings.Reload.InsertTime);
             _isInserting = false;
-            Debug.Log("InsertEnd");
+          
 
             _isManipulatingBolt = false;
             yield return null;
@@ -252,20 +251,20 @@ namespace Game.Player.Weapon.Engines
 
         private IEnumerator IOpenBolt()
         {
-            Debug.Log("OpenBoltBegin");
+         
             NotifyState(WeaponState.BEGIN_OPEN_BOLT);
             _isManipulatingBolt = true;
             _isBoltOpen = true;
             yield return new WaitForSeconds(_weaponSettings.Reload.BoltOpenTime);
             _isManipulatingBolt = false;
 
-            Debug.Log("OpenBoltEnd");
+          
             yield return null;
         }
 
         private IEnumerator IReload()
         {
-            Debug.Log("ReloadBegin");
+           
             NotifyState(WeaponState.BEGIN_RELOADING);
             _isReloading = true;
             yield return new WaitForSeconds(_weaponSettings.Reload.EnterTime);
@@ -285,7 +284,6 @@ namespace Game.Player.Weapon.Engines
             _isReloading = false;
             yield return new WaitForSeconds(_weaponSettings.Reload.ExitTime);
 
-            Debug.Log("ReloadEnd");
             yield return null;
         }
 
@@ -303,7 +301,7 @@ namespace Game.Player.Weapon.Engines
 
             if (_wantShooting)
             {
-                if (!ValidFireRatio) return;
+                if (!_validFireRatio) return;
                 if (!CanFireFromFireMode()) return;
 
                 if (_currentAmmo <= 0)

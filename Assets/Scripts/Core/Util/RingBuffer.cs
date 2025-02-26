@@ -16,4 +16,6 @@ public class RingBuffer<T>
         m_index = (int)Mathf.Repeat(m_index + 1, m_buffer.Length);
         return t;
     }
+
+    public T[] Values { get { return m_buffer; } }
 }

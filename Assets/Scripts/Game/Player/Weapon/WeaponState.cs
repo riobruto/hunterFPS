@@ -3,6 +3,7 @@
     public enum WeaponState
     {
         BEGIN_SHOOTING,
+       END_SHOOTING,
         FAIL_SHOOTING,
         BEGIN_RELOADING,
         BEGIN_RELOADING_EMPTY,

@@ -7,10 +7,10 @@ using UnityEngine;
 
 namespace Core.Engine
 {
-    public class SceneService 
+    public class GameGlobalService 
     {
 
-        public SceneService()
+        public GameGlobalService()
         {
 
         }

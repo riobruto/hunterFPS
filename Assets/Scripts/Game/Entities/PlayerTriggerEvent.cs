@@ -22,11 +22,13 @@ namespace Assets.Scripts
 
         private void OnTriggerEnter(Collider other)
         {
+            if (player == null) return;
             if (other.transform.root == player.transform.root) { EnterEvent?.Invoke(); }
         }
 
         private void OnTriggerExit(Collider other)
         {
+            if (player == null) return;
             if (other.transform.root == player.transform.root) { ExitEvent?.Invoke(); }
         }
 

@@ -147,8 +147,9 @@ namespace Game.Player.Weapon.Engines
         void IWeapon.ReleaseFire()
         {
             _hasReleasedTrigger = true;
-
             _wantShooting = false;
+            _timeOfSpray = 0;
+            NotifyState(WeaponState.END_SHOOTING);
         }
 
         void IWeapon.Reload()
@@ -362,7 +363,7 @@ namespace Game.Player.Weapon.Engines
             Gizmos.DrawRay(GetRay());
             Gizmos.DrawWireSphere(transform.localPosition, 0.05f);
         }
-
+     
         private void Update()
         {
             if (!_isInitialized) return;
