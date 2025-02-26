@@ -76,6 +76,7 @@ namespace Life.Controllers
         private float _engagedTime;
         private Vector3 _enterPoint;
         private float _hurtStopVelocityMultiplier;
+        public float _hurtMoveRegenerationTimeout = 0;
         private Vector3 _interestPoint;
 
         private AudioSource _movementAudio;
@@ -186,8 +187,6 @@ namespace Life.Controllers
             _desiredWeight = target;
         }
 
-        private bool _incapacitated;
-
         //TODO: CREATE RELEASES FOR ATTACK SLOTS
         public void SetAllowFire(bool state) => Weapon.AllowFire = state;
 
@@ -251,6 +250,9 @@ namespace Life.Controllers
             if (payload.HurtByPlayer) TakingDamageEvent?.Invoke(this);
 
             _hurtStopVelocityMultiplier = 0;
+            NavMeshAgent.isStopped = true;
+            SetMovementType(SoldierMovementType.WALK);
+            _hurtMoveRegenerationTimeout = 1;
             _engagedTime = 50;
             _interestPoint = PlayerGameObject.transform.position;
             _attackPoint = PlayerHeadPosition;
@@ -339,7 +341,13 @@ namespace Life.Controllers
 
         private void ManageHurtSlowdown()
         {
-            _hurtStopVelocityMultiplier = Mathf.Clamp(_hurtStopVelocityMultiplier + Time.deltaTime, -10, 1);
+            _hurtMoveRegenerationTimeout = Mathf.Clamp(_hurtMoveRegenerationTimeout - Time.deltaTime, 0, float.MaxValue);
+
+            if (_hurtMoveRegenerationTimeout <= 0)
+            {
+                NavMeshAgent.isStopped = false;
+                _hurtStopVelocityMultiplier = Mathf.Clamp(_hurtStopVelocityMultiplier + Time.deltaTime, -10, 1);
+            }
             NavMeshAgent.speed = _desiredSpeed * Mathf.Clamp01(_hurtStopVelocityMultiplier);
         }
 
