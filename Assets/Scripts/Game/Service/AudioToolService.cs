@@ -30,32 +30,36 @@ namespace Game.Service
             CreateSimpleBuffer();
         }
 
-        private void CreateSimpleBuffer(){
+        private void CreateSimpleBuffer()
+        {
             AudioSource[] oneShots = new AudioSource[32];
             AudioSourceBuffer = new RingBuffer<AudioSource>(oneShots);
             for (int i = 0; i < oneShots.Length; i++)
             {
                 oneShots[i] = new GameObject("One shot audio").AddComponent<AudioSource>();
-                oneShots[i].hideFlags = HideFlags.HideInHierarchy;
+                oneShots[i].gameObject.hideFlags = HideFlags.HideInHierarchy;
+                oneShots[i].priority += 1;
                 GameObject.DontDestroyOnLoad(oneShots[i]);
             }
         }
 
-        private void CreateOneshotBuffer() {
+        private void CreateOneshotBuffer()
+        {
             AudioBlendOneShot[] oneShots = new AudioBlendOneShot[32];
             OneShotsBuffer = new RingBuffer<AudioBlendOneShot>(oneShots);
             for (int i = 0; i < oneShots.Length; i++)
             {
                 oneShots[i] = new GameObject("Blend one shot audio").AddComponent<AudioBlendOneShot>();
                 oneShots[i].Initialize();
-                oneShots[i].hideFlags = HideFlags.HideInHierarchy;
+                oneShots[i].gameObject.hideFlags = HideFlags.HideInHierarchy;
                 GameObject.DontDestroyOnLoad(oneShots[i]);
             }
         }
 
-        public static void PlayClipAtPoint(AudioClip clip, Vector3 position, float volume = 1.0f, AudioChannels channel = AudioChannels.MASTER, float maxDistance = 30) {
+        public static void PlayClipAtPoint(AudioClip clip, Vector3 position, float volume = 1.0f, AudioChannels channel = AudioChannels.MASTER, float maxDistance = 30)
+        {
             if (clip == null) return;
-            AudioSource source = AudioSourceBuffer.GetNext();        
+            AudioSource source = AudioSourceBuffer.GetNext();
             source.transform.position = position;
             if (source.isPlaying) source.Stop();
             source.outputAudioMixerGroup = ResolveGroup(channel);
@@ -114,10 +118,13 @@ namespace Game.Service
 
         public static AudioMixerGroup GetMixerGroup(AudioChannels channel) => ResolveGroup(channel);
 
-        internal static void PlayUISound(AudioClip clip, float volume = 1){
+        internal static void PlayUISound(AudioClip clip, float volume = 1f)
+        {
             if (clip == null) return;
+            if (volume <= 0) return;
+
             AudioSource source = AudioSourceBuffer.GetNext();
-            source.transform.position = Vector3.zero;            
+            source.transform.position = Vector3.zero;
             source.clip = clip;
             source.spatialBlend = 0;
             source.volume = volume;
@@ -125,8 +132,9 @@ namespace Game.Service
             source.Play();
         }
 
-        internal static void PlayPlayerSound(AudioClip clip, float volume = 1, float pitchFluctuation = 0){
-            if (clip == null) return;            
+        internal static void PlayPlayerSound(AudioClip clip, float volume = 1, float pitchFluctuation = 0)
+        {
+            if (clip == null) return;
             AudioSource audioSource = AudioSourceBuffer.GetNext();
             audioSource.clip = clip;
             audioSource.transform.position = Vector3.zero;

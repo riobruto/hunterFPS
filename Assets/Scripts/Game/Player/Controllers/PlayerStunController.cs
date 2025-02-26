@@ -48,12 +48,14 @@ namespace Game.Player.Controllers
             _time = time;
         }
 
+        [ContextMenu("Shock")]
         public void Shock(Vector3 from)
         {
             float distance = Vector3.Distance(transform.position, from);
             float time = Mathf.InverseLerp(2.5f, 10, distance);
             _shockTime = time;
-            AudioToolService.PlayUISound(_earRing, 1);
+            Debug.Log(_shockTime);
+            AudioToolService.PlayUISound(_earRing, Mathf.Clamp01((_shockTime-1)*-1f));
         }
     }
 }
