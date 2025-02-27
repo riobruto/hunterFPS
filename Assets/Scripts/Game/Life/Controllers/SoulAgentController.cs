@@ -133,7 +133,7 @@ namespace Life.Controllers
             UIService.CreateMessage("This soul is no longer following you.");
         }
 
-        public override void Update()
+        public override void Think()
         {
             _soul.SetTarget(_soul.transform.forward + UnityEngine.Random.insideUnitSphere * 10); ;
         }
@@ -161,7 +161,7 @@ namespace Life.Controllers
             UIService.CreateMessage("This soul is now following you.");
         }
 
-        public override void Update()
+        public override void Think()
         {
             if (Vector3.Distance(_soul.transform.position, _soul.PlayerHeadPosition) > 2) _soul.SetTarget(_soul.PlayerPosition);
         }
@@ -191,7 +191,7 @@ namespace Life.Controllers
             UIService.CreateMessage("This soul has found a body.");
         }
 
-        public override void Update()
+        public override void Think()
         {
             throw new System.NotImplementedException();
         }
