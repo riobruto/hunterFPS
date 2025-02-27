@@ -3,7 +3,6 @@ using Game.Entities;
 using Game.Impact;
 using Game.Player.Controllers;
 using Game.Player.Sound;
-using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
@@ -43,9 +42,8 @@ namespace Game.Service
 
         //create buffer references to explosions
         private RingBuffer<GameObject> ExplosionBuffer;
+
         private RingBuffer<GameObject> LightExplosionBuffer;
-
-
 
         private RingBuffer<GameObject> _limbMutilatedBuffer;
         private RingBuffer<GameObject> Tracers;
@@ -90,17 +88,19 @@ namespace Game.Service
         }
 
         public void ExplosionAtPosition(Vector3 position, ExplosionType type = ExplosionType.HEAVY)
-        {            
+        {
             GameObject explosion;
-          
+
             switch (type)
             {
                 case ExplosionType.LIGHT:
                     explosion = LightExplosionBuffer.GetNext();
                     break;
+
                 case ExplosionType.HEAVY:
                     explosion = ExplosionBuffer.GetNext();
                     break;
+
                 case ExplosionType.COMBUSTIBLE:
                     //todo: add combustible explosion (very fuegosity)
                     explosion = ExplosionBuffer.GetNext(); break;
@@ -108,11 +108,11 @@ namespace Game.Service
                     //default explosion type
                     explosion = LightExplosionBuffer.GetNext(); break;
             }
-            
+
             explosion.transform.position = position;
             explosion.transform.up = Vector3.up;
             explosion.SetActive(true);
-                
+
             explosion.GetComponent<ParticleSystem>().Play();
             explosion.GetComponent<ExplosionSoundEntity>().Play();
             Bootstrap.Resolve<PlayerService>().GetPlayerComponent<PlayerStunController>().Shock(explosion.transform.position);
@@ -175,8 +175,6 @@ namespace Game.Service
             }
         }
 
-     
-
         private void CreateBloodDecals()
         {
             int amount = 32;
@@ -196,7 +194,6 @@ namespace Game.Service
             }
             BloodDecalBuffer = new RingBuffer<GameObject>(bloodDecals);
         }
-
 
         internal void TraceAtPosition(Vector3 from, Vector3 to)
         {
@@ -248,7 +245,8 @@ namespace Game.Service
             RingBuffer<GameObject> buffer = GetImpactsFromSurfaceType(type);
             GameObject impact = buffer.GetNext();
 
-            if(impact == null || buffer == null) {
+            if (impact == null || buffer == null)
+            {
                 // if the impact is null, means we just started the game or we destroyed it somehow during gameplay
                 //so we regenerate the buffer
                 //medio caca?  da hiccup seguro.
@@ -288,50 +286,62 @@ namespace Game.Service
 
             buffer = GenerateBufferForImpact(_dictionary.GetImpactObjectFromType(type));
 
-
             switch (type)
             {
                 case SurfaceType.ROCK:
                 case SurfaceType.CERAMIC:
                 case SurfaceType.BRICK:
                 case SurfaceType.CONCRETE:
-                     ConcreteBuffer = buffer; 
+                    ConcreteBuffer = buffer;
                     break;
+
                 case SurfaceType.WOOD:
                 case SurfaceType.WOOD_HARD:
                 case SurfaceType.CARTBOARD:
                 case SurfaceType.PAPER:
-                     WoodBuffer = buffer; 
+                    WoodBuffer = buffer;
                     break;
+
                 case SurfaceType.METAL_SOFT:
                 case SurfaceType.METAL:
                 case SurfaceType.METAL_HARD:
-                     MetalBuffer = buffer;
+                    MetalBuffer = buffer;
                     break;
 
                 case SurfaceType.GLASS:
                 case SurfaceType.RUBBER:
                 case SurfaceType.NYLON:
-                     _defaultBuffer = buffer;
+                    _defaultBuffer = buffer;
                     break;
+
                 case SurfaceType.FLESH:
-                     _bloodBuffer = buffer;
+                    _bloodBuffer = buffer;
                     break;
+
                 default:
-                     _defaultBuffer = buffer; 
+                    _defaultBuffer = buffer;
                     break;
             }
 
             Debug.LogWarning("Some Impacts were null and the buffer was regenerated");
-          
-        }     
+        }
 
         internal void BloodDecalAtPosition(Vector3 point, Vector3 normal, Transform parent = null)
-
         {
-            
             //TODO: Crear shader solo para decals de impacto
             GameObject decal = BloodDecalBuffer.GetNext();
+
+            if (decal == null)
+            {
+                for (int i = 0; i < BloodDecalBuffer.Values.Length; i++)
+                {
+                    Destroy(BloodDecalBuffer.Values[i]);
+                }
+                CreateBloodDecals();
+                Debug.Log("Regenerated Blood Decals");
+                decal = BloodDecalBuffer.GetNext();
+            }
+
             decal.GetComponent<DecalProjector>().material.SetTexture("_Color", _dictionary.BloodDecalSet.GetRandom());
             decal.transform.position = point;
             decal.transform.forward = normal;
