@@ -293,6 +293,7 @@ namespace Life.Controllers
         public bool IsPlayerVisible()
         {
             if (AgentGlobalService.IgnorePlayer) return false;
+
             if (!PlayerService.Active) return false;
             //Debug.DrawLine(_playerCamera.transform.position, transform.position);
 
@@ -332,6 +333,7 @@ namespace Life.Controllers
 
         public void SetTarget(Vector3 position)
         {
+            _navMeshAgent.isStopped = false;
             _navMeshAgent.SetDestination(position);
         }
 

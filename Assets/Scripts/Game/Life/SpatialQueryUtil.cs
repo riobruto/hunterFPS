@@ -40,10 +40,12 @@ namespace Game.Life
         private float CalcultePathDistance(NavMeshPath path)
         {
             float lng = 0.0f;
+            Vector3[] corners = new Vector3[0];
+            int Lenght = path.GetCornersNonAlloc(corners);
 
-            if ((path.status != NavMeshPathStatus.PathInvalid) && (path.corners.Length > 1))
+            if ((path.status != NavMeshPathStatus.PathInvalid) && (Lenght > 1))
             {
-                for (int i = 1; i < path.corners.Length; ++i)
+                for (int i = 1; i < Lenght; ++i)
                 {
                     lng += Vector3.Distance(path.corners[i - 1], path.corners[i]);
                 }

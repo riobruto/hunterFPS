@@ -35,9 +35,7 @@ namespace Game.Entities
         private void Update()
         {
             if (!_begun) return;
-            _time += Time.deltaTime;
-            Debug.Log("Taking: " + _time);
-
+            _time += Time.deltaTime;         
             if (_time > _takeTime)
             {
                 _completed = true;

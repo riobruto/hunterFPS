@@ -248,7 +248,7 @@ namespace Life.Controllers
         {
         }
 
-        public override void Update()
+        public override void Think()
         {
         }
     }
@@ -274,7 +274,7 @@ namespace Life.Controllers
         {
         }
 
-        public override void Update()
+        public override void Think()
         {
         }
     }
@@ -302,7 +302,7 @@ namespace Life.Controllers
             blind.FaceTarget = false;
         }
 
-        public override void Update()
+        public override void Think()
         {
             blind.SetLookTarget(blind.PlayerHeadPosition);
             blind.SetTarget(blind.PlayerPosition);
@@ -332,7 +332,7 @@ namespace Life.Controllers
             blind.AttackPlayer();
         }
 
-        public override void Update()
+        public override void Think()
         {
             blind.SetLookTarget(blind.PlayerHeadPosition);
         }
@@ -364,7 +364,7 @@ namespace Life.Controllers
             _start = Time.time;
         }
 
-        public override void Update()
+        public override void Think()
         {
             if (Time.time - _start > .15f)
             {

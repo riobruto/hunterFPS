@@ -84,7 +84,7 @@ namespace Life.Controllers
         {
         }
 
-        public override void Update()
+        public override void Think()
         {
         }
     }

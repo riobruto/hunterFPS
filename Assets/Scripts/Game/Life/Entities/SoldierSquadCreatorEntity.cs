@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.InputSystem.XR;
 
 namespace Game.Life.Entities
 {
@@ -55,11 +56,13 @@ namespace Game.Life.Entities
                 controller.GetComponent<NavMeshAgent>().avoidancePriority = priority;
 
                 priority++;
-                StartCoroutine(SetState(controller, _beginState));
+             
                 //Set Target State
             }
             //Crear logic squad
             SoldierSquad squad = AgentGlobalService.Instance.CreateSquad(soldiers.ToArray());
+            _lastSquad = squad;
+            StartCoroutine(SetState(squad, _beginState));
 
             if (_holdPosition)
             {
@@ -67,26 +70,22 @@ namespace Game.Life.Entities
             }
             else squad.SetGoalChase();
 
-            _lastSquad = squad;
-
         }
 
-        private IEnumerator SetState(SoldierAgentController controller, SquadBeginState beginState)
+        private IEnumerator SetState(SoldierSquad squad, SquadBeginState beginState)
         {
             yield return new WaitForSeconds(1);
+
             switch (beginState)
             {
-                case SquadBeginState.ACTBUSY:
-                    controller.ForceActBusy();
+                case SquadBeginState.ACTBUSY:                   
 
                     yield break;
-                case SquadBeginState.ATTACK:
-                    controller.ForceAttack();
-                    controller.ForcePlayerPerception();
+                case SquadBeginState.RUSH:
+                    squad.ForceEngage();
                     yield break;
                 case SquadBeginState.COVER:
-                    controller.ForceRetreatToCover();
-                    controller.ForcePlayerPerception();
+                   
                     yield break;
             }
         }
@@ -103,7 +102,7 @@ namespace Game.Life.Entities
         private enum SquadBeginState
         {
             ACTBUSY,
-            ATTACK,
+            RUSH,
             COVER
         }
     }

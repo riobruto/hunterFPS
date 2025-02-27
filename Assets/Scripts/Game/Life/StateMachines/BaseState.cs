@@ -19,7 +19,7 @@ namespace Life.StateMachines
 
         void IState.Update()
         {
-            Update();
+            Think();
         }
 
         void IState.End()
@@ -34,7 +34,7 @@ namespace Life.StateMachines
 
         public abstract void Start();
 
-        public abstract void Update();
+        public abstract void Think();
 
         public abstract void End();
 

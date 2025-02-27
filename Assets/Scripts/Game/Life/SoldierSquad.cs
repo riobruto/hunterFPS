@@ -73,7 +73,6 @@ namespace Game.Life
         {
             get => _goalHoldTransform.position;
         }
-
         public Vector3 SquadCentroid
         {
             get
@@ -87,8 +86,12 @@ namespace Game.Life
                 return centroid;
             }
         }
-
         public bool CanThrowGrenade { get => Time.time - _lastGrenadeTime > GrenadeCoolDown; }
+        public List<SoldierAgentController> Members => _soldiers;
+
+        public float TimeSincePlayerFound { get => _timeSincePlayerFound;  }
+        public float TimeToCalm { get => _timeToCalm;  }
+
 
         public SoldierSquad(SoldierAgentController[] soldiers)
         {
@@ -161,7 +164,6 @@ namespace Game.Life
                 return;
             }
             //hack: gives the ability to shoot reactively
-
             _timeSincePlayerFound = Time.time;
             CreateTimedGizmo(Shape.SQUARE, sender.transform.position + Vector3.up * 2, 3, Color.red);
             SquadMemberSawPlayer?.Invoke(sender as SoldierAgentController);
@@ -232,12 +234,12 @@ namespace Game.Life
 
         //GIZMO STUFF
 
-        private List<TimedGizmo> GIZMOS = new List<TimedGizmo>();
+        private List<TimedGizmo> _gizmos = new List<TimedGizmo>();
         private float _lastGrenadeTime;
 
         private void CreateTimedGizmo(Shape shape, Vector3 pos, int duration, Color color)
         {
-            GIZMOS.Add(new TimedGizmo(duration, Time.time, pos, color, shape));
+            _gizmos.Add(new TimedGizmo(duration, Time.time, pos, color, shape));
         }
 
         private class TimedGizmo
@@ -281,23 +283,23 @@ namespace Game.Life
                 }
             }
 
-            for (int i = 0; i < GIZMOS.Count; i++)
+            for (int i = 0; i < _gizmos.Count; i++)
             {
-                if (Time.time - GIZMOS[i].Time > GIZMOS[i].Duration) { GIZMOS.Remove(GIZMOS[i]); continue; }
+                if (Time.time - _gizmos[i].Time > _gizmos[i].Duration) { _gizmos.Remove(_gizmos[i]); continue; }
 
-                Gizmos.color = GIZMOS[i].Color;
-                switch (GIZMOS[i].Shape)
+                Gizmos.color = _gizmos[i].Color;
+                switch (_gizmos[i].Shape)
                 {
                     case Shape.SPHERE:
-                        Gizmos.DrawSphere(GIZMOS[i].Position, .15f);
+                        Gizmos.DrawSphere(_gizmos[i].Position, .15f);
                         break;
 
                     case Shape.SQUARE:
-                        Gizmos.DrawCube(GIZMOS[i].Position, Vector3.one * .30f);
+                        Gizmos.DrawCube(_gizmos[i].Position, Vector3.one * .30f);
                         break;
 
                     case Shape.WIRESPHERE:
-                        Gizmos.DrawWireSphere(GIZMOS[i].Position, .15f);
+                        Gizmos.DrawWireSphere(_gizmos[i].Position, .15f);
                         break;
                 }
             }

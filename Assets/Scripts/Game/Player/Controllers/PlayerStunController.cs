@@ -54,7 +54,7 @@ namespace Game.Player.Controllers
             float distance = Vector3.Distance(transform.position, from);
             float time = Mathf.InverseLerp(2.5f, 10, distance);
             _shockTime = time;
-            Debug.Log(_shockTime);
+           
             AudioToolService.PlayUISound(_earRing, Mathf.Clamp01((_shockTime-1)*-1f));
         }
     }

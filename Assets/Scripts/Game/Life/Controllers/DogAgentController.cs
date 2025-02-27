@@ -272,7 +272,7 @@ namespace Life.Controllers
             _dog.FaceTarget = true;
         }
 
-        public override void Update()
+        public override void Think()
         {
         }
     }
@@ -305,7 +305,7 @@ namespace Life.Controllers
             _dog.FaceTarget = false;
         }
 
-        public override void Update()
+        public override void Think()
         {
             if (Keyboard.current.tKey.wasPressedThisFrame)
             {
@@ -345,7 +345,7 @@ namespace Life.Controllers
             _dog.FaceTarget = true;
         }
 
-        public override void Update()
+        public override void Think()
         {
             _dog.SetLookTarget(_dog.PlayerHeadPosition);
 
@@ -379,7 +379,7 @@ namespace Life.Controllers
         {
         }
 
-        public override void Update()
+        public override void Think()
         {
             _dog.SetTarget(_dog.FoodTarget.transform.position);
         }
@@ -417,7 +417,7 @@ namespace Life.Controllers
             _dog.SetHealth(100);
         }
 
-        public override void Update()
+        public override void Think()
         {
         }
     }
@@ -445,7 +445,7 @@ namespace Life.Controllers
         {
         }
 
-        public override void Update()
+        public override void Think()
         {
             _dog.SetTarget(_dog.AggroTarget.transform.position);
         }
@@ -481,7 +481,7 @@ namespace Life.Controllers
             _dog.AggroTarget.Damage(85);
         }
 
-        public override void Update()
+        public override void Think()
         {
             _dog.transform.forward = _dog.AggroTarget.transform.position - _dog.transform.position;
             _dog.SetTarget(_dog.transform.position);
@@ -518,7 +518,7 @@ namespace Life.Controllers
             _dog.PlayerGameObject.GetComponent<PlayerHealth>().Hurt(25, _dog.PlayerHeadPosition - _dog.transform.position);
         }
 
-        public override void Update()
+        public override void Think()
         {
             _dog.transform.forward = _dog.PlayerPosition - _dog.transform.position;
             _dog.SetTarget(_dog.transform.position);
@@ -546,7 +546,7 @@ namespace Life.Controllers
         {
         }
 
-        public override void Update()
+        public override void Think()
         {
         }
     }

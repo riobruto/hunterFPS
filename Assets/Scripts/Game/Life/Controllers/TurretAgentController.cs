@@ -143,7 +143,7 @@ namespace Game.Life.Controllers
             _turret.PlayClip(_turret.EngageClip);
         }
 
-        public override void Update()
+        public override void Think()
         {
             Vector3 dir = (_turret.PlayerHeadPosition - _turret.Pitch.position).normalized;
             Quaternion look = Quaternion.LookRotation(dir);
@@ -188,7 +188,7 @@ namespace Game.Life.Controllers
             _turret.PlayClip(_turret.StandbyClip);
         }
 
-        public override void Update()
+        public override void Think()
         {
             if (_cooldown > 0)
             {
@@ -254,7 +254,7 @@ namespace Game.Life.Controllers
             _turret.Light.intensity = 0;
         }
 
-        public override void Update()
+        public override void Think()
         {
             Vector3 dir = Vector3.down;
             Quaternion look = Quaternion.LookRotation(dir);

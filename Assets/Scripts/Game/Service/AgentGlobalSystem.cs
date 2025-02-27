@@ -5,6 +5,7 @@ using Life.Controllers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -108,8 +109,9 @@ namespace Game.Service
             {
                 if (_activeSquads[i].MemberAmount == 0)
                 {
-                    SquadRemovedEvent?.Invoke(_activeSquads[i]);
+                    SoldierSquad cachedSquad = _activeSquads[i];
                     _activeSquads.Remove(_activeSquads[i]);
+                    SquadRemovedEvent?.Invoke(cachedSquad);
                 }
             }
         }
@@ -135,10 +137,21 @@ namespace Game.Service
             {
                 using (new GUILayout.VerticalScope(GUI.skin.box))
                 {
+                    GUILayout.Label($"TimeSincePlayerFound: {squad.TimeSincePlayerFound}");
+                    GUILayout.Label($"TimeToCalm: {squad.TimeToCalm}");
                     GUILayout.Label($"Is Engaged: {!squad.HasEngageTimeout}");
                     GUILayout.Label($"Members: {squad.MemberAmount}");
                     GUILayout.Label($"Att Slot: {squad.AttackingAgents.Count}");
                     GUILayout.Label($"Can Grenade Slot: {squad.CanThrowGrenade}");
+                 
+                    foreach (SoldierAgentController soldier in squad.Members)
+                    {
+                        GUILayout.Label($"{soldier.name}");
+                        GUILayout.Label($"Should Attack: {soldier.ShouldEngageThePlayer}");
+                        GUILayout.Label($"Should Cover: {soldier.ShouldCoverFromThePlayer}");
+                        GUILayout.Label($"Health: {soldier.GetHealth()}");
+                        GUILayout.Label($"State: {soldier.CurrentState}");
+                    }
                 }
             }
         }
