@@ -22,13 +22,24 @@ namespace Game.Life.Entities
         [SerializeField] private Transform _holdTransform;
 
 
+        [SerializeField] private bool _keepSpawningOnSquadWiped;
+        private SoldierSquad _lastSquad;
+
         private void Start(){
             if (_createOnStart){
                 CreateSquad();
             }
+            AgentGlobalService.Instance.SquadRemovedEvent += OnSquadRemoved;
         }
 
-        
+        private void OnSquadRemoved(SoldierSquad squad)
+        {
+            if (_keepSpawningOnSquadWiped && _lastSquad == squad) 
+            {
+                CreateSquad();
+            }
+        }
+
         [ContextMenu("SpawnSquad")]
         public void CreateSquad()
         {
@@ -55,6 +66,9 @@ namespace Game.Life.Entities
                 squad.SetGoalHold(_holdTransform, _spawnRadius);
             }
             else squad.SetGoalChase();
+
+            _lastSquad = squad;
+
         }
 
         private IEnumerator SetState(SoldierAgentController controller, SquadBeginState beginState)

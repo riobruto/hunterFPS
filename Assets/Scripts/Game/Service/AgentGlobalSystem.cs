@@ -24,8 +24,6 @@ namespace Game.Service
             IgnorePlayer = ignorePlayer;
         }
 
-       
-
         internal override void Initialize()
         {
             Instance = new GameObject("AgentGlobalSystem").AddComponent<AgentGlobalSystem>();
@@ -35,10 +33,18 @@ namespace Game.Service
         }
     }
 
+    public delegate void SquadRemoved(SoldierSquad squad);
+
+    public delegate void SquadCreated(SoldierSquad squad);
+
     public class AgentGlobalSystem : MonoBehaviour
     {
         public List<AgentController> ActiveAgents { get => _activeAgents; }
         public List<CoverSpotEntity> CoverEntities { get => _coverEntities; }
+
+        public event SquadRemoved SquadRemovedEvent;
+
+        public event SquadCreated SquadCreatedEvent;
 
         private List<SoldierSquad> _activeSquads = new List<SoldierSquad>();
         private List<AgentController> _activeAgents = new List<AgentController>();
@@ -50,16 +56,22 @@ namespace Game.Service
             SceneManager.sceneLoaded += OnSceneLoaded;
         }
 
+        private void OnDestroy()
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+        }
+
         private void OnSceneLoaded(Scene arg0, LoadSceneMode arg1)
         {
-            _activeSquads.Clear();           
+            _activeSquads.Clear();
         }
+
         public void GiveSquadToAgent(SoldierAgentController soldierAgentController)
         {
             SoldierAgentController[] soldier = { soldierAgentController };
             CreateSquad(soldier);
-
         }
+
         public void RegisterAgent(AgentController controller)
         {
             _activeAgents.Add(controller);
@@ -76,7 +88,6 @@ namespace Game.Service
 
         public SoldierSquad CreateSquad(SoldierAgentController[] soldier)
         {
-        
             foreach (SoldierSquad soldierSquad in _activeSquads)
             {
                 if (soldierSquad.MemberAmount + soldier.Length <= SoldierSquad.MemberAmountLimit)
@@ -85,15 +96,9 @@ namespace Game.Service
                     return soldierSquad;
                 }
             }
-            if (_activeSquads.Count == 0)
-            {
-                SoldierSquad sq = new SoldierSquad(soldier);
-                _activeSquads.Add(sq);
-                return sq;
-            }
             SoldierSquad squad = new SoldierSquad(soldier);
             _activeSquads.Add(squad);
-
+            SquadCreatedEvent?.Invoke(squad);
             return squad;
         }
 
@@ -101,7 +106,11 @@ namespace Game.Service
         {
             for (int i = 0; i < _activeSquads.Count; i++)
             {
-                if (_activeSquads[i].MemberAmount == 0) _activeSquads.Remove(_activeSquads[i]);
+                if (_activeSquads[i].MemberAmount == 0)
+                {
+                    SquadRemovedEvent?.Invoke(_activeSquads[i]);
+                    _activeSquads.Remove(_activeSquads[i]);
+                }
             }
         }
 
