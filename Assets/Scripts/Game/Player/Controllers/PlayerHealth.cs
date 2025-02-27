@@ -13,13 +13,12 @@ namespace Game.Player.Controllers
         private float _lastTimeHurt;
         private bool _dead;
         private float _damageMultiplier = 0.1f;
-        private float _regenSpeed = 1f;
-        private float _noHurtTimeForRegen = 2;
+        private float _regenSpeed = 3f;
+        private float _noHurtTimeForRegen = 1;
         private float _currentHealth = 100;
         private float _regenHealthLimit = 100f;
 
         private float _damageResistanceModifier = 0;
-
         public void SetDamageResistanceModifier(float value) => _damageResistanceModifier = value;
 
         public float CurrentHealth => _currentHealth;
