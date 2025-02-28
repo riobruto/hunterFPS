@@ -5,17 +5,15 @@ using Game.Player;
 using Game.Player.Controllers;
 using Game.Service;
 using System.Collections.Generic;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
-using System;
+
 using UnityEngine.ResourceManagement.ResourceLocations;
-#if UNITY_EDITOR
-namespace Core.Console { 
 
-
+namespace Core.Console
+{
     public class ConsoleService : GameGlobalService
     {
         public ConsoleInput Input;
@@ -32,11 +30,11 @@ namespace Core.Console {
     public class ConsoleInput : MonoBehaviour
     {
         private bool _consoleOpen;
+
         private void Start()
         {
             Debug.Log("HI, CONSOLE STARTED!");
         }
-
 
         private void Update()
         {
@@ -57,19 +55,17 @@ namespace Core.Console {
         private bool _ignorePlayer;
 
         private bool _playerSpawned => PlayerService.Active;
+
         private void OnGUI()
         {
-
             if (!_consoleOpen) return;
 
             using (new GUILayout.VerticalScope())
             {
-
                 using (new GUILayout.HorizontalScope())
                 {
                     using (new GUILayout.VerticalScope())
                     {
-
                         if (!_playerSpawned && GUILayout.Button("Spawn Player"))
                         {
                             Bootstrap.Resolve<PlayerService>().SpawnPlayer();
@@ -79,7 +75,6 @@ namespace Core.Console {
                             if (GUILayout.Button("Save Player"))
                             {
                                 InventoryService.SaveInventory();
-
                             }
                             if (GUILayout.Button("Load Player"))
                             {
@@ -91,7 +86,7 @@ namespace Core.Console {
                     {
                         if (GUILayout.Button("Give Item"))
                         {
-                            //TODO: IMPLEMENTAR ADDRESABLES 
+                            //TODO: IMPLEMENTAR ADDRESABLES
                             _giveItemMenu = !_giveItemMenu;
                             if (_cachedSearch.Count == 0) _cachedSearch = LoadItemsOfTypeByLabel<InventoryItem>("Consumables");
                         }
@@ -117,12 +112,14 @@ namespace Core.Console {
                         {
                             InventoryService.Instance.Ammunitions[FindObjectOfType<PlayerWeapons>().WeaponEngine.WeaponSettings.Ammo.Type] = 9999;
                         }
-                        if (GUILayout.Button("Toggle Player Inmunnity")){
+                        if (GUILayout.Button("Toggle Player Inmunnity"))
+                        {
                             _inmune = !_inmune;
                             Bootstrap.Resolve<PlayerService>().GetPlayerComponent<PlayerHealth>().SetInmunity(_inmune);
                             UIService.CreateMessage($"Player is now " + (_inmune ? "inmune" : "not inmune"));
                         }
-                        if (GUILayout.Button(_disabledAI ? "Enable AI" : "Disable AI")){
+                        if (GUILayout.Button(_disabledAI ? "Enable AI" : "Disable AI"))
+                        {
                             _disabledAI = !_disabledAI;
                             AgentGlobalService.SetDisableAI(_disabledAI);
                             UIService.CreateMessage($"The AI is now " + (_disabledAI ? "disabled" : "enabled"));
@@ -133,7 +130,6 @@ namespace Core.Console {
                             _ignorePlayer = !_ignorePlayer;
                             UIService.CreateMessage($"The AI is now " + (_ignorePlayer ? "ignores player" : "does not ignores player"));
                             AgentGlobalService.SetIgnorePlayer(_ignorePlayer);
-
                         }
 
                         if (_giveWeaponMenu)
@@ -177,22 +173,13 @@ namespace Core.Console {
                             }
                         }
                     }
-                    
-                   
                 }
             }
-        }
-
-        private void OnLoad(AsyncOperationHandle<IList<IResourceLocation>> handle)
-        {
-           
-
-        }
-
+        }      
         private List<T> LoadItemsOfTypeByLabel<T>(string label)
         {
             List<T> list = new List<T>();
-            Addressables.LoadResourceLocationsAsync(new AssetLabelReference().labelString = label).Completed += (AsyncOperationHandle<IList<IResourceLocation>> handle) => 
+            Addressables.LoadResourceLocationsAsync(new AssetLabelReference().labelString = label).Completed += (AsyncOperationHandle<IList<IResourceLocation>> handle) =>
             {
                 foreach (IResourceLocation loc in handle.Result)
                 {
@@ -204,33 +191,5 @@ namespace Core.Console {
             };
             return list;
         }
-
-
-
-        public static List<T> FindAll<T>(string path = "") where T : ScriptableObject
-        {
-            // use adressables
-            //TODO: IMPLEMENTAR ADDRESABLES 
-
-
-            var scripts = new List<T>();
-            var searchFilter = $"t:{typeof(T).Name}"; 
-            var soNames = path == ""
-            ? AssetDatabase.FindAssets(searchFilter) :
-            AssetDatabase.FindAssets(searchFilter, new[] { path });
-            foreach (var soName in soNames)
-            {
-                var soPath = AssetDatabase.GUIDToAssetPath(soName);
-                var script =
-                AssetDatabase.LoadAssetAtPath<T>(soPath);
-                if (script == null)
-                    continue;
-                scripts.Add(script);
-            }
-            return scripts;
-        }
-
-    }    
-
+    }
 }
-#endif
