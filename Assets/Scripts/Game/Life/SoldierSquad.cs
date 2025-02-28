@@ -41,8 +41,6 @@ namespace Game.Life
         public int MemberAmount => _soldiers.Count;
         public bool HasEngageTimeout { get => Time.time - _timeSincePlayerFound > _timeToCalm; }
 
-
-
         public const int MemberAmountLimit = 4;
         public const int AttackingSlots = 2;
         public const int FlankingSlots = 1;
@@ -51,14 +49,33 @@ namespace Game.Life
 
         //GroupStealthData
         private float _timeSincePlayerFound = 0;
+
         private float _timeToCalm = 15f;
         private float _elapsedSinceAlerted = 0;
+        private bool _squadDetectPlayerAlways;
+
+        public bool SquadDetectPlayerAlways
+        {
+            get
+            {
+                return _squadDetectPlayerAlways;
+            }
+            set
+            {
+                foreach (SoldierAgentController soldier in _soldiers)
+                {
+                    soldier.DetectPlayerAlways = value;
+                }
+                _squadDetectPlayerAlways = value;
+            }
+        }
 
         //allows npcs to reduce the time since they spotted the player, so they can relax
 
         private bool _canLoosePlayer = true;
         public bool ShouldHoldPlayer { get; private set; } = false;
         public float MaxHoldRadius { get; private set; }
+
         public void SetGoalHold(Transform transform, float maxRadius)
         {
             _goalHoldTransform = transform;
@@ -66,13 +83,15 @@ namespace Game.Life
             MaxHoldRadius = maxRadius;
         }
 
-        public void SetGoalChase() =>  ShouldHoldPlayer = false;      
+        public void SetGoalChase() => ShouldHoldPlayer = false;
+
         public void ForceEngage(int duration = 10) => _timeSincePlayerFound = Time.time + duration;
-        
+
         public Vector3 HoldPosition
         {
             get => _goalHoldTransform.position;
         }
+
         public Vector3 SquadCentroid
         {
             get
@@ -86,12 +105,12 @@ namespace Game.Life
                 return centroid;
             }
         }
+
         public bool CanThrowGrenade { get => Time.time - _lastGrenadeTime > GrenadeCoolDown; }
         public List<SoldierAgentController> Members => _soldiers;
 
-        public float TimeSincePlayerFound { get => _timeSincePlayerFound;  }
-        public float TimeToCalm { get => _timeToCalm;  }
-
+        public float TimeSincePlayerFound { get => _timeSincePlayerFound; }
+        public float TimeToCalm { get => _timeToCalm; }
 
         public SoldierSquad(SoldierAgentController[] soldiers)
         {
@@ -113,6 +132,7 @@ namespace Game.Life
                 soldier.SetSquad(this);
             }
         }
+
         private void OnSoldierThrowGrenade(SoldierAgentController csoldier, Vector3 targetPosition)
         {
             SquadMemberThrowGranadeToPlayer?.Invoke(csoldier, targetPosition);
@@ -121,7 +141,6 @@ namespace Game.Life
 
         private void OnSoldierSearchingPlayer(SoldierAgentController csoldier)
         {
-
         }
 
         private void OnSoldierHearedCombat(AgentController controller)
@@ -132,7 +151,7 @@ namespace Game.Life
 
         private void OnSoldierHearedPlayer(AgentController controller)
         {
-            _timeSincePlayerFound =  Time.time;
+            _timeSincePlayerFound = Time.time;
 
             CreateTimedGizmo(Shape.SQUARE, controller.transform.position + Vector3.up * 1.5f, 3, Color.green + Color.blue);
         }
@@ -200,6 +219,7 @@ namespace Game.Life
         public void TakeAttackSlotForce(SoldierAgentController controller)
         {
             if (AttackingAgents.Contains(controller)) return;
+
             if (AttackingAgents.Count == AttackingSlots)
             {
                 AttackingAgents.Remove(AttackingAgents[0]);

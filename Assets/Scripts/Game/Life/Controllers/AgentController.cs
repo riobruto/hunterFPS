@@ -84,7 +84,6 @@ namespace Life.Controllers
 
         public NavMeshAgent NavMeshAgent
         {
-          
             get => _navMeshAgent;
         }
 
@@ -103,13 +102,21 @@ namespace Life.Controllers
         private PlayerSoundController _playerSound;
         private InventorySystem _playerInventory;
         private bool _playerDetected => GetPlayerDetection();
-        public virtual bool GetPlayerDetection(){
 
+        public bool DetectPlayerAlways
+        {
+            get { return _detectPlayerAlways; }
+            set { _detectPlayerAlways = value; }
+        }
+
+        public virtual bool GetPlayerDetection()
+        {
             if (!PlayerService.Active) return false;
-
-                if (IsPlayerInRange(2)) return true;
+            if (_detectPlayerAlways) return true;
+            if (IsPlayerInRange(2)) return true;
             return IsPlayerInRange(_rangeDistance) && IsPlayerInViewAngle(_currentViewAngle) && IsPlayerVisible();
         }
+
         public Vector3 PlayerPosition => _player.transform.position;
         public Vector3 PlayerHeadPosition => _playerCamera.transform.position;
         public Transform PlayerTransform => _player.transform;
@@ -122,6 +129,7 @@ namespace Life.Controllers
         public float DetectionRange { get => _rangeDistance; }
         public bool Initialized { get; private set; }
         public AgentGroup AgentGroup => _group;
+
         public virtual void Restore()
         {
             SetMaxHealth(_maxHealth);
@@ -145,7 +153,6 @@ namespace Life.Controllers
             _navMeshAgent.updateRotation = false;
             _navMeshAgent.updatePosition = true;
             _navMeshAgent.speed = 3;
-
 
             //TODO: IF THE PLAYER IS NOT SPAWNED, MAKE ALREADY SPAWNED.
             if (!PlayerService.Active)
@@ -173,9 +180,7 @@ namespace Life.Controllers
                 _playerSound.StepSound += OnPlayerStep;
                 _playerSound.GunSound += OnPlayerGun;
                 _playerInventory.DropItem += OnPlayerDropped;
-
             }
-
 
             Initialized = true;
             OnStart();
@@ -254,7 +259,7 @@ namespace Life.Controllers
 
         private void OnPlayerGun(Vector3 position, float radius)
         {
-            if (AgentGlobalService.IgnorePlayer) return;       
+            if (AgentGlobalService.IgnorePlayer) return;
             if (Vector3.Distance(position, transform.position) <= radius)
             {
                 HeardGunshotsEvent?.Invoke(this);
@@ -359,6 +364,8 @@ namespace Life.Controllers
         [SerializeField] private float _currentViewAngle = .3f;
         private float _lastThinkMoment;
         private bool _isStopped;
+        private bool _detectPlayerAlways;
+
         public float ViewAngle { get => _currentViewAngle; set => _currentViewAngle = value; }
 
         public virtual void UpdateMovement()
@@ -391,7 +398,7 @@ namespace Life.Controllers
             _animator.SetFloat("mov_forward", relativeVelocity.z, .05f, Time.deltaTime);
             _animator.SetFloat("aim_vertical", aim_vertical, .05f, Time.deltaTime);
         }
-        
+
         private void OnDestroy()
         {
             if (PlayerService.Active)
@@ -403,7 +410,6 @@ namespace Life.Controllers
             AgentGlobalSystem.DiscardAgent(this);
             OnDestroyAgent();
         }
-
 
         private void OnDrawGizmos()
         {
@@ -442,6 +448,7 @@ namespace Life.Controllers
 
         public virtual void KillAndPush(Vector3 velocity)
         { }
+
         public virtual void KillAndPush(Vector3 velocity, LimbHitbox hitbox)
         { }
 
@@ -454,9 +461,11 @@ namespace Life.Controllers
 
         public virtual void Kick(Vector3 position, Vector3 direction, float damage)
         {
-        }     
+        }
 
-       public virtual void OnDestroyAgent() { }
+        public virtual void OnDestroyAgent()
+        { }
+
         #endregion Virtual Methods
     }
 }

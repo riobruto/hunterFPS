@@ -206,7 +206,6 @@ namespace Life.Controllers
             _suspisiusTime = 150;
             _attackPoint = PlayerHeadPosition;
             _interestPoint = PlayerGameObject.transform.position;
-            
         }
 
         public override void OnDeath()
@@ -224,6 +223,8 @@ namespace Life.Controllers
             CurrentCoverSpot = null;
 
             if (!IsPlayerInRange(15)) { ShoutDead(); }
+
+            Destroy(gameObject, 10);
         }
 
         public override void OnHeardCombat()
@@ -301,7 +302,7 @@ namespace Life.Controllers
             if (next == _retreatCover)
             {
                 TakingCoverEvent?.Invoke(this);
-                AudioToolService.PlayClipAtPoint(_coverCall.GetRandom(), Head.transform.position,1,AudioChannels.AGENT,30);
+                AudioToolService.PlayClipAtPoint(_coverCall.GetRandom(), Head.transform.position, 1, AudioChannels.AGENT, 30);
             }
             if (next == _attack)
             {
@@ -320,7 +321,7 @@ namespace Life.Controllers
             ManageHurtSlowdown();
             ManageNearThreat();
             ManageStealth();
-           // ManageContact();
+            ManageReactiveContact();
 
             _weapon.SetFireTarget(_attackPoint);
 
@@ -354,24 +355,11 @@ namespace Life.Controllers
             NavMeshAgent.speed = _desiredSpeed * Mathf.Clamp01(_hurtStopVelocityMultiplier);
         }
 
-        private void ManageContact()
+        private void ManageReactiveContact()
         {
-
-            if (!HasPlayerVisual)
+            if (HasPlayerVisual)
             {
-                if (_currentSquad != null) _currentSquad.ReleaseAttackSlot(this);
-            }
-
-            if (HasPlayerVisual && !_hasNearThreat)
-            {
-                if (_currentSquad != null && _currentSquad.HasEngageTimeout)                {
-                    _currentSquad.TakeAttackSlotForce(this);
-                }
-
-                _interestPoint = PlayerGameObject.transform.position;
                 _attackPoint = PlayerHeadPosition;
-                _engagedTime = 50;
-                _suspisiusTime = 150;
             }
         }
 
@@ -528,7 +516,7 @@ namespace Life.Controllers
             //suspect,detect,report, asuntos separados)como la iglesia y el estado)))
 
             Machine.AddTransition(_retreatCover, _goToPlayer, new FuncPredicate(() => ShouldSearchForThePlayer));
-            Machine.AddTransition(_retreatCover, _attack, new FuncPredicate(() => ShouldEngageThePlayer));          
+            Machine.AddTransition(_retreatCover, _attack, new FuncPredicate(() => ShouldEngageThePlayer));
 
             Machine.AddTransition(_retreatCover, _actBusy, new FuncPredicate(() => false));
 
@@ -615,9 +603,12 @@ namespace Life.Controllers
                 {
                     return false;
                 }
-                if (_hasSquad)
+
+                bool canAttackFromSquad = _hasSquad && !_currentSquad.HasEngageTimeout && _currentSquad.TryTakeAttackSlot(this);
+
+                if (canAttackFromSquad)
                 {
-                    return !_currentSquad.HasEngageTimeout && _currentSquad.TryTakeAttackSlot(this);
+                    return HasPlayerVisual;
                 }
                 else return false;
             }
@@ -629,7 +620,7 @@ namespace Life.Controllers
             {
                 if (Weapon.Empty) return false;
                 if (HasPlayerVisual) return false;
-                if (_currentSquad == null) return true;
+                                
                 if (_currentSquad.HasEngageTimeout && _currentSquad.TryTakeAttackSlot(this))
                 {
                     return true;
@@ -1070,13 +1061,12 @@ namespace Life.Controllers
         public override void Think()
         {
             //forces the npc to exit attack after a certain time
-            if (Time.time - _timeWhenStarted > _engageTimeOut) { _soldier.Squad.ReleaseAttackSlot(_soldier); return; }
+           // if (Time.time - _timeWhenStarted > _engageTimeOut) { _soldier.Squad.ReleaseAttackSlot(_soldier); return; }
             bool hasReachedAttackPoint = Vector3.Distance(_destination, _soldier.transform.position) < 2f;
-
+            _soldier.SetLookTarget(_soldier.AttackPoint);
             //esto es para forzarlo a correr antes de llegar al punto
 
-            _soldier.SetLookTarget(_soldier.AttackPoint);
-            _soldier.SetAllowFire(_soldier.IsPlayerInViewAngle(.25f) && _soldier.FaceTarget && Time.time - _timeWhenStarted > 1f);
+            _soldier.SetAllowFire(_soldier.IsPlayerInViewAngle(.25f) && _soldier.IsPlayerVisible() && _soldier.FaceTarget && Time.time - _timeWhenStarted > 1f);
 
             _shotgunnerMoveTime += .1f;
 
@@ -1105,8 +1095,17 @@ namespace Life.Controllers
 
             //ya que no pudimos ver al jugador, decidimos si correr o caminar al siguiente punto
 
-            _soldier.FaceTarget = hasReachedAttackPoint;
-            _soldier.SetMovementType(!hasReachedAttackPoint ? SoldierMovementType.RUN : SoldierMovementType.WALK);
+
+            if (_soldier.SoldierType != SoldierType.HEAVY)
+            {
+                _soldier.FaceTarget = hasReachedAttackPoint;
+                _soldier.SetMovementType(!hasReachedAttackPoint ? SoldierMovementType.RUN : SoldierMovementType.WALK);
+            }
+            else
+            {
+                _soldier.FaceTarget = true;
+                _soldier.SetMovementType(SoldierMovementType.WALK);
+            }
 
             //si llego al punto de ataque, y aun asi, no puede dispararle al jugador
             if (!_soldier.IsPlayerVisible() && hasReachedAttackPoint)
@@ -1116,7 +1115,7 @@ namespace Life.Controllers
                     FindAttackPoint();
                     return;
                 }
-               
+
                 //probamos lanzar una granada
                 if (_soldier.TryThrowGrenade())
                 {
@@ -1125,6 +1124,7 @@ namespace Life.Controllers
                     _timeWhenStarted = Time.time;
                     return;
                 }
+
                 DoChaseTimeout();
             }
 
@@ -1133,8 +1133,6 @@ namespace Life.Controllers
 
         private void DoChaseTimeout()
         {
-            if (_soldier.Squad.ShouldHoldPlayer) return;
-
             if (_waitForChase > _chaseWaitTime)
             {
                 FindAttackPoint();
@@ -1405,18 +1403,7 @@ namespace Life.Controllers
         {
             return _soldier.HasPlayerVisual;
         }
-
-        public bool IsCurrentPositionValidCrouch()
-        {
-            if (VisualPhysics.Linecast(_soldier.PlayerHeadPosition, _soldier.transform.position + _soldier.transform.up * _soldier.CrouchHeight, out RaycastHit hit, Bootstrap.Resolve<GameSettings>().RaycastConfiguration.CoverLayers, QueryTriggerInteraction.Ignore))
-            {
-                if (hit.transform.gameObject.layer == 8) return false;
-                return !hit.collider.gameObject.transform.root == _soldier.transform;
-            }
-
-            return false;
-        }
-
+      
         public override void DrawGizmos()
         {
         }
@@ -1428,13 +1415,15 @@ namespace Life.Controllers
 
         public override void Start()
         {
+            _soldier.SetMovementType(SoldierMovementType.RUN);
+
             _soldier.Animator.SetTrigger("COVER");
             _soldier.Squad.ReleaseAttackSlot(_soldier);
             _soldier.SetAllowFire(false);
             _soldier.FaceTarget = false;
             _soldier.HurtEvent += OnHurt;
 
-            if (IsCurrentPositionValidCrouch())
+            if (IsCurrentPositionValid())
             {
                 _soldier.SetAllowReload(true);
                 _soldier.SetMovementType(SoldierMovementType.CROUCH);
@@ -1453,7 +1442,7 @@ namespace Life.Controllers
 
             if (Vector3.Distance(_destination, _soldier.transform.position) < 1.1)
             {
-                if (_soldier.CurrentCoverSpot != null || IsCurrentPositionValidCrouch())
+                if (_soldier.CurrentCoverSpot != null || IsCurrentPositionValid())
                 {
                     _soldier.SetAllowReload(true);
                     _soldier.SetMovementType(SoldierMovementType.CROUCH);
@@ -1463,16 +1452,17 @@ namespace Life.Controllers
                     MoveToCover();
                 }
             }
+
             _soldier.SetLookTarget(_soldier.AttackPoint);
         }
 
         private void MoveToCover()
         {
-            _soldier.SetMovementType(SoldierMovementType.RUN);
 
             _lastFindCover = Time.time;
             _destination = _soldier.FindCoverFromPlayer(true);
             _soldier.SetTarget(_destination);
+            _soldier.SetMovementType(SoldierMovementType.RUN);
         }
     }
 

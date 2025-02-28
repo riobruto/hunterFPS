@@ -22,7 +22,7 @@ namespace Game.Life.Entities
 
         [SerializeField] private Transform _holdTransform;
 
-
+        [SerializeField] private bool _squadDetectsPlayerAlways;
         [SerializeField] private bool _keepSpawningOnSquadWiped;
         private SoldierSquad _lastSquad;
 
@@ -63,7 +63,7 @@ namespace Game.Life.Entities
             SoldierSquad squad = AgentGlobalService.Instance.CreateSquad(soldiers.ToArray());
             _lastSquad = squad;
             StartCoroutine(SetState(squad, _beginState));
-
+            squad.SquadDetectPlayerAlways = _squadDetectsPlayerAlways;
             if (_holdPosition)
             {
                 squad.SetGoalHold(_holdTransform, _spawnRadius);
