@@ -112,6 +112,11 @@ namespace Core.Console
                         {
                             InventoryService.Instance.Ammunitions[FindObjectOfType<PlayerWeapons>().WeaponEngine.WeaponSettings.Ammo.Type] = 9999;
                         }
+                        if (GUILayout.Button("Give Grenades"))
+                        {
+                            InventoryService.Instance.GiveGrenades(3, Game.Weapon.GrenadeType.HE);
+                            InventoryService.Instance.GiveGrenades(3, Game.Weapon.GrenadeType.GAS);
+                        }
                         if (GUILayout.Button("Toggle Player Inmunnity"))
                         {
                             _inmune = !_inmune;
