@@ -14,16 +14,22 @@ namespace Game.Hit
         [SerializeField] private Vector3 _center;
         [SerializeField] private Vector3 _halfExtents;
         [SerializeField] private bool _checkCollisions;
+
+        [SerializeField] private bool _affectRigidbodies;
+        [SerializeField] private float _rigidbodyForce;
+
         private int _remainingFrames;
         private List<IDamagableFromHurtbox> _hurtInScan;
+        private List<Rigidbody> _pushedInScan;
         private float _damage;
         private LayerMask _layermask;
 
         public struct HurtboxContact
         {
             public IDamagableFromHurtbox Damagable;
-            public Vector3 contactPosition;
-            public Vector3 contactDirection;
+            public Collider Collider;
+            public Vector3 ContactPosition;
+            public Vector3 ContactDirection;
         }
 
         public bool IsScanning { get => _checkCollisions && _remainingFrames > 1; }
@@ -41,6 +47,7 @@ namespace Game.Hit
             _checkCollisions = true;
             _remainingFrames = durationInframes;
             _hurtInScan = new List<IDamagableFromHurtbox>();
+            _pushedInScan = new List<Rigidbody>();
         }
 
         private HurtboxContact[] CheckCollision()
@@ -62,12 +69,12 @@ namespace Game.Hit
 
                 if (!collider.TryGetComponent(out IDamagableFromHurtbox damagable)) continue;
 
+
                 HurtboxContact contact = new();
-
                 contact.Damagable = damagable;
-                contact.contactPosition = collider.ClosestPoint(transform.position + transform.TransformVector(_center));
-                contact.contactDirection = (contact.contactPosition - transform.position + transform.TransformVector(_center));
-
+                contact.Collider = collider;
+                contact.ContactPosition = collider.ClosestPoint(transform.position + transform.TransformVector(_center));
+                contact.ContactDirection = (contact.ContactPosition - transform.position) + transform.TransformVector(_center);
                 result.Add(contact);
             }
 
@@ -94,10 +101,19 @@ namespace Game.Hit
                     {
                         continue;
                     }
-
-                    contact.Damagable.NotifyDamage(_damage, contact.contactPosition, contact.contactDirection);
-                    _hurtInScan.Add(contact.Damagable);
+                    contact.Damagable.NotifyDamage(_damage, contact.ContactPosition, contact.ContactDirection.normalized);
+                    _hurtInScan.Add(contact.Damagable);     
                 }
+
+                if (!_affectRigidbodies) continue;                
+                if (contact.Collider.TryGetComponent(out Rigidbody rigidbody))
+                {
+                    if (_pushedInScan.Contains(rigidbody)) continue;
+                    Debug.DrawRay(contact.ContactPosition, contact.ContactDirection, Color.red, 3);
+                    rigidbody.AddForceAtPosition(contact.ContactDirection.normalized * _rigidbodyForce,contact.ContactPosition,  ForceMode.Impulse);
+                    _pushedInScan.Add(rigidbody);
+                }
+
             }
         }
 
