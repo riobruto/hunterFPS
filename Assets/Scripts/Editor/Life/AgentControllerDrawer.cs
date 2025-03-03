@@ -65,7 +65,7 @@ namespace MyEditor.Life
 
             Rect img = EditorGUILayout.BeginVertical();
             EditorGUI.DrawRect(img, Color.gray);
-            EditorGUI.DrawPreviewTexture(img, Resources.Load("Editor/brain") as Texture);
+           // EditorGUI.DrawPreviewTexture(img, Resources.Load("Editor/brain") as Texture);
             GUILayout.Space(120);
             EditorGUILayout.EndVertical();
 

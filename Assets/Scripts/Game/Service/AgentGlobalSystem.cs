@@ -2,10 +2,7 @@
 using Game.Life;
 using Game.Life.Entities;
 using Life.Controllers;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -50,7 +47,6 @@ namespace Game.Service
         private List<SoldierSquad> _activeSquads = new List<SoldierSquad>();
         private List<AgentController> _activeAgents = new List<AgentController>();
         private List<CoverSpotEntity> _coverEntities = new List<CoverSpotEntity>();
-        private Vector3 _pToSort;
 
         internal void Initialize()
         {
@@ -76,7 +72,6 @@ namespace Game.Service
         public void RegisterAgent(AgentController controller)
         {
             _activeAgents.Add(controller);
-            controller.PlayerPerceptionEvent += OnPlayerDetectedByAgent;
         }
 
         public void RegisterCoverSpot(CoverSpotEntity entity) => _coverEntities.Add(entity);
@@ -112,17 +107,9 @@ namespace Game.Service
                     SoldierSquad cachedSquad = _activeSquads[i];
                     _activeSquads.Remove(_activeSquads[i]);
                     SquadRemovedEvent?.Invoke(cachedSquad);
+                    continue;
                 }
-            }
-        }
-
-        private void OnPlayerDetectedByAgent(AgentController controller, bool found)
-        {
-            if (!found) return;
-            foreach (AgentController cntroller in _activeAgents)
-            {
-                if (cntroller.AgentGroup != Life.AgentGroup.AGGRO) return;
-                cntroller.ForcePlayerPerception();
+                _activeSquads[i].UpdateSquad();
             }
         }
 
@@ -137,13 +124,17 @@ namespace Game.Service
             {
                 using (new GUILayout.VerticalScope(GUI.skin.box))
                 {
-                    GUILayout.Label($"TimeSincePlayerFound: {squad.TimeSincePlayerFound}");
-                    GUILayout.Label($"TimeToCalm: {squad.TimeToCalm}");
-                    GUILayout.Label($"Is Engaged: {!squad.HasEngageTimeout}");
+                    GUILayout.Label($"Time elapsed since contact: {squad.ElapsedTimeSinceContact}");
+                    GUILayout.Label($"Time to lost contact: {squad.TimeToLostContact}");
+                    GUILayout.Label($"Has lost contact: {squad.HasLostContact}");
                     GUILayout.Label($"Members: {squad.MemberAmount}");
-                    GUILayout.Label($"Att Slot: {squad.AttackingAgents.Count}");
                     GUILayout.Label($"Can Grenade Slot: {squad.CanThrowGrenade}");
-                 
+
+                    foreach (SoldierAgentController soldier in squad.AttackingAgents)
+                    {
+                        if (soldier != null) GUILayout.Label($"{soldier.name}");
+                    }
+                    /*
                     foreach (SoldierAgentController soldier in squad.Members)
                     {
                         GUILayout.Label($"{soldier.name}");
@@ -151,7 +142,7 @@ namespace Game.Service
                         GUILayout.Label($"Should Cover: {soldier.ShouldCoverFromThePlayer}");
                         GUILayout.Label($"Health: {soldier.GetHealth()}");
                         GUILayout.Label($"State: {soldier.CurrentState}");
-                    }
+                    }*/
                 }
             }
         }

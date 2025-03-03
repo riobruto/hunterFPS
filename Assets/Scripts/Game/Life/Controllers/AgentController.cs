@@ -100,19 +100,18 @@ namespace Life.Controllers
         private Camera _playerCamera;
         private AgentGlobalSystem _agentGlobalsystem;
         private PlayerSoundController _playerSound;
-        private InventorySystem _playerInventory;
-        private bool _playerDetected => GetPlayerDetection();
+        private InventorySystem _playerInventory;      
 
-        public bool DetectPlayerAlways
+        public bool CanLoseContact
         {
-            get { return _detectPlayerAlways; }
-            set { _detectPlayerAlways = value; }
+            get { return _canLoseContact; }
+            set { _canLoseContact = value; }
         }
 
         public virtual bool GetPlayerDetection()
         {
             if (!PlayerService.Active) return false;
-            if (_detectPlayerAlways) return true;
+            if (!_canLoseContact) return true;
             if (IsPlayerInRange(2)) return true;
             return IsPlayerInRange(_rangeDistance) && IsPlayerInViewAngle(_currentViewAngle) && IsPlayerVisible();
         }
@@ -121,9 +120,8 @@ namespace Life.Controllers
         public Vector3 PlayerHeadPosition => _playerCamera.transform.position;
         public Transform PlayerTransform => _player.transform;
         public Transform PlayerHead => _playerCamera.transform;
-        public bool HasPlayerVisual => _playerDetected;
+        public bool HasPlayerVisual =>  GetPlayerDetection();
         public GameObject PlayerGameObject { get => _player; }
-        public Vector3 LastPlayerKnownPosition => _lastKnownPosition;
         public Transform Head => _head;
         public AgentGlobalSystem AgentGlobalSystem => _agentGlobalsystem;
         public float DetectionRange { get => _rangeDistance; }
@@ -201,6 +199,7 @@ namespace Life.Controllers
                 Think();
                 _lastThinkMoment = Time.time;
             }
+
             OnUpdate();
         }
 
@@ -221,11 +220,11 @@ namespace Life.Controllers
         private void ManagePerception()
         {
             if (IsDead) return;
-            if (_lastPlayerDetected != _playerDetected)
-            {
-                _lastKnownPosition = _player.transform.position;
-                PlayerPerceptionEvent?.Invoke(this, _playerDetected);
-                _lastPlayerDetected = _playerDetected;
+
+            if (_lastHasPlayerVisual != HasPlayerVisual){
+                PlayerPerceptionEvent?.Invoke(this, HasPlayerVisual);
+                OnPlayerDetectionChanged(HasPlayerVisual);
+                _lastHasPlayerVisual = HasPlayerVisual;
             }
         }
 
@@ -298,10 +297,8 @@ namespace Life.Controllers
         public bool IsPlayerVisible()
         {
             if (AgentGlobalService.IgnorePlayer) return false;
-
             if (!PlayerService.Active) return false;
             //Debug.DrawLine(_playerCamera.transform.position, transform.position);
-
             if (VisualPhysics.Linecast(_playerCamera.transform.position, _head.position, out RaycastHit hit, _ignoreMask, QueryTriggerInteraction.Ignore))
             {
                 if (hit.collider.gameObject.transform.root == transform)
@@ -357,14 +354,13 @@ namespace Life.Controllers
         public float CrouchHeight { get => _crouchHeight; }
         public Vector3 Destination { get => _navMeshAgent.destination; }
 
-        private Vector3 _lastKnownPosition;
-        private bool _lastPlayerDetected;
+        private bool _lastHasPlayerVisual;
         [SerializeField] private float _crouchHeight = 1.75f;
         [SerializeField] private float _height = 1f;
         [SerializeField] private float _currentViewAngle = .3f;
         private float _lastThinkMoment;
         private bool _isStopped;
-        private bool _detectPlayerAlways;
+        private bool _canLoseContact;
 
         public float ViewAngle { get => _currentViewAngle; set => _currentViewAngle = value; }
 
@@ -407,6 +403,7 @@ namespace Life.Controllers
                 _playerSound.GunSound -= OnPlayerGun;
                 _playerInventory.DropItem -= OnPlayerDropped;
             }
+
             AgentGlobalSystem.DiscardAgent(this);
             OnDestroyAgent();
         }
@@ -430,12 +427,13 @@ namespace Life.Controllers
         { }
 
         public virtual void OnStart()
-        {
-        }
+        { }
 
         public virtual void OnDeath()
-        {
-        }
+        { }
+
+        public virtual void OnPlayerDetectionChanged(bool detected)
+        { }
 
         public virtual void OnHurt(AgentHurtPayload payload)
         { }
@@ -456,12 +454,10 @@ namespace Life.Controllers
         { }
 
         public virtual void OnPlayerItemDropped(InventoryItem item, GameObject gameObject)
-        {
-        }
+        { }
 
         public virtual void Kick(Vector3 position, Vector3 direction, float damage)
-        {
-        }
+        { }
 
         public virtual void OnDestroyAgent()
         { }
