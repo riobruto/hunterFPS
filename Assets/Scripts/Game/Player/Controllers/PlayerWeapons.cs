@@ -451,7 +451,10 @@ namespace Game.Player.Controllers
             ManageObstruction();
             ManageAim();
 
-            if (_playerMovementController.IsSprinting) { _weaponEngine.ReleaseFire(); }
+            if (_playerMovementController.IsSprinting) {
+                if(_weaponEngine.IsShooting)
+                    _weaponEngine.ReleaseFire(); 
+            }
             if (_isObstructed) { _weaponEngine.ReleaseFire(); }
 
             if (!AllowInput) {
