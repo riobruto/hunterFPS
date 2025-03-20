@@ -24,6 +24,7 @@ namespace Game.Player.Controllers
         // Use this for initialization
         private void Start()
         {
+            _time = 1000;
         }
 
         // Update is called once per frame

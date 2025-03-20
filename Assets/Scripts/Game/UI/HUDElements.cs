@@ -27,11 +27,19 @@ namespace UI
         [SerializeField] private TMP_Text _respawnText;
 
         [SerializeField] private HUDHeartDisplay _heart;
-        [SerializeField] private HUDGrenadeSlot _grenadeSlot;        
+        [SerializeField] private HUDGrenadeSlot _grenadeSlot
+            ;        
         private PlayerHealth _health;
         private PlayerWeapons _weapon;
         private PlayerRigidbodyMovement _movement;
+
         [SerializeField] private HUDWeaponSlot[] _weaponSlots;
+
+        [SerializeField] private Image _emptyChamber;  
+        [SerializeField] private Image _emptyWeapon;
+        [SerializeField] private Image _obstructedWeapon;
+        
+            
             
         private void Start()
         {
@@ -95,6 +103,8 @@ namespace UI
             }
         }
 
+
+
         private void LateUpdate()
         {
             _regenBar.value = _health.CurrentMaxRegenHealth / 100;
@@ -104,6 +114,10 @@ namespace UI
 
             if (hasWeapon)
             {
+                _emptyChamber.gameObject.SetActive(!_weapon.WeaponEngine.Cocked);
+                _emptyWeapon.gameObject.SetActive(_weapon.WeaponEngine.Empty);
+                _obstructedWeapon.gameObject.SetActive(_weapon.IsObstructed);
+
                 DoWeaponAmmo();
                 DoAvaliableAmmo();
             }

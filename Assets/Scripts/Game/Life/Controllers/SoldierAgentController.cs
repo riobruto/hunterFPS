@@ -1,16 +1,12 @@
-﻿using Core.Engine;
-using Game.Entities;
+﻿using Game.Entities;
 using Game.Life;
 using Game.Life.Entities;
-using Game.Life.WaypointPath;
 using Game.Player.Sound;
 using Game.Player.Weapon;
 using Game.Service;
 using Life.StateMachines;
 using Life.StateMachines.Interfaces;
-using Nomnom.RaycastVisualization;
 using Player.Weapon.Interfaces;
-using System;
 using System.Collections;
 
 using System.Linq;
@@ -59,10 +55,12 @@ namespace Life.Controllers
 
         [SerializeField] private AudioClip[] _shouts;
         [SerializeField] private AudioClipGroup _painScream;
+        [SerializeField] private AudioClipGroup _hurtScream;
         [SerializeField] private AudioClipGroup _deadScream;
         [SerializeField] private AudioClipGroup _coverCall;
         [SerializeField] private AudioClipGroup _attackCall;
         [SerializeField] private AudioClipGroup _searchCall;
+        [SerializeField] private AudioClipGroup _headshotSound;
 
         [Header("Movement")]
         [SerializeField] private bool _useWaypoints;
@@ -73,13 +71,17 @@ namespace Life.Controllers
         [SerializeField] private float _runSpeed = 4.5f;
         [SerializeField] private float _walkSpeed = 2.5f;
 
+        [Header("Choreo")]
+        [SerializeField] private ActBusySpotEntity _startActBusySpot;
+
+        public ActBusySpotEntity StartActBusySpot { get => _startActBusySpot; }
+
         private SoldierMovementType _current;
         private Vector3 _attackPoint;
         private float _desiredSpeed;
         private Vector3 _enterPoint;
 
         private float _hurtStopVelocityMultiplier;
-        public float _hurtMoveRegenerationTimeout = 0;
 
         private AudioSource _movementAudio;
         private float _suspisiusTime;
@@ -88,14 +90,11 @@ namespace Life.Controllers
 
         [Header("Cover Values")]
         [SerializeField] private bool _canShootFromCover;
-
         [Header("Combat Values")]
         [SerializeField] private SoldierType _soldierType;
 
-        [Header("Grenade")]
-        [SerializeField] private float _minDistanceGrenade = 4;
+        private float _hurtMoveRegenerationTimeout = 0;
 
-        [SerializeField] private GameObject _granade;
         //STATES
 
         private SoldierReportState _report;
@@ -115,6 +114,7 @@ namespace Life.Controllers
         private SoldierNearThreatAttackState _nearThreat;
 
         private SoldierHoldPositionState _holdPosition;
+        private SoldierHurtState _hurt;
 
         //Investigate State
         private float _investigateTimeOut = 15f;
@@ -139,6 +139,7 @@ namespace Life.Controllers
 
         public override void OnStart()
         {
+            CanLoseContact = true;
             //setting Timers;
             _elapsedTimeSinceWantedInvestigation = _investigateTimeOut;
 
@@ -158,14 +159,13 @@ namespace Life.Controllers
             if (_soldierType == SoldierType.HEAVY) health = 175;
             SetMaxHealth(health);
             SetHealth(health);
-
             StartCoroutine(BindWeapon());
             SetAllowReload(true);
-
             if (!_hasSquad) AgentGlobalSystem.GiveSquadToAgent(this);
-
             Machine.ChangeStateEvent += OnStateChangedFromMachine;
         }
+
+        public AudioClipGroup HurtScream { get => _hurtScream; }
 
         private void CreateStates()
         {
@@ -180,6 +180,7 @@ namespace Life.Controllers
             _grenadeCover = new(this);
             _investigate = new(this);
             _holdPosition = new(this);
+            _hurt = new(this);
         }
 
         private void CreateTransitions()
@@ -214,8 +215,13 @@ namespace Life.Controllers
 
             Machine.AddTransition(_retreatCover, _goToPlayer, new FuncPredicate(() => ShouldSearchForThePlayer));
             Machine.AddTransition(_retreatCover, _attack, new FuncPredicate(() => ShouldEngageThePlayer));
-            Machine.AddTransition(_retreatCover, _actBusy, new FuncPredicate(() => false));
+            // Machine.AddTransition(_retreatCover, _actBusy, new FuncPredicate(() => false));
             Machine.AddTransition(_retreatCover, _holdPosition, new FuncPredicate(() => ShouldHoldPosition));
+
+            Machine.AddTransition(_hurt, _attack, new FuncPredicate(() => _hurt.Ready && ShouldEngageThePlayer));
+            Machine.AddTransition(_hurt, _retreatCover, new FuncPredicate(() => _hurt.Ready && ShouldCoverFromThePlayer));
+            Machine.AddTransition(_hurt, _holdPosition, new FuncPredicate(() => _hurt.Ready && ShouldHoldPosition));
+            Machine.AddTransition(_hurt, _investigate, new FuncPredicate(() => _hurt.Ready && ShouldInvestigate));
         }
 
         private AgentWaypoints _waypoints;
@@ -316,24 +322,25 @@ namespace Life.Controllers
             }
         }
 
-        public override void OnHurt(AgentHurtPayload payload)
+        public override void OnLimbHurt(LimboxHit payload)
         {
             if (IsDead) return;
-            SetHealth(GetHealth() - payload.Amount);
-            if (GetHealth() <= 0) return;
 
-            if (payload.HurtByPlayer) TakingDamageEvent?.Invoke(this);
+            SetHealth(GetHealth() - payload.Damage);
+            TakingDamageEvent?.Invoke(this);
 
-            //Create an IncapatitatedState thats stops player for reporting contact to avoid inmediate contact on the squad so it can be killed silently.
+            if (payload.Hitbox.Type == LimbType.HEAD)
+            {
+                AudioToolService.PlayUISound(_headshotSound.GetRandom(), 1);
+                KillAndPush(payload.Direction, payload.Hitbox);
+            }
+            SetMovementType(SoldierMovementType.WALK);
 
             _hurtStopVelocityMultiplier = 0;
             NavMeshAgent.isStopped = true;
-            SetMovementType(SoldierMovementType.WALK);
             _hurtMoveRegenerationTimeout = 1;
             _attackPoint = PlayerHeadPosition;
-
-            Animator.SetTrigger("HURT");
-            Animator.SetFloat("INCAP_ANIM", Random.Range(0f, 1f));
+            if (Machine.CurrentState != _hurt) Machine.ForceChangeToState(_hurt);
         }
 
         public override void OnUpdate()
@@ -344,7 +351,6 @@ namespace Life.Controllers
             ManagePlayerPerception();
 
             _weapon.SetFireTarget(_attackPoint);
-
             if (_hurtStopVelocityMultiplier > 1)
             {
                 Animator.SetLayerWeight(2, Mathf.SmoothDamp(Animator.GetLayerWeight(2), _desiredWeight, ref _desiredRefWeight, .25f));
@@ -451,6 +457,7 @@ namespace Life.Controllers
             switch (type)
             {
                 case SoldierMovementType.RUN:
+                    FaceTarget = false;
                     SetAimLayerWeight(0);
                     if (_current == SoldierMovementType.CROUCH)
                     {
@@ -458,23 +465,23 @@ namespace Life.Controllers
                         Animator.SetBool("RUN", true);
                         break;
                     }
-                    Animator.SetBool("RUN", true);
+                    Animator.SetBool("RUN", true);                    
                     _desiredSpeed = _runSpeed;
                     break;
 
                 case SoldierMovementType.WALK:
 
+                    FaceTarget = true;
                     SetAimLayerWeight(1);
 
-                    if (_current == SoldierMovementType.CROUCH)
-                    {
-                        StartCoroutine(SetCrouch(false, _walkSpeed));
+                    if (_current == SoldierMovementType.CROUCH)     {
+                        StartCoroutine(SetCrouch(false, _walkSpeed));                        
                         Animator.SetBool("RUN", false);
                         break;
                     }
-
                     Animator.SetBool("RUN", false);
                     _desiredSpeed = _walkSpeed;
+
                     break;
 
                 case SoldierMovementType.PATROL:
@@ -483,6 +490,7 @@ namespace Life.Controllers
 
                 case SoldierMovementType.CROUCH:
 
+                    FaceTarget = true;
                     StartCoroutine(SetCrouch(true, _crouchSpeed));
                     Animator.SetBool("RUN", false);
                     break;
@@ -570,7 +578,7 @@ namespace Life.Controllers
                 bool canAttackFromSquad = _hasSquad && !_currentSquad.HasLostContact;
                 if (canAttackFromSquad)
                 {
-                    return _currentSquad.TryTakeAttackSlot(this);
+                    return _currentSquad.CanTakeAttackSlot(this);
                 }
                 else return false;
             }
@@ -581,7 +589,7 @@ namespace Life.Controllers
             get
             {
                 if (ShouldEngageThePlayer) return false;
-                return (_currentSquad.IsAlert && _currentSquad.HasLostContact && _currentSquad.TryTakeAttackSlot(this));
+                return (_currentSquad.IsAlert && _currentSquad.HasLostContact && _currentSquad.CanTakeAttackSlot(this));
             }
         }
 
@@ -590,7 +598,7 @@ namespace Life.Controllers
             get
             {
                 if (Weapon.Empty && _soldierType != SoldierType.SHOTGUNNER) return true;
-                bool canAttackFromSquad = _hasSquad && !_currentSquad.HasLostContact && !_currentSquad.TryTakeAttackSlot(this);
+                bool canAttackFromSquad = _hasSquad && !_currentSquad.HasLostContact && !_currentSquad.CanTakeAttackSlot(this);
                 return canAttackFromSquad;
             }
         }
@@ -633,7 +641,7 @@ namespace Life.Controllers
         {
             get
             {
-                return _currentSquad.IsAlert && _currentSquad.HasLostContact && !_currentSquad.TryTakeAttackSlot(this);
+                return _currentSquad.IsAlert && _currentSquad.HasLostContact && !_currentSquad.CanTakeAttackSlot(this);
             }
         }
 
@@ -645,7 +653,7 @@ namespace Life.Controllers
             //prevent multiples hitboxes being kicked
             if (Time.time - _lastRecieverkKickTime < _recieveKickCooldown) return;
             _lastRecieverkKickTime = Time.time;
-            Damage(damage);
+            SetHealth(GetHealth() - damage);
             ForcePlayerPerception();
         }
 
@@ -684,10 +692,12 @@ namespace Life.Controllers
         [SerializeField] private bool _debugSpatialData;
 
         //math
+
+        [SerializeField] private LayerMask _coverMask;
+
         public Vector3 FindCoverFromPlayer(bool mantainVisual)
         {
             CurrentCoverSpot = null;
-
             CoverSpotQuery cpQuery = new CoverSpotQuery(this);
             if (cpQuery.CoverSpots.Length > 0)
             {
@@ -701,12 +711,16 @@ namespace Life.Controllers
                 }
             }
 
-            Vector3 center = PlayerPosition;
+            Vector3 center = _currentSquad.SquadCentroid;
             if (_currentSquad != null && _currentSquad.ShouldHoldPlayer)
             {
                 center = _currentSquad.HoldPosition;
             }
+            SpatialData? data = AgentSpatialUtility.GetBestPoint(AgentSpatialUtility.CreateCoverArray(new Vector2Int(20, 20), center, _attackPoint, _coverMask));
+            if (data.HasValue) { return data.Value.Position; }
+            return PlayerHeadPosition + (transform.position - PlayerHeadPosition).normalized * 5f;
 
+            /*
             SpatialDataQuery query = new SpatialDataQuery(new SpatialQueryPrefs(this, center, PlayerHeadPosition, 2f));
             LastSpatialDataQuery = query;
 
@@ -714,7 +728,7 @@ namespace Life.Controllers
             if (query.SafePoints.Count > 0) { return query.SafePoints[0].Position; }
             if (query.WallCoverCrouchedPoints.Count > 0) { return query.WallCoverCrouchedPoints[0].Position; }
             if (query.SafeCrouchPoints.Count > 0) { return query.SafeCrouchPoints[0].Position; }
-            else return query.AllPoints[query.AllPoints.Count].Position;
+            else return query.AllPoints[query.AllPoints.Count].Position;*/
         }
 
         public Vector3 FindAgressivePosition(bool mantainVisual)
@@ -730,12 +744,8 @@ namespace Life.Controllers
 
                 case SoldierType.SHOTGUNNER:
                     //shotgunners are very agressive and will flush the player, le ponemos que no busquen ataques cubiertos si no que den cara de cerca.
-                    SpatialDataQuery shotquery = new SpatialDataQuery(new SpatialQueryPrefs(this, PlayerGameObject.transform.position, PlayerHeadPosition, 5f));
-                    LastSpatialDataQuery = shotquery;
-                    if (shotquery.WallCoverCrouchedPoints.Count > 0) { return shotquery.WallCoverCrouchedPoints[0].Position; }
-                    if (shotquery.SafeCrouchPoints.Count > 0) { return shotquery.SafeCrouchPoints[0].Position; }
-                    if (shotquery.UnsafePoints.Count > 0) return shotquery.UnsafePoints[0].Position;
-
+                    SpatialData? data = AgentSpatialUtility.GetBestPoint(AgentSpatialUtility.CreateAttackArray(new Vector2Int(20, 20), _attackPoint, _attackPoint, _coverMask |= 1 << gameObject.layer));
+                    if (data.HasValue) { return data.Value.Position; }
                     return PlayerHeadPosition + (transform.position - PlayerHeadPosition).normalized * 5f;
 
                 default:
@@ -747,6 +757,7 @@ namespace Life.Controllers
         {
             CurrentCoverSpot = null;
             CoverSpotQuery cpQuery = new CoverSpotQuery(this);
+
             if (cpQuery.CoverSpots.Length > 0)
             {
                 foreach (CoverSpotEntity ent in cpQuery.CoverSpots)
@@ -762,19 +773,33 @@ namespace Life.Controllers
 
             //si no hay cover points, fallbackear a esto!
             //find first cover spots
-            Vector3 center = PlayerPosition;
+            Vector3 center = _currentSquad.SquadCentroid;
             if (_currentSquad != null && _currentSquad.ShouldHoldPlayer)
             {
                 center = _currentSquad.HoldPosition;
             }
 
-            SpatialDataQuery query = new SpatialDataQuery(new SpatialQueryPrefs(this, center, PlayerHeadPosition, 5f));
-            LastSpatialDataQuery = query;
-            if (query.WallCoverCrouchedPoints.Count > 0) { return query.WallCoverCrouchedPoints[0].Position; }
-            if (query.SafeCrouchPoints.Count > 0) { return query.SafeCrouchPoints[0].Position; }
-            if (query.UnsafePoints.Count > 0) return query.UnsafePoints[0].Position;
-
+            SpatialData? data = AgentSpatialUtility.GetBestPoint(AgentSpatialUtility.CreateAttackArray(new Vector2Int(20, 20), center, _attackPoint, _coverMask |= 1 << gameObject.layer));
+            if (data.HasValue) { return data.Value.Position; }
             return PlayerHeadPosition + (transform.position - PlayerHeadPosition).normalized * 5f;
+        }
+
+        public ActBusySpotEntity FindActBusyEntity()
+        {
+            if (_startActBusySpot) return _startActBusySpot;
+
+            ActBusyQuery query = new ActBusyQuery(this);
+            if (query.ActBusySpots.Length > 0)
+            {
+                foreach (ActBusySpotEntity ent in query.ActBusySpots)
+                {
+                    if (ent.TryTake(this))
+                    {
+                        return ent;
+                    }
+                }
+            }
+            return null;
         }
 
         private Vector3 CalculateGrenadeThrowVector(Vector3 start, Vector3 target)
@@ -793,7 +818,12 @@ namespace Life.Controllers
 
         private Vector3 _grenadePosition;
         private float _grenadeSafeDistance = 7;
-        private float _maxDistanceGrenade = 15f;
+
+        [Header("Grenade")]
+        [SerializeField] private float _minDistanceGrenade = 10;
+
+        [SerializeField] private float _maxDistanceGrenade = 25f;
+        [SerializeField] private GameObject _granade;
 
         public SpatialDataPoint FindCoverFromGrenade()
         {
@@ -820,11 +850,11 @@ namespace Life.Controllers
                 if (!_currentSquad.CanThrowGrenade) return false;
             }
 
-            StartCoroutine(ThrowGrenade());
-
+            if (Physics.Linecast(transform.position + Vector3.up * 1.60f + transform.forward * .5f + transform.right * .5f, _attackPoint)) return false;
             //throw grende
             //coroutine delay
 
+            StartCoroutine(ThrowGrenade());
             return true;
         }
 
@@ -856,7 +886,7 @@ namespace Life.Controllers
                 GameObject GOgrenade = Instantiate(_granade);
                 GOgrenade.transform.position = instancePos;
                 IGrenade grenade = GOgrenade.GetComponent<IGrenade>();
-                grenade.Trigger(3);
+                grenade.Trigger(1);
                 grenade.Rigidbody.AddForce(CalculateGrenadeThrowVector(GOgrenade.transform.position, AttackPoint), ForceMode.VelocityChange);
                 grenade.Rigidbody.AddTorque(Random.insideUnitSphere);
                 AllowThinking(true);
@@ -920,19 +950,14 @@ namespace Life.Controllers
         public override void OnDeath()
         {
             AllowThinking(false);
-
             Machine.ForceChangeToState(_die);
-
             NavMeshAgent.isStopped = true;
-
             Animator.SetTrigger("DIE");
             Animator.SetLayerWeight(2, 0);
             Animator.SetLayerWeight(3, 0);
             Animator.SetLayerWeight(4, 0);
             CurrentCoverSpot = null;
-
-            if (!IsPlayerInRange(15)) { ShoutDead(); }
-
+            ShoutDead();
             Destroy(gameObject, 10);
         }
 
@@ -940,13 +965,15 @@ namespace Life.Controllers
         {
             if (IsDead) return;
             //Alert, report!
+            _attackPoint = PlayerHeadPosition;
             _currentSquad.UpdateContact();
         }
 
         public override void OnHeardSteps()
         {
             if (IsDead) return;
-            if(!_currentSquad.HasLostContact) _currentSquad.UpdateContact();
+            if (!_currentSquad.HasLostContact) _currentSquad.UpdateContact();
+            _attackPoint = PlayerHeadPosition;
             _elapsedTimeSinceWantedInvestigation = 0;
             _investigateLocation = PlayerPosition;
             //Alert, but dont report!

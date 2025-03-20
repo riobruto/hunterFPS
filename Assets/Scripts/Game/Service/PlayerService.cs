@@ -32,6 +32,7 @@ namespace Game.Service
 
         internal override void Initialize()
         {
+            Active = false;
             //Deativate.
             _controller = GameObject.FindObjectOfType<PlayerSpawnEntity>();
             if (_controller == null)
@@ -41,7 +42,7 @@ namespace Game.Service
 
             //check if input is needed;
             //SpawnPlayer();
-         
+
             //Spawn the player if it does not exist
             SceneInitiator.OnSceneLoaded += OnSceneLoaded;
             SceneInitiator.OnSceneReloaded += OnSceneReloaded;
@@ -71,7 +72,7 @@ namespace Game.Service
             {
                 SpawnPlayer();
                 Debug.Log("Spawn Player for the firts scene!");
-            }            
+            }
 
             //_lastRespawn = null;
             _controller = GameObject.FindObjectOfType<PlayerSpawnEntity>(true);
@@ -83,7 +84,7 @@ namespace Game.Service
         {
             _controller = GameObject.FindObjectOfType<PlayerSpawnEntity>(true);
             Transform spawnTransform = _controller.SpawnPoints[Random.Range(0, _controller.SpawnPoints.Length)];
-            //TODO: GET PLAYER FROM ADDRESSABLES!          
+            //TODO: GET PLAYER FROM ADDRESSABLES!
 
             Addressables.InstantiateAsync("Assets/Prefabs/Player.prefab").Completed += (x) =>
             {
@@ -96,12 +97,7 @@ namespace Game.Service
                 PlayerSpawnEvent(_player);
                 Active = true;
             };
-
-
-          
         }
-
-      
 
         private static RespawnEntity _lastRespawn;
         public static RespawnEntity LastRespawn => _lastRespawn;
@@ -140,6 +136,16 @@ namespace Game.Service
                 Debug.LogError("Wont Save");
             }
         }
+    }
+
+    public class PlayerProfile
+    {
+        private string Name;
+    }
+
+    public class PlayerGameState
+    {
+
     }
 
     public class WeaponSaveSlot

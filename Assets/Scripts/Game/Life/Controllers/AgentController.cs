@@ -21,15 +21,17 @@ namespace Life.Controllers
     public class AgentHurtPayload
     {
         public bool HurtByPlayer = false;
-        public float Amount = 0;
+        public float Damage = 0;
         public Vector3 Source = Vector3.zero;
+        public Vector3 Direction = Vector3.zero;
         public LimbHitbox Hitbox = null;
 
-        public AgentHurtPayload(bool hurtByPlayer, float amount, Vector3 source, LimbHitbox hitbox)
+        public AgentHurtPayload(bool hurtByPlayer, float damage, Vector3 source, Vector3 direction, LimbHitbox hitbox)
         {
             HurtByPlayer = hurtByPlayer;
-            Amount = amount;
+            Damage = damage;
             Source = source;
+            Direction = direction;
             Hitbox = hitbox;
         }
     }
@@ -100,7 +102,7 @@ namespace Life.Controllers
         private Camera _playerCamera;
         private AgentGlobalSystem _agentGlobalsystem;
         private PlayerSoundController _playerSound;
-        private InventorySystem _playerInventory;      
+        private InventorySystem _playerInventory;
 
         public bool CanLoseContact
         {
@@ -113,14 +115,31 @@ namespace Life.Controllers
             if (!PlayerService.Active) return false;
             if (!_canLoseContact) return true;
             if (IsPlayerInRange(2)) return true;
+
             return IsPlayerInRange(_rangeDistance) && IsPlayerInViewAngle(_currentViewAngle) && IsPlayerVisible();
         }
 
-        public Vector3 PlayerPosition => _player.transform.position;
-        public Vector3 PlayerHeadPosition => _playerCamera.transform.position;
+        public Vector3 PlayerPosition
+        {
+            get
+            {
+                if (!PlayerService.Active) return Vector3.zero;
+                return _player.transform.position;
+            }
+        }
+
+        public Vector3 PlayerHeadPosition
+        {
+            get
+            {
+                if (!PlayerService.Active) return Vector3.zero;
+                return _playerCamera.transform.position;
+            }
+        }
+
         public Transform PlayerTransform => _player.transform;
         public Transform PlayerHead => _playerCamera.transform;
-        public bool HasPlayerVisual =>  GetPlayerDetection();
+        public bool HasPlayerVisual => GetPlayerDetection();
         public GameObject PlayerGameObject { get => _player; }
         public Transform Head => _head;
         public AgentGlobalSystem AgentGlobalSystem => _agentGlobalsystem;
@@ -152,36 +171,50 @@ namespace Life.Controllers
             _navMeshAgent.updatePosition = true;
             _navMeshAgent.speed = 3;
 
+            SetLimboxes();
+
             //TODO: IF THE PLAYER IS NOT SPAWNED, MAKE ALREADY SPAWNED.
             if (!PlayerService.Active)
             {
-                PlayerService.PlayerSpawnEvent += (player) =>
-                {
-                    //hack?
-                    _player = Bootstrap.Resolve<PlayerService>().Player;
-                    _playerCamera = Bootstrap.Resolve<PlayerService>().PlayerCamera;
-                    _ignoreMask = Bootstrap.Resolve<GameSettings>().RaycastConfiguration.IgnoreLayers;
-                    _playerSound = _player.GetComponentInChildren<PlayerSoundController>();
-                    _playerInventory = InventoryService.Instance;
-                    _playerSound.StepSound += OnPlayerStep;
-                    _playerSound.GunSound += OnPlayerGun;
-                    _playerInventory.DropItem += OnPlayerDropped;
-                };
+                PlayerService.PlayerSpawnEvent += OnPlayerSpawn;
             }
             else
             {
-                _player = Bootstrap.Resolve<PlayerService>().Player;
-                _playerCamera = Bootstrap.Resolve<PlayerService>().PlayerCamera;
-                _ignoreMask = Bootstrap.Resolve<GameSettings>().RaycastConfiguration.IgnoreLayers;
-                _playerSound = _player.GetComponentInChildren<PlayerSoundController>();
-                _playerInventory = InventoryService.Instance;
-                _playerSound.StepSound += OnPlayerStep;
-                _playerSound.GunSound += OnPlayerGun;
-                _playerInventory.DropItem += OnPlayerDropped;
+                SetUpPlayerReference();
             }
 
             Initialized = true;
             OnStart();
+        }
+
+        private void SetLimboxes()
+        {
+            foreach (LimbHitbox hitbox in GetComponentsInChildren<LimbHitbox>(true))
+            {
+                hitbox.LimbHitEvent += OnLimbHit;
+            }
+        }
+
+        private void OnLimbHit(LimboxHit payload)
+        {
+            OnLimbHurt(payload);
+        }
+
+        private void SetUpPlayerReference()
+        {
+            _player = Bootstrap.Resolve<PlayerService>().Player;
+            _playerCamera = Bootstrap.Resolve<PlayerService>().PlayerCamera;
+            _ignoreMask = Bootstrap.Resolve<GameSettings>().RaycastConfiguration.IgnoreLayers;
+            _playerSound = _player.GetComponentInChildren<PlayerSoundController>();
+            _playerInventory = InventoryService.Instance;
+            _playerSound.StepSound += OnPlayerStep;
+            _playerSound.GunSound += OnPlayerGun;
+            _playerInventory.DropItem += OnPlayerDropped;
+        }
+
+        private void OnPlayerSpawn(GameObject player)
+        {
+            SetUpPlayerReference();
         }
 
         private void Update()
@@ -221,7 +254,8 @@ namespace Life.Controllers
         {
             if (IsDead) return;
 
-            if (_lastHasPlayerVisual != HasPlayerVisual){
+            if (_lastHasPlayerVisual != HasPlayerVisual)
+            {
                 PlayerPerceptionEvent?.Invoke(this, HasPlayerVisual);
                 OnPlayerDetectionChanged(HasPlayerVisual);
                 _lastHasPlayerVisual = HasPlayerVisual;
@@ -241,19 +275,6 @@ namespace Life.Controllers
         private void OnPlayerDropped(InventoryItem item, GameObject gameObject)
         {
             OnPlayerItemDropped(item, gameObject);
-        }
-
-        internal void HurtAgent(AgentHurtPayload payload)
-        {
-            HurtEvent?.Invoke(payload, this);
-            OnHurt(payload);
-        }
-
-        internal void Damage(float amount)
-        {
-            AgentHurtPayload payload = new(false, amount, Vector3.zero, null);
-            HurtEvent?.Invoke(payload, this);
-            OnHurt(payload);
         }
 
         private void OnPlayerGun(Vector3 position, float radius)
@@ -288,7 +309,8 @@ namespace Life.Controllers
         {
             if (AgentGlobalService.IgnorePlayer) return false;
             if (!PlayerService.Active) return false;
-            return Vector3.Dot(transform.forward, _playerCamera.transform.position - transform.position) > dotAngle;
+           
+            return Vector3.Dot(transform.forward, (_playerCamera.transform.position - transform.position).normalized) > dotAngle;
         }
 
         public Vector3 PlayerOccluderPosition;
@@ -299,7 +321,8 @@ namespace Life.Controllers
             if (AgentGlobalService.IgnorePlayer) return false;
             if (!PlayerService.Active) return false;
             //Debug.DrawLine(_playerCamera.transform.position, transform.position);
-            if (VisualPhysics.Linecast(_playerCamera.transform.position, _head.position, out RaycastHit hit, _ignoreMask, QueryTriggerInteraction.Ignore))
+
+            if (VisualPhysics.SphereCast(_playerCamera.transform.position, 0.025f, _head.position - _playerCamera.transform.position, out RaycastHit hit, _rangeDistance, _ignoreMask, QueryTriggerInteraction.Ignore))
             {
                 if (hit.collider.gameObject.transform.root == transform)
                 {
@@ -397,6 +420,8 @@ namespace Life.Controllers
 
         private void OnDestroy()
         {
+            PlayerService.PlayerSpawnEvent -= OnPlayerSpawn;
+
             if (PlayerService.Active)
             {
                 _playerSound.StepSound -= OnPlayerStep;
@@ -435,9 +460,6 @@ namespace Life.Controllers
         public virtual void OnPlayerDetectionChanged(bool detected)
         { }
 
-        public virtual void OnHurt(AgentHurtPayload payload)
-        { }
-
         public virtual void OnHeardCombat()
         { }
 
@@ -457,6 +479,9 @@ namespace Life.Controllers
         { }
 
         public virtual void Kick(Vector3 position, Vector3 direction, float damage)
+        { }
+
+        public virtual void OnLimbHurt(LimboxHit payload)
         { }
 
         public virtual void OnDestroyAgent()

@@ -100,8 +100,8 @@ namespace Game.Entities.Grenades
 
         void IDamagableFromHurtbox.NotifyDamage(float damage, Vector3 position, Vector3 direction)
         {
-            if (_rigidbody == null) _rigidbody = GetComponent<Rigidbody>();
-            _rigidbody.AddForce(direction.normalized * 10f, ForceMode.VelocityChange);
+           //if (_rigidbody == null) _rigidbody = GetComponent<Rigidbody>();
+           //_rigidbody.AddForce(direction.normalized * 10f, ForceMode.VelocityChange);
         }
     }
 }

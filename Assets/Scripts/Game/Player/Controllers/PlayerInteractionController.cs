@@ -77,7 +77,9 @@ namespace Game.Player
         {
             RaycastHit hitInfo;
             Ray ray = new Ray(_head.position, _head.forward);
-            if (!VisualPhysics.SphereCast(ray, .25f, out hitInfo, _interactDistance, _raycastConfiguration.InteractableLayer)) return default;
+            if (!VisualPhysics.SphereCast(ray, .25f, out hitInfo, _interactDistance)) return default;
+            if (!((_raycastConfiguration.InteractableLayer.value & (1 << hitInfo.collider.gameObject.layer)) != 0)) return default;
+            //
             _interactHit = hitInfo.point;
             return FindInteractableInFamily(hitInfo.collider.gameObject.transform);
         }

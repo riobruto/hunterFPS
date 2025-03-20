@@ -15,6 +15,13 @@ namespace Game.UI.Messages
             UIService.CreateSubtitleEvent += OnSubtitle;
         }
 
+
+        private void OnDestroy()
+        {
+
+            UIService.CreateMessageEvent -= OnMessage;
+            UIService.CreateSubtitleEvent -= OnSubtitle;
+        }
         private void OnSubtitle(SubtitleParameters parameters)
         {
             CreateSubtitle(parameters);
@@ -24,12 +31,7 @@ namespace Game.UI.Messages
         {
             CreateMessage(parameters);
         }
-
-        private void OnDisable()
-        {
-            UIService.CreateMessageEvent -= OnMessage;
-            UIService.CreateSubtitleEvent -= OnSubtitle;
-        }
+      
 
         private GameObject CreateMessage(MessageParameters parameter)
         {

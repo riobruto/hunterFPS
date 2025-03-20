@@ -35,9 +35,9 @@ namespace Game.Life.Controllers
         public void PlayClip(AudioClip clip)
         { AudioToolService.PlayClipAtPoint(clip, _pitch.position, 1, AudioChannels.AGENT); }
 
-        public override void OnHurt(AgentHurtPayload value)
+        public void OnHurt(AgentHurtPayload value)
         {
-            SetHealth(GetHealth() - value.Amount);
+            SetHealth(GetHealth() - value.Damage);
             if (Machine.CurrentState == _attack) return;
 
             Machine.ForceChangeToState(_attack);

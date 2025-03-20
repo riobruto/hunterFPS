@@ -1,10 +1,16 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 namespace Game.Life.WaypointPath
 {
     public class WaypointGroup : MonoBehaviour
     {
         [SerializeField] private Transform[] _waypoints;
+        
+        internal Waypoint GetWaypoint()
+        {
+            return GetComponentInChildren<Waypoint>();
+        }
 
         [ContextMenu("CreateWaypoints")]
         private void CreateWaypoints()

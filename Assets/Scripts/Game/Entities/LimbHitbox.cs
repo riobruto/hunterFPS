@@ -10,7 +10,23 @@ using UnityEngine.UIElements;
 
 namespace Game.Entities
 {
-    public delegate void LimbHitDelegate(float damage, LimbHitbox sender);
+    public delegate void LimbHitDelegate(LimboxHit payload);
+
+    public struct LimboxHit
+    {
+        public Vector3 Position;
+        public Vector3 Direction;
+        public LimbHitbox Hitbox;
+        public float Damage;
+
+        public LimboxHit(Vector3 position, Vector3 direction, LimbHitbox hitbox, float damage)
+        {
+            Position = position;
+            Direction = direction;
+            Hitbox = hitbox;
+            Damage = damage;
+        }
+    }
 
     public class LimbHitbox : MonoBehaviour, IHittableFromWeapon, IDamageableFromExplosive, IDamagableFromHurtbox
     {
@@ -25,6 +41,8 @@ namespace Game.Entities
         [SerializeField] private AudioClipGroup _bodyFall;
         private Rigidbody _rb;
 
+        public void NotifyAgent(LimboxHit payload) => LimbHitEvent?.Invoke(payload);      
+
         private void Start()
         {
             _rb = GetComponent<Rigidbody>();
@@ -32,33 +50,31 @@ namespace Game.Entities
             _ownerAgent = transform.root.GetComponent<AgentController>();
         }
 
-
-        
         void IDamageableFromExplosive.NotifyDamage(float damage, Vector3 position, Vector3 explosionDirection)
         {
-            if (damage >= _ownerAgent.GetHealth())
-            {
-                _ownerAgent.KillAndPush((_ownerAgent.transform.position - position + Vector3.up).normalized * damage);
-                return;
-            }
-            LimbHitEvent?.Invoke(damage, this);
-            _ownerAgent.Damage(damage);
+            NotifyAgent(new LimboxHit(
+                position,
+                explosionDirection,
+                this,
+                damage
+                )) ;
         }
 
         void IHittableFromWeapon.Hit(HitWeaponEventPayload payload)
         {
-            Debug.Log($"limb that got hitteado NAME: {gameObject.name}");
-
-            float damage = CalculateDamage(payload.Damage, payload.Distance);
-            if (damage >= _ownerAgent.GetHealth()) {
-                _ownerAgent.KillAndPush((payload.Ray.direction + Vector3.up).normalized * 100f, this);
-                return;               
-            }
-
-            LimbHitEvent?.Invoke(CalculateDamage(payload.Damage, payload.Distance), this);
-            _ownerAgent.HurtAgent(new AgentHurtPayload(payload.IsSenderPlayer, CalculateDamage(payload.Damage, payload.Distance), payload.Ray.origin, this));
-            _rb.AddForceAtPosition(-payload.RaycastHit.normal.normalized, payload.RaycastHit.point, ForceMode.VelocityChange);
+            NotifyAgent(new LimboxHit(
+                payload.RaycastHit.point,
+                payload.RaycastHit.normal,
+                this,
+                payload.Damage
+                )) ;
             ManageVisual(payload);
+        }
+
+        void IDamagableFromHurtbox.NotifyDamage(float damage, Vector3 position, Vector3 direction)
+        {            
+            _ownerAgent.Kick(position, direction, damage);
+            Impulse(direction);
         }
 
         private void ManageVisual(HitWeaponEventPayload payload)
@@ -123,7 +139,6 @@ namespace Game.Entities
             }
         }
 
-       
         internal void RunOver(Vector3 velocity, float damage)
         {
             _ownerAgent.KillAndPush(velocity);
@@ -144,12 +159,6 @@ namespace Game.Entities
             if (Time.time - _soundCooldown < 1) return;
             AudioToolService.PlayClipAtPoint(_bodyFall.GetRandom(), transform.position, .5f, AudioChannels.ENVIRONMENT, 15);
             _soundCooldown = Time.time;
-        }
-
-        void IDamagableFromHurtbox.NotifyDamage(float damage, Vector3 position, Vector3 direction)
-        {
-            _ownerAgent.Kick(position, direction, damage);
-            Impulse(direction);
         }
     }
 

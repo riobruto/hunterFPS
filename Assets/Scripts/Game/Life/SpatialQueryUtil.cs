@@ -11,49 +11,7 @@ using UnityEngine.AI;
 
 namespace Game.Life
 {
-    public class CoverSpotQuery
-    {
-        /// <summary>
-        /// Sorted By Travel Distance
-        /// </summary>
-        public CoverSpotEntity[] CoverSpots;
-
-        private CoverSpotEntity[] _entities;
-        private AgentController _controller;
-
-        public CoverSpotQuery(AgentController controller)
-        {
-            _controller = controller;
-            _entities = AgentGlobalService.Instance.CoverEntities.ToArray();
-            CoverSpots = _entities;
-            Array.Sort(CoverSpots, CompareByTravelDistance);
-        }
-
-        private int CompareByTravelDistance(CoverSpotEntity A, CoverSpotEntity B)
-        {
-            NavMeshPath pathB = new NavMeshPath(), pathA = new NavMeshPath();
-            _controller.NavMeshAgent.CalculatePath(A.transform.position, pathA);
-            _controller.NavMeshAgent.CalculatePath(B.transform.position, pathB);
-            return CalcultePathDistance(pathA).CompareTo(CalcultePathDistance(pathB));
-        }
-
-        private float CalcultePathDistance(NavMeshPath path)
-        {
-            float lng = 0.0f;
-            Vector3[] corners = new Vector3[0];
-            int Lenght = path.GetCornersNonAlloc(corners);
-
-            if ((path.status != NavMeshPathStatus.PathInvalid) && (Lenght > 1))
-            {
-                for (int i = 1; i < Lenght; ++i)
-                {
-                    lng += Vector3.Distance(path.corners[i - 1], path.corners[i]);
-                }
-            }
-
-            return lng;
-        }
-    }
+   
 
     public struct SpatialDataPoint
     {
@@ -100,39 +58,40 @@ namespace Game.Life
             return lng;
         }
     }
-
+    public enum SearchType
+    {
+        SAFE,
+        UNSAFE,
+        ANY
+    }
     public struct SpatialQueryPrefs
     {
         public AgentController AgentController;
         public Vector3 Position;
         public Vector3 Threat;
         public float MinDistance;
-
-        public SpatialQueryPrefs(AgentController soldier, Vector3 position, Vector3 threat, float minDistance) : this()
-        {
+        public SearchType QuerySearchType;
+        public SpatialQueryPrefs(AgentController soldier, Vector3 position, Vector3 threat, float minDistance, SearchType querySearchType = SearchType.ANY) : this()
+        { 
             AgentController = soldier;
             Position = position;
             Threat = threat;
             MinDistance = minDistance;
+            QuerySearchType = querySearchType;
         }
     }
 
     public class SpatialDataQuery
     {
         public List<SpatialDataPoint> AllPoints;
-
         //Points que tienen visibilidad clara hacia el Enemigo
         public List<SpatialDataPoint> UnsafePoints;
-
         //Points que tienen visibilidad ocluida hacia el Enemigo
         public List<SpatialDataPoint> SafePoints;
-
         //Points que tienen visibilidad ocluida hacia el ENemigo a media altura, pero tienen visibilidad a altura completa
         public List<SpatialDataPoint> SafeCrouchPoints;
-
         //Points que tienen visibilidad ocluida hacia el Enemigo, y esta cerca de su fuente de oclusion(paredes o obstaculos)
         public List<SpatialDataPoint> WallCoverPoints;
-
         //Points que tienen visibilidad ocluida hacia el Enemigo a media altura, y esta cerca de su fuente de oclusion(paredes o obstaculos)
         public List<SpatialDataPoint> WallCoverCrouchedPoints;
 
@@ -150,8 +109,9 @@ namespace Game.Life
             SafeCrouchPoints = new List<SpatialDataPoint>();
             WallCoverPoints = new List<SpatialDataPoint>();
             WallCoverCrouchedPoints = new List<SpatialDataPoint>();
+
             {
-                PopulateListWithSpatialData(data.AgentController, data.Position, data.Threat, data.MinDistance);
+                PopulateListWithSpatialData(data.AgentController, data.Position, data.Threat, data.QuerySearchType, data.MinDistance);
             }
 
             UnsafePoints.Sort(SortByTravelDistance);
@@ -163,7 +123,12 @@ namespace Game.Life
             w.Stop();
         }
 
-        public void PopulateListWithSpatialData(AgentController controller, Vector3 position, Vector3 threat, float safeDistance = 15)
+
+
+        // podriamos calcular la traveldistance aca, y crear un sistema de puntos para obtener el lugar mas conveniente
+        //aparte, podria acotar mas los criterios de busqueda para achicar el stuttering
+
+        public void PopulateListWithSpatialData(AgentController controller, Vector3 position, Vector3 threat, SearchType searchType = SearchType.ANY, float safeDistance = 15)
         {
             NavMeshPath path = new NavMeshPath();
             
@@ -175,8 +140,7 @@ namespace Game.Life
             for (int x = 1; x < X_RESOLUTION; x++)
             {
                 for (int z = 1; z < Z_RESOLUTION; z++)
-                {
-                    //if (x % 2 == 0 || z % 2 == 0) continue;
+                {                
 
                     Vector3 point = new Vector3(x - X_RESOLUTION / 2, 0, z - Z_RESOLUTION / 2) * 2f;
                     bool validPoint = NavMesh.SamplePosition(position + point, out NavMeshHit hit, 20, NavMesh.AllAreas);

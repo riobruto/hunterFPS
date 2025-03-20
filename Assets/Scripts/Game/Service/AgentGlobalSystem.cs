@@ -39,6 +39,7 @@ namespace Game.Service
     {
         public List<AgentController> ActiveAgents { get => _activeAgents; }
         public List<CoverSpotEntity> CoverEntities { get => _coverEntities; }
+        public List<ActBusySpotEntity> ActBusyEntities { get => _actBusyEntities; }
 
         public event SquadRemoved SquadRemovedEvent;
 
@@ -47,6 +48,7 @@ namespace Game.Service
         private List<SoldierSquad> _activeSquads = new List<SoldierSquad>();
         private List<AgentController> _activeAgents = new List<AgentController>();
         private List<CoverSpotEntity> _coverEntities = new List<CoverSpotEntity>();
+        private List<ActBusySpotEntity> _actBusyEntities = new List<ActBusySpotEntity>();
 
         internal void Initialize()
         {
@@ -130,19 +132,19 @@ namespace Game.Service
                     GUILayout.Label($"Members: {squad.MemberAmount}");
                     GUILayout.Label($"Can Grenade Slot: {squad.CanThrowGrenade}");
 
-                    foreach (SoldierAgentController soldier in squad.AttackingAgents)
-                    {
-                        if (soldier != null) GUILayout.Label($"{soldier.name}");
-                    }
-                    /*
                     foreach (SoldierAgentController soldier in squad.Members)
                     {
                         GUILayout.Label($"{soldier.name}");
+                        GUILayout.Label($"Flags:");
+                        GUILayout.Label($"Has Attack Slot: {squad.CanTakeAttackSlot(soldier)}");
                         GUILayout.Label($"Should Attack: {soldier.ShouldEngageThePlayer}");
                         GUILayout.Label($"Should Cover: {soldier.ShouldCoverFromThePlayer}");
+                        GUILayout.Label($"Should Hold: {soldier.ShouldHoldPosition}");
+                        GUILayout.Label($"Should Search: {soldier.ShouldSearchForThePlayer}");
+
                         GUILayout.Label($"Health: {soldier.GetHealth()}");
                         GUILayout.Label($"State: {soldier.CurrentState}");
-                    }*/
+                    }
                 }
             }
         }
@@ -153,6 +155,14 @@ namespace Game.Service
             {
                 squad.DrawGizmos();
             }
+        }
+
+        internal void RegisterActBusySpot(ActBusySpotEntity entity) => _actBusyEntities.Add(entity);
+
+        internal void UnregisterActBusySpot(ActBusySpotEntity entity)
+        {
+            if (_actBusyEntities.Contains(entity))
+                _actBusyEntities.Remove(entity);
         }
     }
 }

@@ -44,7 +44,7 @@ namespace Game.Service
             PlayerService.PlayerSpawnEvent += OnPlayerSpawn;
             ///SceneManager.LoadSceneAsync("UI", LoadSceneMode.Additive);
         }
-
+       
         private void OnPlayerSpawn(GameObject player)
         {
             //USE ADDRESSABLES
@@ -52,13 +52,15 @@ namespace Game.Service
             {
                 _ui = x.Result;
                 GameObject.DontDestroyOnLoad(_ui);
-            };           
-           
+            };
+
+            PlayerService.PlayerSpawnEvent -= OnPlayerSpawn;
         }
 
         internal override void End()
         {
             GameObject.Destroy(_ui);
+           
         }
     }
 
@@ -97,6 +99,7 @@ namespace Game.Service
         }
     }
 
+    [Serializable]
     public struct SubtitleParameters
     {
         public string Name;

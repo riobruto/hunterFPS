@@ -67,7 +67,6 @@ namespace Core.Weapon
         public WeaponSway Sway => _weaponSway;
         public WeaponShot Shot => _weaponShot;
         public WeaponAudio Audio => _weaponAudio;
-
         public WeaponAim Aim => _weaponAim;
         public WeaponReload Reload => _weaponReload;
         public WeaponAttachments Attachments => _weaponAttachments;

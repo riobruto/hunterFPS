@@ -5,6 +5,9 @@ namespace Game.Life.WaypointPath
     public class Waypoint : MonoBehaviour
     {
         [SerializeField] private Waypoint _nextWaypoint;
+
+
+
         public Waypoint NextWaypoint => _nextWaypoint;
         public int WaitTime = 1;
 

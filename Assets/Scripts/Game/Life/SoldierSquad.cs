@@ -1,7 +1,10 @@
-﻿using Life.Controllers;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using Core.Engine;
+using Game.Service;
+using Life.Controllers;
 using UnityEngine;
+using static UnityEditor.Experimental.GraphView.GraphView;
 
 namespace Game.Life
 {
@@ -48,11 +51,11 @@ namespace Game.Life
         //GroupStealthData
 
         private float _contactTimeOut = 15f;
-        private float _elapsedSinceAlerted = 0;
-        private float _elapsedSinceContact = 0;
+        private float _elapsedSinceAlerted = 10001;
+        private float _elapsedSinceContact = 150f;
         private bool _squadCanLoseContact;
         private float _lastGrenadeTime;
-        private bool _isAlerted;
+        private bool _isAlerted => _elapsedSinceAlerted < 1000;
 
         public bool SquadCanLoseContact
         {
@@ -98,12 +101,38 @@ namespace Game.Life
             get
             {
                 Vector3 centroid = Vector3.zero;
-                for (int i = 0; i < _soldiers.Count; i++)
+
+                if (ShouldHoldPlayer)
                 {
-                    centroid += _soldiers[i].transform.position;
+                    for (int i = 0; i < _soldiers.Count; i++)
+                    {
+                        centroid += _soldiers[i].transform.position;
+                    }
+                    centroid += _goalHoldTransform.position;
+                    centroid /= (_soldiers.Count + 1);
+
+                    return centroid;
                 }
-                centroid /= (_soldiers.Count + 1);
-                return centroid;
+                else if (HasLostContact || !PlayerService.Active)
+                {
+                    for (int i = 0; i < _soldiers.Count; i++)
+                    {
+                        centroid += _soldiers[i].transform.position;
+                    }
+                    centroid /= (_soldiers.Count);
+
+                    return centroid;
+                }
+                else
+                {
+                    for (int i = 0; i < _soldiers.Count; i++)
+                    {
+                        centroid += _soldiers[i].transform.position;
+                    }
+                    centroid += _player.transform.position;
+                    centroid /= (_soldiers.Count + 1);
+                    return centroid;
+                }
             }
         }
 
@@ -120,6 +149,7 @@ namespace Game.Life
         public float TimeToLostContact { get => _contactTimeOut; }
         public bool IsAlert => _isAlerted;
 
+        private GameObject _player;
         public SoldierAgentController[] AttackingAgents { get => _attackingAgents; }
 
         public SoldierSquad(SoldierAgentController[] soldiers)
@@ -144,8 +174,21 @@ namespace Game.Life
 
             //set up timers
             _elapsedSinceContact = _contactTimeOut;
-            _elapsedSinceAlerted = _contactTimeOut;
+            _elapsedSinceAlerted = 100000;
             SquadCanLoseContact = true;
+            _attackingAgents = _soldiers.ToArray();
+
+            if (PlayerService.Active) _player = Bootstrap.Resolve<PlayerService>().Player;
+            else
+            {
+                PlayerService.PlayerSpawnEvent += OnPlayerSpawn;
+            }
+        }
+
+        private void OnPlayerSpawn(GameObject player)
+        {
+            _player = player;
+            PlayerService.PlayerSpawnEvent -= OnPlayerSpawn;
         }
 
         private void OnSoldierThrowGrenade(SoldierAgentController csoldier, Vector3 targetPosition)
@@ -219,15 +262,14 @@ namespace Game.Life
             soldier.ThrowGrenadeEvent -= OnSoldierThrowGrenade;
             soldier.FlankingEvent -= OnSoldierFlankingPlayer;
             soldier.SetSquad(null);
-
+            UpdateContact();
             _soldiers.Remove(soldier);
         }
 
-        public bool TryTakeAttackSlot(SoldierAgentController controller)
+        public bool CanTakeAttackSlot(SoldierAgentController controller)
         {
             if (_attackingAgents.Length < 2) return true;
-            if (_attackingAgents[0] == controller) return true;
-            if (_attackingAgents[1] == controller) return true;
+            if (_attackingAgents[0] == controller || _attackingAgents[1] == controller) return true;
             return false;
         }
 
@@ -255,7 +297,11 @@ namespace Game.Life
         //has visual
         //distance
         //
-
+        ~SoldierSquad()
+        {
+            Debug.Log("Destructor");
+            PlayerService.PlayerSpawnEvent -= OnPlayerSpawn;
+        }
         private int SortAttackingAgents(SoldierAgentController asoldier, SoldierAgentController bsoldier)
         {
             int i = 0;
@@ -264,9 +310,12 @@ namespace Game.Life
             if (asoldier == null) return -1;
             if (bsoldier == null) return 1;
 
-            float aDis = Vector3.Distance(asoldier.transform.position, asoldier.PlayerGameObject.transform.position);
-            float bDis = Vector3.Distance(bsoldier.transform.position, bsoldier.PlayerGameObject.transform.position);
-            i += aDis.CompareTo(bDis);
+            if (PlayerService.Active)
+            {
+                float aDis = Vector3.Distance(asoldier.transform.position, asoldier.PlayerGameObject.transform.position);
+                float bDis = Vector3.Distance(bsoldier.transform.position, bsoldier.PlayerGameObject.transform.position);
+                i += aDis.CompareTo(bDis);
+            }
 
             i += asoldier.Weapon.Empty.CompareTo(bsoldier.Weapon.Empty);
             i -= asoldier.IsPlayerVisible().CompareTo(bsoldier.IsPlayerVisible());
@@ -282,15 +331,15 @@ namespace Game.Life
 
         public void UpdateSquad()
         {
-            if (_soldiers.Count > 0){
-
+            if (_soldiers.Count > 0)
+            {
                 if (Time.time - _lastSortAttackingSlotsTime > _sortAttackSlotsInterval)
                 {
                     _attackingAgents = _soldiers.ToArray();
                     Array.Sort(_attackingAgents, SortAttackingAgents);
                     _lastSortAttackingSlotsTime = Time.time;
                 }
-            } 
+            }
 
             _elapsedSinceContact = Mathf.Clamp(_elapsedSinceContact + Time.deltaTime, 0, float.MaxValue);
             if (HasLostContact)

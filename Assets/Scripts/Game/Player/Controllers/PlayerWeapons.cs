@@ -114,6 +114,8 @@ namespace Game.Player.Controllers
         private bool _hasGrenadeInInventory => InventoryService.Instance.Grenades[_currentType] > 0;
         private bool _isAiming => _aimInput && _canAim;
 
+        public bool IsObstructed { get => _isObstructed; }
+
         public void Draw()
         {
             if (_currentWeaponInstance == null) return;

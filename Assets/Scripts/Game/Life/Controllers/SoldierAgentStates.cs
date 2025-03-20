@@ -1,5 +1,8 @@
-﻿using Game.Life;
+﻿using System.Collections;
+using Game.Life;
+using Game.Life.Entities;
 using Game.Life.WaypointPath;
+using Game.Service;
 using Life.StateMachines;
 using UnityEngine;
 using UnityEngine.AI;
@@ -73,23 +76,13 @@ namespace Life.Controllers
 
         public override void Start()
         {
+            _soldier.ViewAngle = .3f;
             _timeWhenStarted = Time.time;
             _engageTimeOut = Random.Range(4f, 8f);
             _shotgunnerMoveTime = 0;
             FindAttackPoint();
             _soldier.SetLookTarget(_soldier.AttackPoint);
-
-            if (_soldier.HasPlayerVisual)
-            {
-                _soldier.FaceTarget = true;
-                _soldier.SetMovementType(SoldierMovementType.WALK);
-            }
-            else
-            {
-                _soldier.SetMovementType(SoldierMovementType.RUN);
-                _soldier.FaceTarget = false;
-            }
-        }
+                       }
 
         public override void Think()
         {
@@ -99,13 +92,12 @@ namespace Life.Controllers
             _soldier.SetLookTarget(_soldier.AttackPoint);
             //esto es para forzarlo a correr antes de llegar al punto
 
-            _soldier.SetAllowFire(_soldier.IsPlayerInViewAngle(.25f) && _soldier.IsPlayerVisible() && _soldier.FaceTarget && Time.time - _timeWhenStarted > 1f);
+            _soldier.SetAllowFire(_soldier.IsPlayerInViewAngle(.925f) && _soldier.IsPlayerVisible() && _soldier.FaceTarget && Time.time - _timeWhenStarted > .25f);
 
             _shotgunnerMoveTime += .1f;
 
-            if (_soldier.IsPlayerVisible())
-            {
-                _soldier.FaceTarget = true;
+            if (_soldier.HasPlayerVisual)
+            {             
                 _soldier.SetMovementType(SoldierMovementType.WALK);
                 _soldier.AttackPoint = _soldier.PlayerHeadPosition;
                 _waitForChase = 0;
@@ -123,31 +115,14 @@ namespace Life.Controllers
                 return;
             }
 
-            //si perdi al jugador y no tengo recorrido hacia un nuevo punto valido
-            //esto previene recalcular querys sin haber ido al punto deseado primero
-
-            //ya que no pudimos ver al jugador, decidimos si correr o caminar al siguiente punto
-
-            if (_soldier.SoldierType != SoldierType.HEAVY)
-            {
-                _soldier.FaceTarget = hasReachedAttackPoint;
-                _soldier.SetMovementType(!hasReachedAttackPoint ? SoldierMovementType.RUN : SoldierMovementType.WALK);
-            }
-            else
-            {
-                _soldier.FaceTarget = true;
-                _soldier.SetMovementType(SoldierMovementType.WALK);
-            }
-
             //si llego al punto de ataque, y aun asi, no puede dispararle al jugador
-            if (!_soldier.IsPlayerVisible() && hasReachedAttackPoint)
+            if (!_soldier.HasPlayerVisual && hasReachedAttackPoint)
             {
                 if (_soldier.SoldierType == SoldierType.SHOTGUNNER)
                 {
                     FindAttackPoint();
                     return;
                 }
-
                 //probamos lanzar una granada
                 if (_soldier.TryThrowGrenade())
                 {
@@ -431,7 +406,7 @@ namespace Life.Controllers
 
         public bool IsCurrentPositionValid()
         {
-            return _soldier.HasPlayerVisual;
+            return !_soldier.HasPlayerVisual;
         }
 
         public override void DrawGizmos()
@@ -440,29 +415,24 @@ namespace Life.Controllers
 
         public override void End()
         {
-            _soldier.HurtEvent -= OnHurt;
         }
 
         public override void Start()
         {
-            _soldier.SetMovementType(SoldierMovementType.RUN);
-
             _soldier.Animator.SetTrigger("COVER");
             _soldier.SetAllowFire(false);
-            _soldier.FaceTarget = false;
-            _soldier.HurtEvent += OnHurt;
+       
 
             if (IsCurrentPositionValid())
             {
                 _soldier.SetAllowReload(true);
                 _soldier.SetMovementType(SoldierMovementType.CROUCH);
             }
-            else MoveToCover();
-        }
-
-        private void OnHurt(AgentHurtPayload payload, AgentController controller)
-        {
-            MoveToCover();
+            else
+            {
+                MoveToCover();
+                _soldier.SetMovementType(SoldierMovementType.RUN);
+            }
         }
 
         public override void Think()
@@ -481,7 +451,7 @@ namespace Life.Controllers
                     MoveToCover();
                 }
             }
-
+            if (Vector3.Distance(_soldier.transform.position, _soldier.Squad.SquadCentroid) > 8) { MoveToCover(); }
             _soldier.SetLookTarget(_soldier.AttackPoint);
         }
 
@@ -489,8 +459,8 @@ namespace Life.Controllers
         {
             _lastFindCover = Time.time;
             _destination = _soldier.FindCoverFromPlayer(true);
-            _soldier.SetTarget(_destination);
             _soldier.SetMovementType(SoldierMovementType.RUN);
+            _soldier.SetTarget(_destination);
         }
     }
 
@@ -515,6 +485,7 @@ namespace Life.Controllers
 
         public override void Start()
         {
+            _soldier.ViewAngle = .8f;
             _soldier.SetMovementType(SoldierMovementType.WALK);
             _soldier.Animator.SetBool("WARNING", true);
             _soldier.Animator.SetTrigger("SUSPECT");
@@ -545,6 +516,9 @@ namespace Life.Controllers
         private SoldierAgentController _soldier;
         private Vector3 _destination;
         private Vector3 _lookPoint;
+        private ActBusySpotEntity _entity;
+        private Waypoint _waypoint;
+        private bool _useWaypoint;
 
         // todo: idle state, unalerted, scare
         public SoldierActBusyState(AgentController context) : base(context)
@@ -559,20 +533,80 @@ namespace Life.Controllers
         public override void End()
         {
             _soldier.Animator.SetBool("RELAX", false);
+            if (_entity != null)
+            {
+                _entity.Release();
+            }
         }
 
         public override void Start()
         {
             _soldier.Animator.SetBool("RELAX", true);
-            _soldier.SetTarget(_soldier.transform.position);
             _soldier.FaceTarget = false;
-            if (_soldier.UseWaypoints)
+            _reachedEntity = false;
+            if (_entity != null) _entity.Release();
+
+            _entity = _soldier.FindActBusyEntity();
+            if (_entity != null)
             {
+                _soldier.SetTarget(_entity.transform.position);
+
+                if (_entity.UseWaypoints)
+                {
+                    _waypoint = _entity.WaypointGroup.GetWaypoint();
+                    _soldier.SetTarget(_waypoint.transform.position);
+                    _useWaypoint = true;
+                }
             }
+            
+        }
+
+        private bool _reachedEntity;
+
+        private IEnumerator WaypointCoroutine()
+        {
+            int waytime = _waypoint.WaitTime;
+            _waypoint = _waypoint.NextWaypoint;
+            yield return new WaitForSeconds(waytime);
+            if (_waypoint != null)
+                _soldier.SetTarget(_waypoint.transform.position);
+            else _useWaypoint = false;
+            yield return null;
         }
 
         public override void Think()
         {
+            if (_entity == null) { return; }
+            if (_reachedEntity && _entity.UseWaypoints)
+            {
+                if (Vector3.Distance(_soldier.transform.position, _waypoint.transform.position) < 1)
+                {
+                    _soldier.StartCoroutine(WaypointCoroutine());
+                }
+            }
+
+            if (_reachedEntity) return;
+            if (Vector3.Distance(_soldier.transform.position, _entity.transform.position) < 1)
+            {
+                _soldier.StartCoroutine(ActBusy());
+                _reachedEntity = true;
+            }
+        }
+
+        private IEnumerator ActBusy()
+        {
+            _soldier.Animator.Play(_entity.StateName);          
+
+            foreach (SubtitleParameters parameters in _entity.StateSubtitles)
+            {
+                
+                AudioToolService.PlayClipAtPoint(_entity.AudioClip, _soldier.Head.transform.position, 1, AudioChannels.AGENT, 20);
+                UIService.CreateSubtitle(parameters);
+                yield return new WaitForSeconds(parameters.Duration);
+            }
+
+            Debug.Log("Acting");
+            yield return null;
         }
     }
 
@@ -646,6 +680,9 @@ namespace Life.Controllers
         {
             if (_reached)
             {
+                if (Vector3.Distance(_soldier.transform.position, _soldier.Squad.SquadCentroid) > 8)
+                { _destination = _soldier.FindCoverSpot().transform.position; }
+
                 _soldier.SetMovementType(SoldierMovementType.CROUCH);
             }
         }
@@ -657,7 +694,42 @@ namespace Life.Controllers
 
         public override void DrawGizmos()
         {
-            throw new System.NotImplementedException();
+        }
+    }
+
+    public class SoldierHurtState : BaseState
+    {
+        private SoldierAgentController _soldier;
+
+        private float _seconds = 1f;
+        private float _hurtTime;
+        public bool Ready => Time.time - _hurtTime > _seconds;
+
+        public SoldierHurtState(AgentController context) : base(context)
+        {
+            _soldier = context as SoldierAgentController;
+        }
+
+        public override void Start()
+        {
+            _hurtTime = Time.time;
+            _soldier.SetAllowFire(false);
+            _soldier.Animator.SetTrigger("HURT");
+            _soldier.Animator.SetFloat("INCAP_ANIM", Random.Range(0f, 1f));
+            AudioToolService.PlayClipAtPoint(_soldier.HurtScream.GetRandom(), _soldier.Head.transform.position, 1, AudioChannels.AGENT, 30f);
+            //maybe scream?
+        }
+
+        public override void Think()
+        {
+        }
+
+        public override void End()
+        {
+        }
+
+        public override void DrawGizmos()
+        {
         }
     }
 }

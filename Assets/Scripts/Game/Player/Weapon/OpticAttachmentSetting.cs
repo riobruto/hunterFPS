@@ -7,12 +7,13 @@ namespace Core.Weapon
     {
         [Header("Sight")]
         [SerializeField] private Vector3 _aimPositionOverride;
-
         [SerializeField] private Vector3 _aimRotationOverride;
         [SerializeField] private float _fovOverride;
+        [SerializeField] private float _aimSensitivityOverride;
 
         public Vector3 AimPositionOverride { get => _aimPositionOverride; }
         public Vector3 AimRotationOverride { get => _aimRotationOverride; }
         public float FovOverride { get => _fovOverride; }
+        public float AimSensistivity { get => _aimSensitivityOverride; }
     }
 }

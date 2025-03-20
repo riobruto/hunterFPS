@@ -209,14 +209,6 @@ namespace Life.Controllers
             }
         }
 
-        public override void OnHurt(AgentHurtPayload payload)
-        {
-            if (IsDead) return;
-            SetHealth(GetHealth() - payload.Amount);
-            Animator.SetTrigger("HURT");
-            _hurtStopVelocityMultiplier = 0;
-        }
-
         public override void OnHeardCombat()
         {
             if (_isFriendlyToPlayer) return;
@@ -478,7 +470,7 @@ namespace Life.Controllers
         {
             _startTime = Time.time;
             _dog.Animator.SetTrigger("ATTACK");
-            _dog.AggroTarget.Damage(85);
+            //TODO: Create AnimHurtbox Here
         }
 
         public override void Think()

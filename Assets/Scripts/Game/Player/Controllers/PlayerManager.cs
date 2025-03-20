@@ -6,6 +6,7 @@ using Game.Player.Weapon;
 using Game.Service;
 using Game.UI;
 using Life.Controllers;
+using System;
 using System.Collections;
 using UI;
 using UnityEngine;
@@ -15,9 +16,6 @@ namespace Game.Player.Controllers
 {
     public class PlayerManager : MonoBehaviour
     {
-
-       
-
         private PlayerWeapons _weaponController;
         private PlayerRigidbodyMovement _movementController;
         private PlayerInventoryController _inventoryController;
@@ -25,13 +23,19 @@ namespace Game.Player.Controllers
         private PlayerConfiguration.PlayerControlSettings _settings;
         private PlayerLeanMovement _lean;
         private PlayerKick _kick;
-
+        private Camera _playerCamera;
         private PlayerTrainController _train;
         private PlayerHealth _health;
 
         private bool _inventoryOpen;
         private bool _subscribedtoWeaponState;
         private bool _inTrain;
+        private bool _isAiming;
+
+        private void Update()
+        {
+            _movementController.Sensitivity = _isAiming ? Mathf.Lerp(0.01f, _settings.NormalSensitivity, Mathf.InverseLerp(0.01f, _settings.FOVGround, _playerCamera.fieldOfView)) : _settings.NormalSensitivity;
+        }
 
         private IEnumerator Start()
         {
@@ -48,7 +52,7 @@ namespace Game.Player.Controllers
             _kick.KickStartEvent += OnKickStart;
             _kick.KickFinishEvent += OnKickEnd;
             _kick.AllowKick = true;
-
+            _playerCamera = Bootstrap.Resolve<PlayerService>().PlayerCamera;
             _weaponController.AllowInput = true;
             _inventoryController.AllowInput = true;
 
@@ -58,6 +62,7 @@ namespace Game.Player.Controllers
             _inventoryController.ItemBeginConsumingEvent += OnItemBeginConsume;
             _inventoryController.ItemFinishConsumeEvent += OnItemFinishConsume;
             _movementController.PlayerFallEvent += OnFall;
+            _movementController.PlayerStateEvent += OnPlayerState;
             _health.DeadEvent += OnDie;
             _train.PlayerEnterEvent += OnEnterTrain;
             _train.PlayerExitEvent += OnExitTrain;
@@ -68,6 +73,12 @@ namespace Game.Player.Controllers
             //UIService.CreateMessage(new MessageParameters("Tu inventario esta lleno", 5, Color.white, new Color(0, 0, 0, .5f)));
             //UIService.CreateMessage(new MessageParameters("Puto el que lee XDDD JIJOLINES", 5, Color.white, new Color(0, 0, 0, .5f)));
             yield return null;
+        }
+
+        private void OnPlayerState(PlayerMovementState current, PlayerMovementState next)
+        {
+            if(next == PlayerMovementState.SPRINT) { _kick.AllowKick = false; }
+            else _kick.AllowKick = true;
         }
 
         private void OnKickEnd()
@@ -139,7 +150,7 @@ namespace Game.Player.Controllers
 
         private void OnAimWeapon(bool state)
         {
-            _movementController.Sensitivity = state ? _settings.AimSensitivity : _settings.NormalSensitivity;
+            _isAiming = state;
             _kick.AllowKick = !state;
         }
 
@@ -200,17 +211,15 @@ namespace Game.Player.Controllers
 
         private IEnumerator RespawnSequence()
         {
-           
-            yield return new WaitForSeconds(3);              
+            yield return new WaitForSeconds(3);
             //show text
             //allow click respawn
             FindObjectOfType<HUDElements>().ShowRespawnText(true);
             yield return new WaitUntil(() => Mouse.current.leftButton.wasPressedThisFrame);
-            FindObjectOfType<HUDElements>().ShowRespawnText(false);           
+            FindObjectOfType<HUDElements>().ShowRespawnText(false);
             yield return new WaitForSeconds(2);
             Bootstrap.Resolve<PlayerService>().Respawn();
-           
-          
+
             yield break;
         }
 
@@ -231,7 +240,6 @@ namespace Game.Player.Controllers
             _movementController.Restore();
             _health.Restore();
             _weaponController.Draw();
-        
         }
     }
 }

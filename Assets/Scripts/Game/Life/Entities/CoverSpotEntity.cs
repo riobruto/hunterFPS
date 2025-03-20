@@ -8,6 +8,8 @@ namespace Game.Life.Entities
 {
     public class CoverSpotEntity : MonoBehaviour
     {
+        private LayerMask _coverLayer;
+
         public bool Taken => CurrentSoldier != null;
         public SoldierAgentController CurrentSoldier { get; private set; }
 
@@ -43,12 +45,13 @@ namespace Game.Life.Entities
 
         public bool HasVisibility(Vector3 threat)
         {
-            return !Physics.Linecast(threat, transform.position + Vector3.up * 1.75f, Bootstrap.Resolve<GameSettings>().RaycastConfiguration.CoverLayers);
+            return !Physics.Linecast(threat, transform.position + Vector3.up * 1.75f, _coverLayer);
         }
 
         private void Start()
         {
             AgentGlobalService.Instance.RegisterCoverSpot(this);
+            _coverLayer = Bootstrap.Resolve<GameSettings>().RaycastConfiguration.CoverLayers;
             //REGISTER
         }
 

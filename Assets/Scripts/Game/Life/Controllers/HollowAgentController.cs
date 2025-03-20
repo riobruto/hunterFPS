@@ -179,13 +179,13 @@ namespace Life.Controllers
             _mesh.material.SetFloat("_RefractionSize", Mathf.Lerp(_mesh.material.GetFloat("_RefractionSize"), _refractionDesired, Time.deltaTime * 2));
         }
 
-        public override void OnHurt(AgentHurtPayload payload)
+        public void OnHurt(AgentHurtPayload payload)
         {
             if (IsDead) return;
 
             AudioToolService.PlayClipAtPoint(_hurtSFX.GetRandom(), Head.position, 1, AudioChannels.AGENT, 40f);
             _needWarp = true;
-            SetHealth(GetHealth() - payload.Amount);
+            SetHealth(GetHealth() - payload.Damage);
             Animator.SetTrigger("HURT");
             _hurtStopVelocityMultiplier = 0;
             _refractionDesired = 2;

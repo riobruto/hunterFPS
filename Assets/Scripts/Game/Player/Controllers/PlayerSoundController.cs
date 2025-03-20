@@ -147,27 +147,32 @@ namespace Game.Player.Controllers
         private void OnWeaponChange(object sender, WeaponStateEventArgs e)
         {
             if (e.State == WeaponState.BEGIN_SHOOTING)
-            {
-                GunSound?.Invoke(transform.position, 40);
+            {               
                 StartCoroutine(PlayShellSound(e));
-                DrawDebug(40f);
+             
 
                 foreach (AttachmentSettings attachment in e.Sender.WeaponSettings.Attachments.AllowedAttachments)
                 {
                     if (attachment is MuzzleAttachmentSetting && InventoryService.Instance.HasAttachment(attachment))
                     {
-                        AudioToolService.PlayPlayerSound((attachment as MuzzleAttachmentSetting).SoundOverride.GetRandom(), 1, .1f);
+                        MuzzleAttachmentSetting muzzle = attachment as MuzzleAttachmentSetting;
+
+                        AudioToolService.PlayPlayerSound(muzzle.SoundOverride.GetRandom(), 1, .1f);
+                        GunSound?.Invoke(transform.position, muzzle.SoundRangeModifier);
+                        DrawDebug(muzzle.SoundRangeModifier);
                         return;
                     }
                 }
+                DrawDebug(100f);
+                GunSound?.Invoke(transform.position, 100f);
                 AudioToolService.PlayPlayerSound(e.Sender.WeaponSettings.Audio.ShootClips.GetRandom(), 1, .1f);
             }
 
             if (e.State == WeaponState.BEGIN_RELOADING)
             {
                 AudioToolService.PlayPlayerSound(_holster.GetRandom(), 1, .1f);
-                GunSound?.Invoke(transform.position, 10);
-                DrawDebug(10f);
+                GunSound?.Invoke(transform.position, 2f);
+                DrawDebug(2f);
             }
         }
 
