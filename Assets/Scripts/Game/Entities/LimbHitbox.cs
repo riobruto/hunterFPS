@@ -41,7 +41,8 @@ namespace Game.Entities
         [SerializeField] private AudioClipGroup _bodyFall;
         private Rigidbody _rb;
 
-        public void NotifyAgent(LimboxHit payload) => LimbHitEvent?.Invoke(payload);      
+        public void NotifyAgent(LimboxHit payload) => LimbHitEvent?.Invoke(payload);
+        public void SetOwner(AgentController owner) => _ownerAgent = owner;
 
         private void Start()
         {
@@ -57,7 +58,7 @@ namespace Game.Entities
                 explosionDirection,
                 this,
                 damage
-                )) ;
+                ));
         }
 
         void IHittableFromWeapon.Hit(HitWeaponEventPayload payload)
@@ -67,12 +68,12 @@ namespace Game.Entities
                 payload.RaycastHit.normal,
                 this,
                 payload.Damage
-                )) ;
+                ));
             ManageVisual(payload);
         }
 
         void IDamagableFromHurtbox.NotifyDamage(float damage, Vector3 position, Vector3 direction)
-        {            
+        {
             _ownerAgent.Kick(position, direction, damage);
             Impulse(direction);
         }
