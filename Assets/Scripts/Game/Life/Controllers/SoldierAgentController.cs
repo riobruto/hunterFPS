@@ -9,8 +9,6 @@ using Life.StateMachines.Interfaces;
 using Player.Weapon.Interfaces;
 using System.Collections;
 
-using System.Linq;
-
 #if UNITY_EDITOR
 
 using UnityEditor;
@@ -90,6 +88,7 @@ namespace Life.Controllers
 
         [Header("Cover Values")]
         [SerializeField] private bool _canShootFromCover;
+
         [Header("Combat Values")]
         [SerializeField] private SoldierType _soldierType;
 
@@ -154,7 +153,6 @@ namespace Life.Controllers
             _desiredSpeed = _walkSpeed;
             CreateStates();
             CreateTransitions();
-
             float health = 100;
             if (_soldierType == SoldierType.HEAVY) health = 175;
             SetMaxHealth(health);
@@ -163,6 +161,8 @@ namespace Life.Controllers
             SetAllowReload(true);
             if (!_hasSquad) AgentGlobalSystem.GiveSquadToAgent(this);
             Machine.ChangeStateEvent += OnStateChangedFromMachine;
+
+            SetMovementType(SoldierMovementType.PATROL);
         }
 
         public AudioClipGroup HurtScream { get => _hurtScream; }
@@ -336,10 +336,14 @@ namespace Life.Controllers
             }
             SetMovementType(SoldierMovementType.WALK);
 
+            _attackPoint = PlayerHeadPosition;
+            _elapsedTimeSinceWantedInvestigation = 0;
+            _investigateLocation = PlayerPosition;
+
             _hurtStopVelocityMultiplier = 0;
             NavMeshAgent.isStopped = true;
             _hurtMoveRegenerationTimeout = 1;
-            _attackPoint = PlayerHeadPosition;
+
             if (Machine.CurrentState != _hurt) Machine.ForceChangeToState(_hurt);
         }
 
@@ -393,13 +397,7 @@ namespace Life.Controllers
 
         private AgentController FindNearThreat()
         {
-            AgentController[] agents = AgentGlobalService.Instance.ActiveAgents.ToArray();
-            if (agents.Length == 0) { return null; }
-            agents = agents.Where(x => x.AgentGroup == AgentGroup.MONSTER).ToArray();
-            if (agents.Length == 0) { return null; }
-            AgentController result = agents.OrderBy(x => Vector3.Distance(x.transform.position, transform.position)).ToArray()[0];
-            if (Vector3.Distance(result.transform.position, transform.position) > 3) { return null; }
-            return result;
+            return null;
         }
 
         public override void Restore()
@@ -459,13 +457,15 @@ namespace Life.Controllers
                 case SoldierMovementType.RUN:
                     FaceTarget = false;
                     SetAimLayerWeight(0);
+
                     if (_current == SoldierMovementType.CROUCH)
                     {
                         StartCoroutine(SetCrouch(false, _runSpeed));
                         Animator.SetBool("RUN", true);
                         break;
                     }
-                    Animator.SetBool("RUN", true);                    
+
+                    Animator.SetBool("RUN", true);
                     _desiredSpeed = _runSpeed;
                     break;
 
@@ -474,8 +474,9 @@ namespace Life.Controllers
                     FaceTarget = true;
                     SetAimLayerWeight(1);
 
-                    if (_current == SoldierMovementType.CROUCH)     {
-                        StartCoroutine(SetCrouch(false, _walkSpeed));                        
+                    if (_current == SoldierMovementType.CROUCH)
+                    {
+                        StartCoroutine(SetCrouch(false, _walkSpeed));
                         Animator.SetBool("RUN", false);
                         break;
                     }
@@ -485,7 +486,10 @@ namespace Life.Controllers
                     break;
 
                 case SoldierMovementType.PATROL:
+                    FaceTarget = false;
+                    SetAimLayerWeight(0);
                     Debug.LogError("NO IMPLEMENTADO PATROL MOVEMENT!");
+                    _desiredSpeed = _walkSpeed;
                     break;
 
                 case SoldierMovementType.CROUCH:
@@ -495,6 +499,7 @@ namespace Life.Controllers
                     Animator.SetBool("RUN", false);
                     break;
             }
+
             _current = type;
         }
 
@@ -657,6 +662,8 @@ namespace Life.Controllers
             ForcePlayerPerception();
         }
 
+        public override void ForcePlayerPerception() => _attackPoint = PlayerHeadPosition;
+
         private int _queryAmount;
         public SoldierType SoldierType { get => _soldierType; }
 
@@ -770,7 +777,6 @@ namespace Life.Controllers
                     }
                 }
             }
-
             //si no hay cover points, fallbackear a esto!
             //find first cover spots
             Vector3 center = _currentSquad.SquadCentroid;
@@ -778,10 +784,10 @@ namespace Life.Controllers
             {
                 center = _currentSquad.HoldPosition;
             }
-
-            SpatialData? data = AgentSpatialUtility.GetBestPoint(AgentSpatialUtility.CreateAttackArray(new Vector2Int(20, 20), center, _attackPoint, _coverMask |= 1 << gameObject.layer));
+            SpatialData? data = AgentSpatialUtility.GetBestPoint(AgentSpatialUtility.CreateAttackArray(new Vector2Int(30, 30), center, _attackPoint, _coverMask |= 1 << gameObject.layer));
             if (data.HasValue) { return data.Value.Position; }
-            return PlayerHeadPosition + (transform.position - PlayerHeadPosition).normalized * 5f;
+
+            return PlayerHeadPosition;// + (transform.position - PlayerHeadPosition).normalized * 5f;
         }
 
         public ActBusySpotEntity FindActBusyEntity()
@@ -921,32 +927,6 @@ namespace Life.Controllers
             Gizmos.color = Color.blue;
         }
 
-        public enum SquadCallType
-        {
-            COVER,
-            CONTACT,
-            LOSTCONTACT,
-            SEARCH,
-        }
-
-        internal void SquadCall(SquadCallType type)
-        {
-            switch (type)
-            {
-                case SquadCallType.COVER:
-                    break;
-
-                case SquadCallType.CONTACT:
-                    break;
-
-                case SquadCallType.LOSTCONTACT:
-                    break;
-
-                case SquadCallType.SEARCH:
-                    break;
-            }
-        }
-
         public override void OnDeath()
         {
             AllowThinking(false);
@@ -959,6 +939,8 @@ namespace Life.Controllers
             CurrentCoverSpot = null;
             ShoutDead();
             Destroy(gameObject, 10);
+
+            transform.parent = null;
         }
 
         public override void OnHeardCombat()
@@ -972,7 +954,7 @@ namespace Life.Controllers
         public override void OnHeardSteps()
         {
             if (IsDead) return;
-            if (!_currentSquad.HasLostContact) _currentSquad.UpdateContact();
+            _currentSquad.UpdateContact();
             _attackPoint = PlayerHeadPosition;
             _elapsedTimeSinceWantedInvestigation = 0;
             _investigateLocation = PlayerPosition;

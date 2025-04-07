@@ -14,6 +14,7 @@ using UnityEngine.Events;
 
 namespace Life.Controllers
 {
+
     public delegate void AgentPerceptionDelegate(AgentController controller);
 
     public delegate void AgentHurtDelegate(AgentHurtPayload payload, AgentController controller);
@@ -115,7 +116,6 @@ namespace Life.Controllers
             if (!PlayerService.Active) return false;
             if (!_canLoseContact) return true;
             if (IsPlayerInRange(2)) return true;
-
             return IsPlayerInRange(_rangeDistance) && IsPlayerInViewAngle(_currentViewAngle) && IsPlayerVisible();
         }
 
@@ -310,19 +310,19 @@ namespace Life.Controllers
             if (AgentGlobalService.IgnorePlayer) return false;
             if (!PlayerService.Active) return false;
            
-            return Vector3.Dot(transform.forward, (_playerCamera.transform.position - transform.position).normalized) > dotAngle;
+            return Vector3.Dot(transform.forward, (_playerCamera.transform.position - _head.position).normalized) > dotAngle;
         }
 
         public Vector3 PlayerOccluderPosition;
         public GameObject PlayerOccluderGameObject;
 
-        public bool IsPlayerVisible()
+        public bool IsPlayerVisible(Vector3 from)
         {
             if (AgentGlobalService.IgnorePlayer) return false;
             if (!PlayerService.Active) return false;
             //Debug.DrawLine(_playerCamera.transform.position, transform.position);
 
-            if (VisualPhysics.SphereCast(_playerCamera.transform.position, 0.025f, _head.position - _playerCamera.transform.position, out RaycastHit hit, _rangeDistance, _ignoreMask, QueryTriggerInteraction.Ignore))
+            if (VisualPhysics.SphereCast(_playerCamera.transform.position, 0.025f, from - _playerCamera.transform.position, out RaycastHit hit, _rangeDistance, _ignoreMask, QueryTriggerInteraction.Ignore))
             {
                 if (hit.collider.gameObject.transform.root == transform)
                 {
@@ -342,7 +342,10 @@ namespace Life.Controllers
             PlayerOccluderGameObject = null;
             return false;
         }
-
+        public bool IsPlayerVisible()
+        {
+            return IsPlayerVisible(_head.position);
+        }
         private Vector3 _aimTarget;
         private bool _faceTarget;
         private bool _alive = false;
@@ -460,6 +463,7 @@ namespace Life.Controllers
         public virtual void OnPlayerDetectionChanged(bool detected)
         { }
 
+        
         public virtual void OnHeardCombat()
         { }
 
