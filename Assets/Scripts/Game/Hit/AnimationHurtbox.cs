@@ -1,6 +1,7 @@
 ﻿using Game.Audio;
 using Game.Player.Sound;
 using Nomnom.RaycastVisualization;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using static Game.Hit.AnimationHurtbox;
@@ -33,6 +34,7 @@ namespace Game.Hit
         }
 
         public bool IsScanning { get => _checkCollisions && _remainingFrames > 1; }
+        public Action OnScanFinished { get; internal set; }
 
         public event AnimationHurtboxDelegate HurtContactEvent;
 
@@ -53,22 +55,13 @@ namespace Game.Hit
         private HurtboxContact[] CheckCollision()
         {
             Collider[] current = VisualPhysics.OverlapBox(transform.position + transform.TransformVector(_center), _halfExtents / 2, transform.rotation, _layermask, QueryTriggerInteraction.Ignore);
-
+            Debug.Log(current.Length);
             List<HurtboxContact> result = new List<HurtboxContact>();
 
             foreach (Collider collider in current)
             {
-                if (collider.gameObject.isStatic)
-                {
-                    continue;
-                }
-                if (collider.gameObject.layer == 3)
-                {
-                    continue;
-                }
-
+                if (collider.gameObject.isStatic) continue;
                 if (!collider.TryGetComponent(out IDamagableFromHurtbox damagable)) continue;
-
 
                 HurtboxContact contact = new();
                 contact.Damagable = damagable;
@@ -102,18 +95,17 @@ namespace Game.Hit
                         continue;
                     }
                     contact.Damagable.NotifyDamage(_damage, contact.ContactPosition, contact.ContactDirection.normalized);
-                    _hurtInScan.Add(contact.Damagable);     
+                    _hurtInScan.Add(contact.Damagable);
                 }
 
-                if (!_affectRigidbodies) continue;                
+                if (!_affectRigidbodies) continue;
                 if (contact.Collider.TryGetComponent(out Rigidbody rigidbody))
                 {
                     if (_pushedInScan.Contains(rigidbody)) continue;
                     Debug.DrawRay(contact.ContactPosition, contact.ContactDirection, Color.red, 3);
-                    rigidbody.AddForceAtPosition(contact.ContactDirection.normalized * _rigidbodyForce,contact.ContactPosition,  ForceMode.Impulse);
+                    rigidbody.AddForceAtPosition(contact.ContactDirection.normalized * _rigidbodyForce, contact.ContactPosition, ForceMode.Impulse);
                     _pushedInScan.Add(rigidbody);
                 }
-
             }
         }
 
