@@ -1,8 +1,10 @@
 ﻿using Game.Life.Entities;
 using Game.Service;
 using Life.Controllers;
+using Nomnom.RaycastVisualization;
 using System;
 using System.Linq;
+using System.Threading;
 using Unity.Collections;
 using UnityEngine;
 using UnityEngine.AI;
@@ -24,7 +26,7 @@ namespace Game.Life
         /// Sorted By Travel Distance
         /// </summary>
         public CoverSpotEntity[] CoverSpots;
-       
+
         private AgentController _controller;
 
         public CoverSpotQuery(AgentController controller)
@@ -34,11 +36,8 @@ namespace Game.Life
             Array.Sort(CoverSpots, CompareByTravelDistance);
         }
 
-    
-
         private int CompareByTravelDistance(CoverSpotEntity A, CoverSpotEntity B)
         {
-                    
             NavMeshPath pathB = new NavMeshPath(), pathA = new NavMeshPath();
             _controller.NavMeshAgent.CalculatePath(A.transform.position, pathA);
             _controller.NavMeshAgent.CalculatePath(B.transform.position, pathB);
@@ -79,7 +78,7 @@ namespace Game.Life
         //LA MEJOR COVERTURA ES AQUELLA QUE NO TIENE LINE OF SIGHT, Y QUE ADEMAS
 
         //crear un array de puntos con puntos validos.
-        public static NativeArray<SpatialData> CreateAttackArray(Vector2Int size, Vector3 center, Vector3 threat, LayerMask mask)
+        public static NativeArray<SpatialData> CreateAttackArray(AgentController agent, Vector2Int size, Vector3 center, Vector3 threat, LayerMask mask, float minDistance = 2)
         {
             int _grid_x = size.x;
             int _grid_z = size.y;
@@ -94,9 +93,9 @@ namespace Game.Life
                     Vector3 position = center + new Vector3(x - _grid_x / 2f, 0, z - _grid_z / 2f);
                     //is on navmesh
                     //too near
-                    if (Vector3.Distance(position, center) < 2) continue;
+                    if (Vector3.Distance(position, center) < minDistance) continue;
                     if (Vector3.Distance(position, threat) < 2) continue;
-                    if (IsInAgentDestination(position)) continue;
+                    if (IsInAgentDestination(position, agent)) continue;
 
                     bool validPoint = NavMesh.SamplePosition(position, out NavMeshHit hit, 4, NavMesh.AllAreas);
                     if (!validPoint) continue;
@@ -127,7 +126,7 @@ namespace Game.Life
             return spatialData;
         }
 
-        public static NativeArray<SpatialData> CreateCoverArray(Vector2Int size, Vector3 center, Vector3 threat, LayerMask mask)
+        public static NativeArray<SpatialData> CreateCoverArray(AgentController agent,Vector2Int size, Vector3 center, Vector3 threat, LayerMask mask)
         {
             int _grid_x = size.x;
             int _grid_z = size.y;
@@ -144,7 +143,7 @@ namespace Game.Life
                     //too near
                     if (Vector3.Distance(position, center) < 2) continue;
                     if (Vector3.Distance(position, threat) < 2) continue;
-                    if (IsInAgentDestination(position)) continue;
+                    if (IsInAgentDestination(position, agent)) continue;
 
                     bool validPoint = NavMesh.SamplePosition(position, out NavMeshHit hit, 2, NavMesh.AllAreas);
                     if (!validPoint) continue;
@@ -175,6 +174,41 @@ namespace Game.Life
             return spatialData;
         }
 
+        public static NativeArray<SpatialData> CreateCircleArray(AgentController agent, Vector3 center, LayerMask mask, float radius = 5f, int resolution = 12)
+        {
+            NavMeshPath path = new NavMeshPath();
+            NativeArray<SpatialData> spatialData = new NativeArray<SpatialData>(resolution, Allocator.Temp);
+            int index = 0;
+
+            for (int x = 1; x < resolution; x++)
+            {
+                Vector3 position = center + new Vector3(Mathf.Cos(x), 0, Mathf.Sin(x)) * radius;
+                //is on navmesh
+                //too near
+                bool validPoint = NavMesh.SamplePosition(position, out NavMeshHit hit, 2, NavMesh.AllAreas);
+                if (!validPoint) continue;
+                if (IsInAgentDestination(hit.position, agent)) continue;
+
+                SpatialData point = new SpatialData();
+                point.Position = hit.position;
+
+                if (VisualPhysics.Linecast(hit.position, center, mask, QueryTriggerInteraction.Ignore))
+                {
+                    continue;
+                }
+                if (VisualPhysics.Linecast(hit.position + Vector3.up * 2f, center, mask, QueryTriggerInteraction.Ignore))
+                {
+                    continue;
+                }
+                else point.Weight += 1f;
+
+                spatialData[index] = point;
+                index++;
+            }
+
+            return spatialData;
+        }
+
         public static SpatialData? GetBestPoint(NativeArray<SpatialData> spatialData)
         {
             SpatialData? dataPoint = null;
@@ -192,13 +226,14 @@ namespace Game.Life
             return dataPoint;
         }
 
-        private static bool IsInAgentDestination(Vector3 hit)
+        private static bool IsInAgentDestination(Vector3 hit, AgentController agent)
         {
             //test:
-            if (Application.isEditor) return false;
+            // if (Application.isEditor) return false;
 
             foreach (AgentController c in AgentGlobalService.Instance.ActiveAgents)
             {
+                if (c == agent) return false;
                 if (Vector3.Distance(hit, c.Destination) < 2f) return true;
                 if (Vector3.Distance(hit, c.transform.position) < 2f) return true;
             }
@@ -246,7 +281,7 @@ namespace Game.Life
             int i = 0;
 
             i += Vector3.Distance(A.transform.position, _controller.transform.position).CompareTo(Vector3.Distance(B.transform.position, _controller.transform.position));
-            i += A.Taken.CompareTo(B.Taken); 
+            i += A.Taken.CompareTo(B.Taken);
 
             return i;
         }
