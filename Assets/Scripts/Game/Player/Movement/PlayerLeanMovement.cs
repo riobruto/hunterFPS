@@ -9,8 +9,8 @@ namespace Game.Player.Movement
         [SerializeField] private Transform _leanTransform;
         public float LeanVector { get; private set; }
         public bool AllowLean { get; internal set; }
+        public float Amount { get; internal set; }
 
-      
         protected void Update()
         {
             float target;
@@ -22,6 +22,7 @@ namespace Game.Player.Movement
                 target = 0;
             }
 
+            Amount = target;
             _leanTransform.localRotation = Quaternion.Slerp(_leanTransform.localRotation, Quaternion.Euler(0, 0, target), Time.deltaTime * 5f);
         }
 
