@@ -146,6 +146,8 @@ namespace Life.Controllers
         public float DetectionRange { get => _rangeDistance; }
         public bool Initialized { get; private set; }
         public AgentGroup AgentGroup => _group;
+        public Vector3 AimTarget => _aimTarget;
+        public float ThinkingInterval { get => _thinkingInterval; }
 
         public virtual void Restore()
         {
@@ -349,33 +351,30 @@ namespace Life.Controllers
         private Vector3 _aimTarget;
         private bool _faceTarget;
         private bool _alive = false;
-
         [Header("Movement")]
         [SerializeField] private float _minMoveDistance = 1f;
-
         public float MinMoveDistance { get => _minMoveDistance; set => _minMoveDistance = value; }
 
         [SerializeField] private Transform _aimTransform;
-
         public void SetLookTarget(Vector3 target) => _aimTarget = target;
-
         public void SetTarget(Vector3 position)
         {
             _navMeshAgent.isStopped = false;
             _navMeshAgent.SetDestination(position);
         }
-
         public bool FaceTarget
         {
             get => _faceTarget;
             set
             {
+                if (value != _faceTarget)
+                {
+                    Animator.SetLayerWeight(2, value ? 1 : 0);
+                    _animator.SetBool("FACETARGET", value);
+                }
                 _faceTarget = value;
-                Animator.SetLayerWeight(2, _faceTarget ? 1 : 0);
-                _animator.SetBool("FACETARGET", value);
             }
         }
-
         public float Height { get => _height; }
         public float CrouchHeight { get => _crouchHeight; }
         public Vector3 Destination { get => _navMeshAgent.destination; }
@@ -394,13 +393,11 @@ namespace Life.Controllers
         {
             if (!_alive) return;
             _navMeshAgent.updateRotation = !_faceTarget;
-            //_aimTarget = Bootstrap.Resolve<PlayerSpawnerService>().Player.transform.position;
-
+      
             var aimDir = (_aimTarget - _head.position).normalized;
             float aim_horizontal = _faceTarget ? Vector3.Cross(transform.forward, aimDir).y : 0;
             float aim_vertical = _faceTarget ? Vector3.Dot(transform.up, aimDir) : 0;
 
-            //_animator.SetFloat("aim_vertical", aim_vertical, .0125f, Time.deltaTime);
 
             if (Vector3.Distance(transform.position, _navMeshAgent.destination) < _minMoveDistance)
             {
@@ -411,8 +408,7 @@ namespace Life.Controllers
 
             _animator.SetFloat("mov_turn", aim_horizontal * _navMeshAgent.angularSpeed * Time.deltaTime, .05f, Time.deltaTime);
 
-            if (_faceTarget)
-            {
+            if (_faceTarget){
                 transform.Rotate(Vector3.up, aim_horizontal * _navMeshAgent.angularSpeed * Time.deltaTime);
             }
 
