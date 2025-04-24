@@ -723,7 +723,7 @@ namespace Life.Controllers
             {
                 center = _currentSquad.HoldPosition;
             }
-            SpatialData? data = AgentSpatialUtility.GetBestPoint(AgentSpatialUtility.CreateCoverArray(new Vector2Int(20, 20), center, _attackPoint, _coverMask));
+            SpatialData? data = AgentSpatialUtility.GetBestPoint(AgentSpatialUtility.CreateCoverArray(this, new Vector2Int(20, 20), center, _attackPoint, _coverMask));
             if (data.HasValue) { return data.Value.Position; }
             return PlayerHeadPosition + (transform.position - PlayerHeadPosition).normalized * 5f;
 
@@ -751,7 +751,7 @@ namespace Life.Controllers
 
                 case SoldierType.SHOTGUNNER:
                     //shotgunners are very agressive and will flush the player, le ponemos que no busquen ataques cubiertos si no que den cara de cerca.
-                    SpatialData? data = AgentSpatialUtility.GetBestPoint(AgentSpatialUtility.CreateAttackArray(new Vector2Int(20, 20), _attackPoint, _attackPoint, _coverMask |= 1 << gameObject.layer));
+                    SpatialData? data = AgentSpatialUtility.GetBestPoint(AgentSpatialUtility.CreateAttackArray(this, new Vector2Int(20, 20), _attackPoint, _attackPoint, _coverMask |= 1 << gameObject.layer));
                     if (data.HasValue) { return data.Value.Position; }
                     return PlayerHeadPosition + (transform.position - PlayerHeadPosition).normalized * 5f;
 
@@ -784,7 +784,7 @@ namespace Life.Controllers
             {
                 center = _currentSquad.HoldPosition;
             }
-            SpatialData? data = AgentSpatialUtility.GetBestPoint(AgentSpatialUtility.CreateAttackArray(new Vector2Int(30, 30), center, _attackPoint, _coverMask |= 1 << gameObject.layer));
+            SpatialData? data = AgentSpatialUtility.GetBestPoint(AgentSpatialUtility.CreateAttackArray(this, new Vector2Int(30, 30), center, _attackPoint, _coverMask |= 1 << gameObject.layer));
             if (data.HasValue) { return data.Value.Position; }
 
             return PlayerHeadPosition;// + (transform.position - PlayerHeadPosition).normalized * 5f;

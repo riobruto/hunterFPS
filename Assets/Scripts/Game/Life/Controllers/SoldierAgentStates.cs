@@ -80,25 +80,28 @@ namespace Life.Controllers
             _timeWhenStarted = Time.time;
             _engageTimeOut = Random.Range(4f, 8f);
             _shotgunnerMoveTime = 0;
+
             FindAttackPoint();
             _soldier.SetLookTarget(_soldier.AttackPoint);
-                       }
+        }
 
         public override void Think()
         {
             //forces the npc to exit attack after a certain time
             // if (Time.time - _timeWhenStarted > _engageTimeOut) { _soldier.Squad.ReleaseAttackSlot(_soldier); return; }
-            bool hasReachedAttackPoint = Vector3.Distance(_destination, _soldier.transform.position) < 2f;
+            bool hasReachedAttackPoint = Vector3.Distance(_destination, _soldier.transform.position) < 1f;
             _soldier.SetLookTarget(_soldier.AttackPoint);
             //esto es para forzarlo a correr antes de llegar al punto
-
-            _soldier.SetAllowFire(_soldier.IsPlayerInViewAngle(.925f) && _soldier.IsPlayerVisible() && _soldier.FaceTarget && Time.time - _timeWhenStarted > .25f);
-
+            _soldier.SetAllowFire(_soldier.IsPlayerInViewAngle(.85f) && _soldier.IsPlayerVisible() && _soldier.FaceTarget && Time.time - _timeWhenStarted > .25f);
             _shotgunnerMoveTime += .1f;
-
             if (_soldier.HasPlayerVisual)
-            {             
-                _soldier.SetMovementType(SoldierMovementType.WALK);
+            {
+                if (CheckVisibilityFromCrouch())
+                {
+                    _soldier.SetMovementType(SoldierMovementType.CROUCH);
+                }
+                else _soldier.SetMovementType(SoldierMovementType.WALK);
+
                 _soldier.AttackPoint = _soldier.PlayerHeadPosition;
                 _waitForChase = 0;
 
@@ -118,16 +121,17 @@ namespace Life.Controllers
             //si llego al punto de ataque, y aun asi, no puede dispararle al jugador
             if (!_soldier.HasPlayerVisual && hasReachedAttackPoint)
             {
+                _soldier.SetMovementType(SoldierMovementType.WALK);
+
                 if (_soldier.SoldierType == SoldierType.SHOTGUNNER)
                 {
                     FindAttackPoint();
                     return;
                 }
                 //probamos lanzar una granada
-                if (_soldier.TryThrowGrenade())
+                if (_soldier.IsPlayerInViewAngle(.85f) && _soldier.FaceTarget && _soldier.TryThrowGrenade())
                 {
                     _soldier.SetTarget(_soldier.transform.position);
-                    //reset reaction time for a pause
                     _timeWhenStarted = Time.time;
                     return;
                 }
@@ -148,9 +152,16 @@ namespace Life.Controllers
 
         private void FindAttackPoint()
         {
+            Debug.Log("FINDING ATTACK POINT");
+            _soldier.SetMovementType(SoldierMovementType.RUN);
             _shotgunnerMoveTime = 0;
             _destination = _soldier.FindAgressivePosition(true);
             _soldier.SetTarget(_destination);
+        }
+
+        internal bool CheckVisibilityFromCrouch()
+        {
+            return _soldier.IsPlayerVisible(_soldier.transform.position + _soldier.transform.up * _soldier.CrouchHeight);
         }
     }
 
@@ -419,10 +430,7 @@ namespace Life.Controllers
 
         public override void Start()
         {
-            _soldier.Animator.SetTrigger("COVER");
             _soldier.SetAllowFire(false);
-       
-
             if (IsCurrentPositionValid())
             {
                 _soldier.SetAllowReload(true);
@@ -431,7 +439,6 @@ namespace Life.Controllers
             else
             {
                 MoveToCover();
-                _soldier.SetMovementType(SoldierMovementType.RUN);
             }
         }
 
@@ -558,7 +565,6 @@ namespace Life.Controllers
                     _useWaypoint = true;
                 }
             }
-            
         }
 
         private bool _reachedEntity;
@@ -595,11 +601,10 @@ namespace Life.Controllers
 
         private IEnumerator ActBusy()
         {
-            _soldier.Animator.Play(_entity.StateName);          
+            _soldier.Animator.Play(_entity.StateName);
 
             foreach (SubtitleParameters parameters in _entity.StateSubtitles)
             {
-                
                 AudioToolService.PlayClipAtPoint(_entity.AudioClip, _soldier.Head.transform.position, 1, AudioChannels.AGENT, 20);
                 UIService.CreateSubtitle(parameters);
                 yield return new WaitForSeconds(parameters.Duration);
@@ -732,4 +737,7 @@ namespace Life.Controllers
         {
         }
     }
+
+
+
 }
