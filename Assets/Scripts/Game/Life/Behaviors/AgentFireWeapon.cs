@@ -65,10 +65,7 @@ namespace Game.Life
                 {
                     _playerCamera = Bootstrap.Resolve<PlayerService>().PlayerCamera;
                 };
-            }
-
-
-                GetComponent<Animator>().SetInteger("WEAPON_TYPE", (int)_weaponType);
+            }              
         }
 
         public void DropWeapon()
@@ -89,13 +86,15 @@ namespace Game.Life
 
         private void OnWeaponChangeState(object sender, WeaponStateEventArgs e)
         {
-            GetComponent<Animator>().SetInteger("WEAPON_TYPE", (int)_weaponType);
+          
 
             if (e.State == WeaponState.BEGIN_SHOOTING)
             {
                 AudioToolService.PlayGunShot(_fireSound, _fireFarSound, _weaponTransform.position, _playerCamera.transform.position, 50, 1, AudioChannels.AGENT);
-
-                _weaponParticleSystem.Play();
+                if (_weaponParticleSystem != null)
+                {
+                    _weaponParticleSystem.Play();
+                }
                 GetComponent<Animator>().SetTrigger("FIRE");
             }
 
