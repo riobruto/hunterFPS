@@ -85,7 +85,14 @@ namespace Game.Life
 
         public void SetGoalChase() => ShouldHoldPlayer = false;
 
-        public void ForceEngage(int duration = 10) => _elapsedSinceContact = 0;
+        public void ForceEngage(int duration = 10)
+        {
+            _elapsedSinceContact = 0;
+            foreach (var soldier in _soldiers)
+            {
+                soldier.ForcePlayerPerception();
+            }
+        }
 
         public void UpdateContact() => _elapsedSinceContact = 0;
 
@@ -302,6 +309,7 @@ namespace Game.Life
             Debug.Log("Destructor");
             PlayerService.PlayerSpawnEvent -= OnPlayerSpawn;
         }
+
         private int SortAttackingAgents(SoldierAgentController asoldier, SoldierAgentController bsoldier)
         {
             int i = 0;
