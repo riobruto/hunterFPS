@@ -1,9 +1,9 @@
-﻿using Core.Engine;
+﻿using System;
+using System.Collections;
+using Core.Engine;
 using Core.Weapon;
 using Game.Service;
 using Nomnom.RaycastVisualization;
-using System;
-using System.Collections;
 using UnityEngine;
 
 namespace Game.Player.Weapon.Engines
@@ -40,6 +40,7 @@ namespace Game.Player.Weapon.Engines
         private InventorySystem _inventory;
 
         private WeaponSettings _weaponSettings;
+        private float _sprayMultiplier;
 
         public event EventHandler<bool> WeaponActivatedState;
 
@@ -112,7 +113,7 @@ namespace Game.Player.Weapon.Engines
             return true;
         }
 
-        public Vector2 GetSprayValue() => _isInitialized ? _weaponSettings.GetSprayPatternValue(_timeOfSpray) * _weaponSettings.SprayMultiplier : Vector2.zero;
+        public Vector2 GetSprayValue() => _isInitialized ? _weaponSettings.GetSprayPatternValue(_timeOfSpray) * _sprayMultiplier : Vector2.zero;
 
         void IWeapon.Initialize(WeaponSettings settings, int currentAmmo, bool cocked, bool isPlayerOwner)
         {
@@ -125,7 +126,7 @@ namespace Game.Player.Weapon.Engines
             _firePPM = settings.FireRatioPPM;
             _damage = settings.Damage;
             _swayMagnitude = settings.Sway.Magnitude;
-
+            _sprayMultiplier = settings.SprayMultiplier;
             _inventory = InventoryService.Instance;
             _inventory.AttachmentAddedEvent += OnAddedAttachment;
             CheckForAttachmentOverrides();
@@ -203,6 +204,7 @@ namespace Game.Player.Weapon.Engines
                     if (attachment is GripAttachmentSetting)
                     {
                         _swayMagnitude = (attachment as GripAttachmentSetting).Sway;
+                        _sprayMultiplier = (attachment as GripAttachmentSetting).Recoil;
                     }
                 }
             }
@@ -227,7 +229,6 @@ namespace Game.Player.Weapon.Engines
                         Bootstrap.Resolve<HitScanService>().Dispatch(new HitWeaponEventPayload(hit, new Ray(ray.origin, ray.direction), _damage / _weaponSettings.Shot.Amount, _playerIsOwner));
                         Bootstrap.Resolve<ImpactService>().System.TraceAtPosition(ray.origin + offset, hit.point);
                     }
-                    
                 }
             }
             else
@@ -237,9 +238,7 @@ namespace Game.Player.Weapon.Engines
                 if (VisualPhysics.Raycast(ray, out RaycastHit hit, 1000, _currentLayerMask, QueryTriggerInteraction.Ignore))
                 {
                     Bootstrap.Resolve<HitScanService>().Dispatch(new HitWeaponEventPayload(hit, new Ray(ray.origin, ray.direction), _damage, _playerIsOwner));
-                   
                 }
-             
             }
         }
 
@@ -361,7 +360,7 @@ namespace Game.Player.Weapon.Engines
             Gizmos.DrawRay(GetRay());
             Gizmos.DrawWireSphere(transform.localPosition, 0.05f);
         }
-     
+
         private void Update()
         {
             if (!_isInitialized) return;
@@ -388,7 +387,6 @@ namespace Game.Player.Weapon.Engines
                     return;
                 }
 
-
                 if (_weaponSettings.Shot.Mode != WeaponShotType.PROJECTILE)
                 {
                     CreateHitScan();
@@ -408,12 +406,11 @@ namespace Game.Player.Weapon.Engines
             }
         }
 
-        private void CreateProjectile(){
-
+        private void CreateProjectile()
+        {
             GameObject projectile = Instantiate(_weaponSettings.Shot.Projectile, GetRay().GetPoint(1.1f), Quaternion.LookRotation(GetRay().direction));
             projectile.TryGetComponent(out IProjectile projectileInterface);
             projectileInterface.Launch(GetRay().direction);
-
         }
     }
 }
