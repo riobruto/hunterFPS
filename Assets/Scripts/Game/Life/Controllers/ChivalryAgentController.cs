@@ -281,12 +281,12 @@ namespace Life.Controllers
 
         //that can't raycast to either npc nor target, but can raycast to vector A and B
         private Vector3 _middleVector = Vector3.zero;
-
+         
         private void CreateVectors()
         {
-            Vector3 start = AgentSpatialUtility.GetBestPoint(AgentSpatialUtility.CreateCoverArray(new Vector2Int(30, 30), _horse.transform.position, _horse.PlayerHeadPosition, _horse.CoverMask)).Value.Position;
+            Vector3 start = AgentSpatialUtility.GetBestPoint(AgentSpatialUtility.CreateCoverArray(_horse, new Vector2Int(30, 30), _horse.transform.position, _horse.PlayerHeadPosition, _horse.CoverMask)).Value.Position;
             HorseNavHint startHint = _horse.CombatHintsGroup.NearestHintFromPoint(start);
-            Vector3 attack = AgentSpatialUtility.GetBestPoint(AgentSpatialUtility.CreateAttackArray(new Vector2Int(30, 30), _horse.PlayerGameObject.transform.position, _horse.PlayerHeadPosition, _horse.CoverMask)).Value.Position;
+            Vector3 attack = AgentSpatialUtility.GetBestPoint(AgentSpatialUtility.CreateAttackArray(_horse, new Vector2Int(30, 30), _horse.PlayerGameObject.transform.position, _horse.PlayerHeadPosition, _horse.CoverMask)).Value.Position;
             HorseNavHint endHint = _horse.CombatHintsGroup.NearestHintFromPoint(attack);
             _horse.SetTarget(startHint.position);
             index = 0;
@@ -377,12 +377,12 @@ namespace Life.Controllers
             _horse.Animator.SetTrigger("ALERT");
             _hasTravel = false;
             _completed = false;
-            CreateVectors();
+            CreateVectors();            
         }
 
         private void CreateVectors()
         {
-            SpatialData[] spatialData = AgentSpatialUtility.CreateAttackArray(new Vector2Int(30, 30), _horse.PlayerGameObject.transform.position, _horse.PlayerHeadPosition, _horse.CoverMask).ToArray();
+            SpatialData[] spatialData = AgentSpatialUtility.CreateAttackArray(_horse, new Vector2Int(30, 30), _horse.PlayerGameObject.transform.position, _horse.PlayerHeadPosition, _horse.CoverMask).ToArray();
 
             Vector3 escapePoint = spatialData[spatialData.Length - 1].Position;
             HorseNavHint[] hintsDistance = _horse.CombatHintsGroup.Hints;
@@ -407,7 +407,6 @@ namespace Life.Controllers
                 _hasTravel = true;
             }
         }
-
         private void ManageApproach()
         {
             if (!_hasTravel) return;
@@ -426,13 +425,11 @@ namespace Life.Controllers
                 }
             }
         }
-
         public override void Think()
         {
             ManageApproach();
             ManageShooting();
         }
-
         private void ManageShooting()
         {
             Vector3 dir = Vector3.zero;
