@@ -69,7 +69,8 @@ namespace Game.Player.Animation
         [SerializeField] private Vector3 _targetObstructionPosition;
 
         [SerializeField] private Vector3 _targetObstructionRotation;
-
+        private float _leanAmount;
+        PlayerLeanMovement _leanMovement;
         void IObserverFromPlayerWeapon.Detach(PlayerWeapons controller)
         {
             _wController.WeaponObstructedEvent -= OnWeaponObstructed;
@@ -87,6 +88,8 @@ namespace Game.Player.Animation
             _wController = controller;
             _transform = _wController.WeaponVisualElementHolder;
             SetWeaponEvents();
+            
+
         }
 
         void IObserverFromPlayerMovement.Initalize(PlayerRigidbodyMovement controller)
@@ -95,6 +98,7 @@ namespace Game.Player.Animation
             SetMovementEvents();
             _aimPosition = Vector3.zero;
             _aimRotation = Vector3.zero;
+            _leanMovement = transform.root.GetComponent<PlayerLeanMovement>();
         }
 
         private void LateUpdate()
@@ -129,7 +133,7 @@ namespace Game.Player.Animation
             }
             Vector3 speedRotation = new Vector3(_mController.RelativeVelocity.y, 0, _mController.RelativeVelocity.x);
             Quaternion rayDirection;
-
+            _leanAmount = _leanMovement.Amount;
             rayDirection = _wController.WeaponEngine.Initialized ? Quaternion.LookRotation(transform.InverseTransformDirection(_wController.WeaponEngine.Ray.direction), Vector3.up) : Quaternion.identity;
 
             _transform.localPosition = 
@@ -141,7 +145,7 @@ namespace Game.Player.Animation
                 , ref _refSmoothVelocity, _smoothFactor);
 
             Vector3 swayRotation = Vector3.ClampMagnitude(new Vector3(_wController.MouseDelta.y, 0, -_wController.MouseDelta.x) * _swayRotationIntensity, 5f);
-            _finalRotation = rayDirection * Quaternion.Euler(_currentRotation + _triggerRotation + _obstructedRotation + speedRotation + swayRotation);
+            _finalRotation = rayDirection * Quaternion.Euler(_currentRotation + _triggerRotation + _obstructedRotation + speedRotation + swayRotation + new Vector3(0,0, _leanAmount));
             _swayRotationTransform.localRotation = Quaternion.Slerp(_swayRotationTransform.localRotation, _finalRotation, Time.deltaTime / _smoothFactor);
 
             _transform.localRotation = Quaternion.Slerp(_transform.localRotation, Quaternion.Euler(_aimRotation), Time.deltaTime / _smoothFactor);
